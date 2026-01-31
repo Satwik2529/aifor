@@ -1,0 +1,147 @@
+# Dependencies
+/node_modules
+/backend/node_modules
+
+# ===================================================================
+# A general-purpose .gitignore file.
+#
+# To use, copy this file to your project's root directory and
+# rename it to .gitignore. Uncomment or add what you need.
+# ===================================================================
+
+# #######################
+# ## Operating System Files
+# #######################
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+.Trashes
+.AppleDB
+.AppleDesktop
+
+# Windows
+Thumbs.db
+ehthumbs.db
+desktop.ini
+$RECYCLE.BIN/
+ntuser.dat
+ntuser.dat.log*
+
+# Linux
+*~
+.directory
+.Trash-*
+
+# #######################
+# ## Dependency Directories
+# #######################
+# These should be installed by a package manager, not stored in Git.
+
+node_modules/
+bower_components/
+jspm_packages/
+vendor/ # For PHP Composer
+
+# #######################
+# ## Build & Compiled Output
+# #######################
+# General
+build/
+dist/
+bin/
+out/
+target/ # For Java/Maven
+
+# Java
+*.class
+*.jar
+*.war
+*.ear
+
+# C, C++, etc.
+*.o
+*.a
+*.so
+*.obj
+*.exe
+
+# #######################
+# ## IDE & Editor Configs
+# #######################
+
+# VS Code
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+
+# JetBrains (IntelliJ, PyCharm, WebStorm, etc.)
+.idea/
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Atom
+.atom/
+
+# #######################
+# ## Logs & Temporary Files
+# #######################
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+*.tmp
+*.temp
+
+# #######################
+# ## Secrets & Environment Variables
+# #######################
+# Never commit secrets!
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# #######################
+# ## Language-Specific
+# #######################
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+pip-log.txt
+pip-delete-this-directory.txt
+.eggs/
+*.egg-info/
+
+# Sass
+.sass-cache/
+
+# #######################
+# ## Other
+# #######################
+
+# Test reports
+coverage/
+.nyc_output/
+junit.xml
+
+# Archives
+*.zip
+*.tar.gz
+*.rar

@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Test Frontend API</title>
+</head>
+
+<body>
+    <h1>Test Registration API</h1>
+    <form id="testForm">
+        <div>
+            <label>Name: <input type="text" id="name" value="Test User" required></label>
+        </div>
+        <div>
+            <label>Phone: <input type="tel" id="phone" value="9876543210" required></label>
+        </div>
+        <div>
+            <label>Password: <input type="password" id="password" value="password123" required></label>
+        </div>
+        <div>
+            <label>Shop Name: <input type="text" id="shop_name" value="Test Shop"></label>
+        </div>
+        <button type="submit">Test Registration</button>
+    </form>
+    <div id="result"></div>
+
+    <script>
+        document.getElementById('testForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const formData = {
+                name: document.getElementById('name').value,
+                phone: document.getElementById('phone').value,
+                password: document.getElementById('password').value,
+                shop_name: document.getElementById('shop_name').value
+            };
+
+            try {
+                const response = await fetch('http://localhost:5000/api/auth/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(formData)
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    document.getElementById('result').innerHTML = `
+                        <div style="color: green; padding: 10px; border: 1px solid green; margin: 10px 0;">
+                            <h3>Success!</h3>
+                            <pre>${JSON.stringify(data, null, 2)}</pre>
+                        </div>
+                    `;
+                } else {
+                    document.getElementById('result').innerHTML = `
+                        <div style="color: red; padding: 10px; border: 1px solid red; margin: 10px 0;">
+                            <h3>Error (${response.status})</h3>
+                            <pre>${JSON.stringify(data, null, 2)}</pre>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                document.getElementById('result').innerHTML = `
+                    <div style="color: red; padding: 10px; border: 1px solid red; margin: 10px 0;">
+                        <h3>Network Error</h3>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+            }
+        });
+    </script>
+</body>
+
+</html>
