@@ -99,7 +99,42 @@ const inventoryController = {
       }
 
       const userId = req.user._id;
-      const { item_name, stock_qty, price_per_unit, min_stock_level, category, description } = req.body;
+      const { 
+        item_name, 
+        stock_qty, 
+        cost_price, 
+        selling_price, 
+        price_per_unit, // For backward compatibility
+        min_stock_level, 
+        category, 
+        description 
+      } = req.body;
+
+      // Handle backward compatibility - if only price_per_unit is provided
+      let finalCostPrice = cost_price;
+      let finalSellingPrice = selling_price;
+
+      if (!cost_price && !selling_price && price_per_unit) {
+        // Backward compatibility: assume price_per_unit is selling price
+        // Set cost price to 80% of selling price (20% profit margin)
+        finalSellingPrice = price_per_unit;
+        finalCostPrice = price_per_unit * 0.8;
+      } else if (!cost_price || !selling_price) {
+        return res.status(400).json({
+          success: false,
+          message: 'Both cost_price and selling_price are required',
+          error: 'Please provide both cost price and selling price for the item'
+        });
+      }
+
+      // Validate that selling price is higher than cost price
+      if (finalSellingPrice <= finalCostPrice) {
+        return res.status(400).json({
+          success: false,
+          message: 'Selling price must be higher than cost price',
+          error: 'Selling price should be greater than cost price to ensure profit'
+        });
+      }
 
       // Check if item already exists for this user
       const existingItem = await Inventory.findOne({ 
@@ -120,7 +155,9 @@ const inventoryController = {
         user_id: userId,
         item_name,
         stock_qty,
-        price_per_unit,
+        cost_price: finalCostPrice,
+        selling_price: finalSellingPrice,
+        price_per_unit: finalSellingPrice, // For backward compatibility
         min_stock_level: min_stock_level || 5,
         category: category || 'Other',
         description: description || ''
@@ -132,7 +169,11 @@ const inventoryController = {
       res.status(201).json({
         success: true,
         message: 'Inventory item created successfully',
-        data: item
+        data: item,
+        profit_info: {
+          profit_per_unit: finalSellingPrice - finalCostPrice,
+          profit_margin: ((finalSellingPrice - finalCostPrice) / finalSellingPrice * 100).toFixed(2) + '%'
+        }
       });
     } catch (error) {
       console.error('Create inventory item error:', error);
@@ -159,11 +200,48 @@ const inventoryController = {
 
       const { id } = req.params;
       const userId = req.user._id;
-      const { item_name, stock_qty, price_per_unit, min_stock_level, category, description } = req.body;
+      const { 
+        item_name, 
+        stock_qty, 
+        cost_price, 
+        selling_price, 
+        price_per_unit, // For backward compatibility
+        min_stock_level, 
+        category, 
+        description 
+      } = req.body;
+
+      // Handle backward compatibility and validation
+      let updateData = { item_name, stock_qty, min_stock_level, category, description };
+
+      if (cost_price !== undefined || selling_price !== undefined) {
+        // New pricing structure
+        if (cost_price !== undefined) updateData.cost_price = cost_price;
+        if (selling_price !== undefined) updateData.selling_price = selling_price;
+        
+        // Validate that selling price is higher than cost price
+        const currentItem = await Inventory.findOne({ _id: id, user_id: userId });
+        const finalCostPrice = cost_price !== undefined ? cost_price : currentItem.cost_price;
+        const finalSellingPrice = selling_price !== undefined ? selling_price : currentItem.selling_price;
+        
+        if (finalSellingPrice <= finalCostPrice) {
+          return res.status(400).json({
+            success: false,
+            message: 'Selling price must be higher than cost price',
+            error: 'Selling price should be greater than cost price to ensure profit'
+          });
+        }
+        
+        updateData.price_per_unit = finalSellingPrice; // For backward compatibility
+      } else if (price_per_unit !== undefined) {
+        // Backward compatibility
+        updateData.selling_price = price_per_unit;
+        updateData.price_per_unit = price_per_unit;
+      }
 
       const item = await Inventory.findOneAndUpdate(
         { _id: id, user_id: userId },
-        { item_name, stock_qty, price_per_unit, min_stock_level, category, description },
+        updateData,
         { new: true, runValidators: true }
       ).populate('user_id', 'name shop_name');
 
@@ -178,7 +256,11 @@ const inventoryController = {
       res.status(200).json({
         success: true,
         message: 'Inventory item updated successfully',
-        data: item
+        data: item,
+        profit_info: {
+          profit_per_unit: item.selling_price - item.cost_price,
+          profit_margin: ((item.selling_price - item.cost_price) / item.selling_price * 100).toFixed(2) + '%'
+        }
       });
     } catch (error) {
       console.error('Update inventory item error:', error);

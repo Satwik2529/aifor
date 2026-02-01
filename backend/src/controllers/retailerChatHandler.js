@@ -461,6 +461,15 @@ const addInventoryItem = async (userId, data) => {
             };
         }
 
+        // Validate that selling price > cost price
+        if (data.price_per_unit <= data.cost_per_unit) {
+            return {
+                success: false,
+                message: `Selling price (₹${data.price_per_unit}) must be higher than cost price (₹${data.cost_per_unit}) to ensure profit.`,
+                data: { type: 'invalid_pricing' }
+            };
+        }
+
         // Check if item already exists
         const existingItem = await Inventory.findOne({ 
             user_id: userId, 
@@ -492,9 +501,10 @@ const addInventoryItem = async (userId, data) => {
             user_id: userId,
             item_name: data.item_name,
             stock_qty: data.quantity,
-            cost_per_unit: data.cost_per_unit,
-            price_per_unit: data.price_per_unit,
-            category: data.category || 'General',
+            cost_price: data.cost_per_unit,
+            selling_price: data.price_per_unit,
+            price_per_unit: data.price_per_unit, // For backward compatibility
+            category: data.category || 'Other',
             min_stock_level: data.min_stock_level || 5
         });
 

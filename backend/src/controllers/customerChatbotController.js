@@ -225,3 +225,44 @@ exports.textToSpeech = async (req, res) => {
     });
   }
 };
+
+/**
+ * @route   POST /api/chatbot/customer/recipe
+ * @desc    Generate cooking instructions for ordered ingredients
+ * @access  Private (Customer)
+ */
+exports.generateRecipe = async (req, res) => {
+  try {
+    const { ingredients, language = 'en' } = req.body;
+    const customer_id = req.user.id;
+
+    if (!ingredients) {
+      return res.status(400).json({
+        success: false,
+        message: 'Ingredients are required for recipe generation'
+      });
+    }
+
+    console.log(`🍳 Generating recipe for customer ${customer_id} with ingredients: ${ingredients}`);
+
+    // Generate recipe based on ingredients
+    const recipe = await customerChatbotService.generateRecipe(ingredients, language);
+
+    res.json({
+      success: true,
+      data: {
+        recipe: recipe,
+        ingredients: ingredients,
+        language: language
+      }
+    });
+
+  } catch (error) {
+    console.error('Recipe generation error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to generate recipe',
+      error: error.message
+    });
+  }
+};

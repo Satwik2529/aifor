@@ -36,4 +36,9 @@ router.post('/voice', customerChatbotController.voiceInput);
 // @access  Private (Customer)
 router.post('/speak', customerChatbotController.textToSpeech);
 
+// @route   POST /api/chatbot/customer/recipe
+// @desc    Generate cooking instructions for ingredients
+// @access  Private (Customer)
+router.post('/recipe', customerChatbotController.generateRecipe);
+
 module.exports = router;

@@ -38,7 +38,16 @@ const Sales = () => {
     const fetchSales = async () => {
         try {
             setLoading(true);
-            const response = await salesAPI.getSales({ limit: 1000 }); // Request up to 1000 items
+            // Get today's sales only
+            const today = new Date();
+            const startOfDay = new Date(today.setHours(0, 0, 0, 0));
+            const endOfDay = new Date(today.setHours(23, 59, 59, 999));
+            
+            const response = await salesAPI.getSales({ 
+                limit: 1000,
+                start_date: startOfDay.toISOString(),
+                end_date: endOfDay.toISOString()
+            });
             if (response.success) {
                 setSales(response.data);
             }
@@ -231,88 +240,77 @@ const Sales = () => {
             });
 
             invoiceElement.innerHTML = `
-                <div style="max-width: 800px; margin: 0 auto;">
+                <div style="max-width: 600px; margin: 0 auto;">
                     <!-- Header -->
-                    <div style="text-align: center; margin-bottom: 30px; border-bottom: 3px solid #4F46E5; padding-bottom: 20px;">
-                        <h1 style="color: #4F46E5; font-size: 36px; margin: 0 0 10px 0;">INVOICE</h1>
-                        <p style="color: #666; font-size: 18px; margin: 0;">${shopName}</p>
+                    <div style="text-align: center; margin-bottom: 20px; border-bottom: 2px solid #4F46E5; padding-bottom: 15px;">
+                        <h1 style="color: #4F46E5; font-size: 28px; margin: 0 0 5px 0;">BILL</h1>
+                        <p style="color: #666; font-size: 16px; margin: 0;">${shopName}</p>
                     </div>
 
-                    <!-- Invoice Info -->
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 30px;">
+                    <!-- Bill Info -->
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 20px;">
                         <div>
-                            <p style="margin: 5px 0; color: #666;">
-                                <strong style="color: #111;">Invoice No:</strong> #${sale._id.substring(0, 8).toUpperCase()}
+                            <p style="margin: 3px 0; color: #666;">
+                                <strong style="color: #111;">Bill No:</strong> #${sale._id.substring(0, 8).toUpperCase()}
                             </p>
-                            <p style="margin: 5px 0; color: #666;">
+                            <p style="margin: 3px 0; color: #666;">
                                 <strong style="color: #111;">Date:</strong> ${saleDate}
-                            </p>
-                            <p style="margin: 5px 0; color: #666;">
-                                <strong style="color: #111;">Time:</strong> ${saleTime}
                             </p>
                         </div>
                         <div style="text-align: right;">
                             ${sale.customer_name ? `
-                                <p style="margin: 5px 0; color: #666;">
+                                <p style="margin: 3px 0; color: #666;">
                                     <strong style="color: #111;">Customer:</strong> ${sale.customer_name}
                                 </p>
                             ` : ''}
-                            ${sale.customer_phone ? `
-                                <p style="margin: 5px 0; color: #666;">
-                                    <strong style="color: #111;">Phone:</strong> ${sale.customer_phone}
-                                </p>
-                            ` : ''}
-                            <p style="margin: 5px 0; color: #666;">
+                            <p style="margin: 3px 0; color: #666;">
                                 <strong style="color: #111;">Payment:</strong> ${sale.payment_method}
                             </p>
                         </div>
                     </div>
 
                     <!-- Items Table -->
-                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">
+                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
                         <thead>
                             <tr style="background-color: #F3F4F6;">
-                                <th style="padding: 12px; text-align: left; border-bottom: 2px solid #4F46E5;">#</th>
-                                <th style="padding: 12px; text-align: left; border-bottom: 2px solid #4F46E5;">Item</th>
-                                <th style="padding: 12px; text-align: center; border-bottom: 2px solid #4F46E5;">Qty</th>
-                                <th style="padding: 12px; text-align: right; border-bottom: 2px solid #4F46E5;">Price</th>
-                                <th style="padding: 12px; text-align: right; border-bottom: 2px solid #4F46E5;">Amount</th>
+                                <th style="padding: 8px; text-align: left; border-bottom: 1px solid #4F46E5;">Item</th>
+                                <th style="padding: 8px; text-align: center; border-bottom: 1px solid #4F46E5;">Qty</th>
+                                <th style="padding: 8px; text-align: right; border-bottom: 1px solid #4F46E5;">Price</th>
+                                <th style="padding: 8px; text-align: right; border-bottom: 1px solid #4F46E5;">Amount</th>
                             </tr>
                         </thead>
                         <tbody>
                             ${sale.items.map((item, index) => `
                                 <tr style="border-bottom: 1px solid #E5E7EB;">
-                                    <td style="padding: 12px;">${index + 1}</td>
-                                    <td style="padding: 12px;">${item.item_name}</td>
-                                    <td style="padding: 12px; text-align: center;">${item.quantity}</td>
-                                    <td style="padding: 12px; text-align: right;">₹${item.price_per_unit.toLocaleString()}</td>
-                                    <td style="padding: 12px; text-align: right;">₹${(item.quantity * item.price_per_unit).toLocaleString()}</td>
+                                    <td style="padding: 8px;">${item.item_name}</td>
+                                    <td style="padding: 8px; text-align: center;">${item.quantity}</td>
+                                    <td style="padding: 8px; text-align: right;">₹${item.price_per_unit}</td>
+                                    <td style="padding: 8px; text-align: right;">₹${(item.quantity * item.price_per_unit)}</td>
                                 </tr>
                             `).join('')}
                         </tbody>
                     </table>
 
                     <!-- Total -->
-                    <div style="text-align: right; margin-bottom: 40px;">
-                        <div style="display: inline-block; background-color: #F3F4F6; padding: 20px 30px; border-radius: 8px;">
-                            <p style="margin: 0; font-size: 14px; color: #666;">TOTAL AMOUNT</p>
-                            <p style="margin: 10px 0 0 0; font-size: 32px; font-weight: bold; color: #4F46E5;">
-                                ₹${sale.total_amount.toLocaleString()}
+                    <div style="text-align: right; margin-bottom: 20px;">
+                        <div style="display: inline-block; background-color: #F3F4F6; padding: 15px 20px; border-radius: 5px;">
+                            <p style="margin: 0; font-size: 12px; color: #666;">TOTAL</p>
+                            <p style="margin: 5px 0 0 0; font-size: 24px; font-weight: bold; color: #4F46E5;">
+                                ₹${sale.total_amount}
                             </p>
                         </div>
                     </div>
 
                     <!-- Footer -->
-                    <div style="text-align: center; padding-top: 20px; border-top: 1px solid #E5E7EB;">
-                        <p style="margin: 5px 0; color: #999; font-size: 12px;">Thank you for your business!</p>
-                        <p style="margin: 5px 0; color: #999; font-size: 12px;">Generated via Biznova - Business Management System</p>
+                    <div style="text-align: center; padding-top: 15px; border-top: 1px solid #E5E7EB;">
+                        <p style="margin: 0; color: #999; font-size: 11px;">Thank you for your business!</p>
                     </div>
                 </div>
             `;
 
             const opt = {
-                margin: [10, 10, 10, 10],
-                filename: `Invoice_${sale._id.substring(0, 8).toUpperCase()}_${saleDate.replace(/\s/g, '_')}.pdf`,
+                margin: [5, 5, 5, 5],
+                filename: `Bill_${sale._id.substring(0, 8).toUpperCase()}_${saleDate.replace(/\s/g, '_')}.pdf`,
                 image: { type: 'jpeg', quality: 0.98 },
                 html2canvas: { 
                     scale: 2,
@@ -321,7 +319,7 @@ const Sales = () => {
                 },
                 jsPDF: { 
                     unit: 'mm', 
-                    format: 'a4', 
+                    format: 'a5', 
                     orientation: 'portrait' 
                 }
             };
@@ -447,8 +445,8 @@ const Sales = () => {
                 <div className="card">
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-sm font-medium text-gray-600 dark:text-gray-400">{t('sales.totalSales')}</p>
-                            <p className="text-2xl font-bold text-gray-900 dark:text-white">₹{sales.reduce((sum, sale) => sum + sale.total_amount, 0)}</p>
+                            <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Today's Total Sales</p>
+                            <p className="text-2xl font-bold text-gray-900 dark:text-white">₹{sales.reduce((sum, sale) => sum + sale.total_amount, 0).toLocaleString()}</p>
                         </div>
                         <div className="p-2 bg-green-100 rounded-lg">
                             <Plus className="h-6 w-6 text-green-600" />
@@ -470,7 +468,7 @@ const Sales = () => {
                 <div className="card">
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-sm font-medium text-gray-600 dark:text-gray-400">{t('sales.totalOrders')}</p>
+                            <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Today's Orders</p>
                             <p className="text-2xl font-bold text-gray-900 dark:text-white">{sales.length}</p>
                         </div>
                         <div className="p-2 bg-purple-100 rounded-lg">
@@ -494,7 +492,7 @@ const Sales = () => {
             {/* Sales Table */}
             <div className="card">
                 <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{t('sales.recentSales')}</h2>
+                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Today's Sales</h2>
                     <div className="flex gap-2">
                         <button 
                             onClick={() => setShowFilterModal(true)}

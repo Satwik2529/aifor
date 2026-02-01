@@ -20,7 +20,9 @@ const Inventory = () => {
     const [formData, setFormData] = useState({
         item_name: '',
         stock_qty: 0,
-        price_per_unit: 0,
+        cost_price: 0,
+        selling_price: 0,
+        price_per_unit: 0, // Keep for backward compatibility
         description: '',
         category: 'Other',
         min_stock_level: 5
@@ -65,6 +67,8 @@ const Inventory = () => {
             setFormData({
                 item_name: '',
                 stock_qty: 0,
+                cost_price: 0,
+                selling_price: 0,
                 price_per_unit: 0,
                 description: '',
                 category: 'Other',
@@ -148,7 +152,9 @@ const Inventory = () => {
         element.style.fontFamily = 'Arial, sans-serif';
         
         const now = new Date().toLocaleDateString();
-        const totalValue = filteredInventory.reduce((sum, item) => sum + (item.stock_qty * item.price_per_unit), 0);
+        const totalCostValue = filteredInventory.reduce((sum, item) => sum + (item.stock_qty * (item.cost_price || item.price_per_unit * 0.8)), 0);
+        const totalSellingValue = filteredInventory.reduce((sum, item) => sum + (item.stock_qty * (item.selling_price || item.price_per_unit)), 0);
+        const totalPotentialProfit = totalSellingValue - totalCostValue;
         
         element.innerHTML = `
             <div style="text-align: center; margin-bottom: 30px;">
@@ -165,8 +171,14 @@ const Inventory = () => {
                         <td style="padding: 10px;">${lowStockItems.length}</td>
                     </tr>
                     <tr>
-                        <td style="padding: 10px; background: #F3F4F6;"><strong>Total Inventory Value:</strong></td>
-                        <td style="padding: 10px;">₹${totalValue.toLocaleString()}</td>
+                        <td style="padding: 10px; background: #F3F4F6;"><strong>Total Cost Value:</strong></td>
+                        <td style="padding: 10px;">₹${totalCostValue.toLocaleString()}</td>
+                        <td style="padding: 10px; background: #F3F4F6;"><strong>Total Selling Value:</strong></td>
+                        <td style="padding: 10px;">₹${totalSellingValue.toLocaleString()}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 10px; background: #F3F4F6;"><strong>Potential Profit:</strong></td>
+                        <td style="padding: 10px; color: #059669; font-weight: bold;">₹${totalPotentialProfit.toLocaleString()}</td>
                         <td style="padding: 10px; background: #F3F4F6;"><strong>Active Filters:</strong></td>
                         <td style="padding: 10px;">${filters.category !== 'All' ? filters.category : 'None'} ${filters.status !== 'All' ? '/ ' + filters.status : ''}</td>
                     </tr>
@@ -179,7 +191,9 @@ const Inventory = () => {
                         <th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Item Name</th>
                         <th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Category</th>
                         <th style="padding: 12px; text-align: center; border: 1px solid #ddd;">Stock Qty</th>
-                        <th style="padding: 12px; text-align: right; border: 1px solid #ddd;">Price/Unit</th>
+                        <th style="padding: 12px; text-align: right; border: 1px solid #ddd;">Cost Price</th>
+                        <th style="padding: 12px; text-align: right; border: 1px solid #ddd;">Selling Price</th>
+                        <th style="padding: 12px; text-align: right; border: 1px solid #ddd;">Profit/Unit</th>
                         <th style="padding: 12px; text-align: right; border: 1px solid #ddd;">Total Value</th>
                         <th style="padding: 12px; text-align: center; border: 1px solid #ddd;">Status</th>
                     </tr>
@@ -190,8 +204,10 @@ const Inventory = () => {
                             <td style="padding: 10px; border: 1px solid #ddd;">${item.item_name}</td>
                             <td style="padding: 10px; border: 1px solid #ddd;">${item.category || 'Other'}</td>
                             <td style="padding: 10px; text-align: center; border: 1px solid #ddd;">${item.stock_qty}</td>
-                            <td style="padding: 10px; text-align: right; border: 1px solid #ddd;">₹${item.price_per_unit.toLocaleString()}</td>
-                            <td style="padding: 10px; text-align: right; border: 1px solid #ddd;">₹${(item.stock_qty * item.price_per_unit).toLocaleString()}</td>
+                            <td style="padding: 10px; text-align: right; border: 1px solid #ddd;">₹${(item.cost_price || item.price_per_unit * 0.8).toLocaleString()}</td>
+                            <td style="padding: 10px; text-align: right; border: 1px solid #ddd;">₹${(item.selling_price || item.price_per_unit).toLocaleString()}</td>
+                            <td style="padding: 10px; text-align: right; border: 1px solid #ddd; color: #059669; font-weight: bold;">₹${((item.selling_price || item.price_per_unit) - (item.cost_price || item.price_per_unit * 0.8)).toFixed(2)}</td>
+                            <td style="padding: 10px; text-align: right; border: 1px solid #ddd;">₹${(item.stock_qty * (item.selling_price || item.price_per_unit)).toLocaleString()}</td>
                             <td style="padding: 10px; text-align: center; border: 1px solid #ddd;">
                                 <span style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; 
                                     ${item.stock_qty <= 0 ? 'background: #FEE2E2; color: #991B1B;' : 
@@ -258,7 +274,7 @@ const Inventory = () => {
                         <div>
                             <p className="text-sm font-medium text-gray-600 dark:text-gray-400">{t('inventory.totalValue')}</p>
                             <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                                ₹{inventory.reduce((sum, item) => sum + (item.stock_qty * item.price_per_unit), 0)}
+                                ₹{inventory.reduce((sum, item) => sum + (item.stock_qty * (item.selling_price || item.price_per_unit)), 0).toLocaleString()}
                             </p>
                         </div>
                         <div className="p-2 bg-green-100 rounded-lg">
@@ -358,7 +374,9 @@ const Inventory = () => {
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('inventory.table.itemName')}</th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('inventory.table.category')}</th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('inventory.table.stockQty')}</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('inventory.table.price')}</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cost Price</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Selling Price</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Profit/Unit</th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('inventory.table.totalValue')}</th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('inventory.table.status')}</th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('common.actions')}</th>
@@ -379,10 +397,16 @@ const Inventory = () => {
                                             {item.stock_qty}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            ₹{item.price_per_unit}
+                                            ₹{item.cost_price || (item.price_per_unit * 0.8).toFixed(2)}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                            ₹{item.selling_price || item.price_per_unit}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
+                                            ₹{((item.selling_price || item.price_per_unit) - (item.cost_price || item.price_per_unit * 0.8)).toFixed(2)}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                            ₹{item.stock_qty * item.price_per_unit}
+                                            ₹{(item.stock_qty * (item.selling_price || item.price_per_unit)).toLocaleString()}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm">
                                             {item.stock_qty <= item.min_stock_level ? (
@@ -403,6 +427,8 @@ const Inventory = () => {
                                                         setFormData({
                                                             item_name: item.item_name,
                                                             stock_qty: item.stock_qty,
+                                                            cost_price: item.cost_price || item.price_per_unit * 0.8,
+                                                            selling_price: item.selling_price || item.price_per_unit,
                                                             price_per_unit: item.price_per_unit,
                                                             description: item.description || '',
                                                             category: item.category || '',
@@ -474,6 +500,8 @@ const Inventory = () => {
                                         setFormData({
                                             item_name: '',
                                             stock_qty: 0,
+                                            cost_price: 0,
+                                            selling_price: 0,
                                             price_per_unit: 0,
                                             description: '',
                                             category: '',
@@ -529,17 +557,72 @@ const Inventory = () => {
 
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700">Price per Unit</label>
+                                        <label className="block text-sm font-medium text-gray-700">Cost Price (₹)</label>
                                         <input
                                             type="number"
-                                            value={formData.price_per_unit}
-                                            onChange={(e) => setFormData({ ...formData, price_per_unit: parseFloat(e.target.value) || 0 })}
+                                            value={formData.cost_price}
+                                            onChange={(e) => {
+                                                const costPrice = parseFloat(e.target.value) || 0;
+                                                setFormData({ 
+                                                    ...formData, 
+                                                    cost_price: costPrice,
+                                                    price_per_unit: formData.selling_price // Keep backward compatibility
+                                                });
+                                            }}
                                             className="input-field"
                                             min="0"
                                             step="0.01"
                                             required
+                                            placeholder="Enter cost price"
                                         />
                                     </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700">Selling Price (₹)</label>
+                                        <input
+                                            type="number"
+                                            value={formData.selling_price}
+                                            onChange={(e) => {
+                                                const sellingPrice = parseFloat(e.target.value) || 0;
+                                                setFormData({ 
+                                                    ...formData, 
+                                                    selling_price: sellingPrice,
+                                                    price_per_unit: sellingPrice // Keep backward compatibility
+                                                });
+                                            }}
+                                            className="input-field"
+                                            min="0"
+                                            step="0.01"
+                                            required
+                                            placeholder="Enter selling price"
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Profit Information */}
+                                {formData.cost_price > 0 && formData.selling_price > 0 && (
+                                    <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                                        <div className="grid grid-cols-2 gap-4 text-sm">
+                                            <div>
+                                                <span className="font-medium text-green-700">Profit per Unit:</span>
+                                                <span className="ml-2 text-green-600">₹{(formData.selling_price - formData.cost_price).toFixed(2)}</span>
+                                            </div>
+                                            <div>
+                                                <span className="font-medium text-green-700">Profit Margin:</span>
+                                                <span className="ml-2 text-green-600">
+                                                    {formData.selling_price > 0 ? 
+                                                        ((formData.selling_price - formData.cost_price) / formData.selling_price * 100).toFixed(2) : 0}%
+                                                </span>
+                                            </div>
+                                        </div>
+                                        {formData.selling_price <= formData.cost_price && (
+                                            <div className="mt-2 text-red-600 text-sm">
+                                                ⚠️ Warning: Selling price should be higher than cost price to ensure profit!
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                <div className="grid grid-cols-2 gap-4">
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700">Min Stock Level</label>
                                         <input
@@ -548,6 +631,19 @@ const Inventory = () => {
                                             onChange={(e) => setFormData({ ...formData, min_stock_level: parseInt(e.target.value) || 0 })}
                                             className="input-field"
                                             min="0"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700">Price per Unit (Legacy)</label>
+                                        <input
+                                            type="number"
+                                            value={formData.price_per_unit}
+                                            onChange={(e) => setFormData({ ...formData, price_per_unit: parseFloat(e.target.value) || 0 })}
+                                            className="input-field bg-gray-100"
+                                            min="0"
+                                            step="0.01"
+                                            disabled
+                                            title="This field is automatically set to selling price for backward compatibility"
                                         />
                                     </div>
                                 </div>
