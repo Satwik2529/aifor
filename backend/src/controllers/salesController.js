@@ -337,7 +337,7 @@ const salesController = {
       // Get today's sales
       const todaysSales = await Sale.find({
         user_id: userId,
-        createdAt: { $gte: startOfDay, $lte: endOfDay }
+        date: { $gte: startOfDay, $lte: endOfDay }
       });
 
       // Calculate totals

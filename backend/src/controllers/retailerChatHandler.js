@@ -105,6 +105,163 @@ const getBusinessData = async (userId) => {
 };
 
 /**
+ * Fallback message parsing when AI fails
+ */
+const parseMessageFallback = (message) => {
+    const lowerMessage = message.toLowerCase();
+    
+    // Inventory addition patterns
+    if (lowerMessage.includes('add') && (lowerMessage.includes('item') || lowerMessage.includes('inventory') || lowerMessage.includes('product'))) {
+        // Enhanced regex patterns to handle various message formats
+        let itemMatch, quantityMatch, costMatch, sellingMatch, categoryMatch;
+        
+        // Pattern 1: "add a item to inventory laptop under electronics category"
+        const pattern1 = /add.*?(?:item|product).*?(?:to\s+)?inventory\s+([^,\s]+).*?under\s+([^,\s]+)\s+category/i;
+        const match1 = message.match(pattern1);
+        if (match1) {
+            itemMatch = [null, match1[1]];
+            categoryMatch = [null, match1[2]];
+        }
+        
+        // Pattern 2: "add a item to inventory of 100 keyboards each of 100 rupee and selling price 200 and electronics category"
+        const pattern2 = /add.*?(?:item|product).*?inventory.*?of\s+(\d+)\s+([^,\s]+).*?each.*?of\s+(\d+).*?rupee.*?selling.*?price\s+(\d+).*?and\s+([^,\s]+)\s+category/i;
+        const match2 = message.match(pattern2);
+        if (match2) {
+            quantityMatch = [null, match2[1]];
+            itemMatch = [null, match2[2]];
+            costMatch = [null, match2[3]];
+            sellingMatch = [null, match2[4]];
+            categoryMatch = [null, match2[5]];
+        }
+        
+        // Fallback patterns for individual components
+        if (!itemMatch) {
+            itemMatch = message.match(/add.*?(?:item|product).*?:?\s*([^,]+)/i) || 
+                       message.match(/inventory\s+([^,\s]+)/i) ||
+                       message.match(/(\w+)\s+under/i);
+        }
+        if (!quantityMatch) {
+            quantityMatch = message.match(/(\d+)\s*(?:pieces?|units?|items?|keyboards?|laptops?)/i) ||
+                           message.match(/of\s+(\d+)\s+/i);
+        }
+        if (!costMatch) {
+            costMatch = message.match(/cost.*?₹?(\d+)/i) ||
+                       message.match(/each.*?of\s+(\d+)/i) ||
+                       message.match(/(\d+).*?rupee/i);
+        }
+        if (!sellingMatch) {
+            sellingMatch = message.match(/selling.*?price\s+(\d+)/i) ||
+                          message.match(/price.*?₹?(\d+)/i) ||
+                          message.match(/selling.*?₹?(\d+)/i);
+        }
+        if (!categoryMatch) {
+            categoryMatch = message.match(/category\s+([^,\n]+)/i) ||
+                           message.match(/under\s+([^,\s]+)/i) ||
+                           message.match(/and\s+([^,\s]+)\s+category/i);
+        }
+        
+        // Enhanced category mapping with more variations
+        let validCategory = "Other";
+        if (categoryMatch) {
+            const categoryInput = categoryMatch[1].trim().toLowerCase();
+            const categoryMap = {
+                'food': 'Food & Beverages',
+                'foods': 'Food & Beverages',
+                'beverages': 'Food & Beverages',
+                'electronics': 'Electronics',
+                'electronic': 'Electronics',
+                'electornics': 'Electronics', // Handle typo
+                'tech': 'Electronics',
+                'technology': 'Electronics',
+                'clothing': 'Clothing',
+                'clothes': 'Clothing',
+                'apparel': 'Clothing',
+                'books': 'Books',
+                'book': 'Books',
+                'home': 'Home & Garden',
+                'garden': 'Home & Garden',
+                'household': 'Home & Garden',
+                'sports': 'Sports',
+                'sport': 'Sports',
+                'fitness': 'Sports',
+                'beauty': 'Beauty & Health',
+                'health': 'Beauty & Health',
+                'healthcare': 'Beauty & Health',
+                'cosmetics': 'Beauty & Health',
+                'automotive': 'Automotive',
+                'auto': 'Automotive',
+                'car': 'Automotive',
+                'office': 'Office Supplies',
+                'supplies': 'Office Supplies',
+                'stationery': 'Office Supplies',
+                'other': 'Other'
+            };
+            validCategory = categoryMap[categoryInput] || 'Other';
+        }
+        
+        // Check if we have enough information
+        if (itemMatch && quantityMatch && costMatch && sellingMatch) {
+            return {
+                action: "add_inventory",
+                item_name: itemMatch[1].trim(),
+                quantity: parseInt(quantityMatch[1]),
+                cost_per_unit: parseInt(costMatch[1]),
+                price_per_unit: parseInt(sellingMatch[1]),
+                category: validCategory,
+                min_stock_level: 5
+            };
+        } else if (itemMatch && categoryMatch) {
+            // If we have item and category but missing other details, ask for them
+            const missing = [];
+            if (!quantityMatch) missing.push("quantity");
+            if (!costMatch) missing.push("cost_price");
+            if (!sellingMatch) missing.push("selling_price");
+            
+            return {
+                action: "clarify",
+                missing: missing,
+                response: `I found item "${itemMatch[1].trim()}" in category "${validCategory}". Please provide: ${missing.join(', ')}.\n\nExample: "Add 100 units, cost ₹50 each, selling ₹80 each"`
+            };
+        } else {
+            return {
+                action: "clarify",
+                missing: ["item_name", "quantity", "cost_price", "selling_price"],
+                response: "To add inventory, I need: item name, quantity, cost price, and selling price.\n\nExamples:\n• 'Add item: Chocolate, 50 pieces, cost ₹20, selling ₹30'\n• 'Add 100 keyboards, cost ₹100 each, selling ₹200, electronics category'"
+            };
+        }
+    }
+    
+    // Sales patterns
+    if (lowerMessage.includes('bill') || lowerMessage.includes('sale') || lowerMessage.includes('sell')) {
+        return {
+            action: "clarify",
+            missing: ["items", "quantities", "customer_name"],
+            response: "To create a sale, please specify: items to sell, quantities, and customer name (optional). Example: 'Bill 2 chocolates for John'"
+        };
+    }
+    
+    // Expense patterns
+    if (lowerMessage.includes('expense') || lowerMessage.includes('cost') || lowerMessage.includes('spent')) {
+        return {
+            action: "clarify",
+            missing: ["description", "amount", "category"],
+            response: "To add an expense, I need: description, amount, and category. Example: 'Add expense: Office rent ₹5000, category Rent'"
+        };
+    }
+    
+    // Insights patterns
+    if (lowerMessage.includes('sales') || lowerMessage.includes('profit') || lowerMessage.includes('revenue') || lowerMessage.includes('report')) {
+        return {
+            action: "insights",
+            type: "overview",
+            response: "Here's your business overview with key metrics and recommendations."
+        };
+    }
+    
+    return null;
+};
+
+/**
  * Enhanced AI processing for retailer requests
  */
 const processRetailerRequest = async (message, businessData, language) => {
@@ -189,6 +346,13 @@ Return ONLY valid JSON, no markdown or extra text.
         return JSON.parse(responseText);
     } catch (error) {
         console.error('AI processing error:', error);
+        
+        // Fallback: Try to parse the message manually for common patterns
+        const fallbackResponse = parseMessageFallback(message);
+        if (fallbackResponse) {
+            return fallbackResponse;
+        }
+        
         return {
             action: "help",
             response: "I can help you with sales, inventory management, expense tracking, and business insights. What would you like to do?"
