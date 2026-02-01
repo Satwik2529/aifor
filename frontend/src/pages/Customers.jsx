@@ -14,6 +14,7 @@ const Customers = () => {
     const [editingCustomer, setEditingCustomer] = useState(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [creditFilter, setCreditFilter] = useState('All');
+    const [itemsToShow, setItemsToShow] = useState(15); // Show 15 items initially
     const [formData, setFormData] = useState({
         name: '',
         phone: '',
@@ -30,7 +31,7 @@ const Customers = () => {
     const fetchCustomers = async () => {
         try {
             setLoading(true);
-            const response = await customersAPI.getCustomers();
+            const response = await customersAPI.getCustomers({ limit: 1000 }); // Request up to 1000 items
             if (response.success) {
                 setCustomers(response.data);
             }
@@ -323,19 +324,20 @@ const Customers = () => {
                         </button>
                     </div>
                 ) : (
-                    <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50">
-                                <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Address</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Credit Balance</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
-                                {filteredCustomers.map((customer) => (
+                    <>
+                        <div className="overflow-x-auto">
+                            <table className="min-w-full divide-y divide-gray-200">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Address</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Credit Balance</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-200">
+                                    {filteredCustomers.slice(0, itemsToShow).map((customer) => (
                                     <tr key={customer._id}>
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="flex items-center">
@@ -414,6 +416,32 @@ const Customers = () => {
                             </tbody>
                         </table>
                     </div>
+                    
+                    {/* Load More Button */}
+                    {filteredCustomers.length > itemsToShow && (
+                        <div className="mt-4 text-center">
+                            <button
+                                onClick={() => setItemsToShow(prev => prev + 15)}
+                                className="btn-secondary inline-flex items-center gap-2"
+                            >
+                                <Users className="h-4 w-4" />
+                                Load More ({filteredCustomers.length - itemsToShow} remaining)
+                            </button>
+                        </div>
+                    )}
+                    
+                    {/* Show All Button (if more than 30 items) */}
+                    {filteredCustomers.length > 30 && itemsToShow < filteredCustomers.length && (
+                        <div className="mt-2 text-center">
+                            <button
+                                onClick={() => setItemsToShow(filteredCustomers.length)}
+                                className="text-sm text-indigo-600 hover:text-indigo-800"
+                            >
+                                Show All {filteredCustomers.length} Items
+                            </button>
+                        </div>
+                    )}
+                    </>
                 )}
             </div>
 

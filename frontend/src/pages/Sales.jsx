@@ -16,6 +16,7 @@ const Sales = () => {
     const [editingSale, setEditingSale] = useState(null);
     const [viewingSale, setViewingSale] = useState(null);
     const [paymentFilter, setPaymentFilter] = useState('All');
+    const [itemsToShow, setItemsToShow] = useState(15); // Show 15 items initially
     const [todaysSales, setTodaysSales] = useState({
         totalRevenue: 0,
         salesCount: 0,
@@ -37,7 +38,7 @@ const Sales = () => {
     const fetchSales = async () => {
         try {
             setLoading(true);
-            const response = await salesAPI.getSales();
+            const response = await salesAPI.getSales({ limit: 1000 }); // Request up to 1000 items
             if (response.success) {
                 setSales(response.data);
             }
@@ -61,7 +62,7 @@ const Sales = () => {
 
     const fetchInventory = async () => {
         try {
-            const response = await inventoryAPI.getInventory();
+            const response = await inventoryAPI.getInventory({ limit: 1000 }); // Request up to 1000 items
             if (response.success) {
                 // Filter only items with stock > 0
                 const availableItems = response.data.filter(item => item.stock_qty > 0);
@@ -533,22 +534,23 @@ const Sales = () => {
                         </button>
                     </div>
                 ) : (
-                    <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-800">
-                            <thead className="bg-gray-50 dark:bg-gray-900">
-                                <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Date</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Customer</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Items</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Revenue</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">COGS</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Profit</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Payment</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody className="bg-white dark:bg-black divide-y divide-gray-200 dark:divide-gray-800">
-                                {filteredSales.map((sale) => (
+                    <>
+                        <div className="overflow-x-auto">
+                            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-800">
+                                <thead className="bg-gray-50 dark:bg-gray-900">
+                                    <tr>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Date</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Customer</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Items</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Revenue</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">COGS</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Profit</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Payment</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="bg-white dark:bg-black divide-y divide-gray-200 dark:divide-gray-800">
+                                    {filteredSales.slice(0, itemsToShow).map((sale) => (
                                     <tr key={sale._id}>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
                                             {new Date(sale.createdAt).toLocaleDateString()}
@@ -608,7 +610,33 @@ const Sales = () => {
                             </tbody>
                         </table>
                     </div>
-                )}
+                    
+                    {/* Load More Button */}
+                    {filteredSales.length > itemsToShow && (
+                        <div className="mt-4 text-center">
+                            <button
+                                onClick={() => setItemsToShow(prev => prev + 15)}
+                                className="btn-secondary inline-flex items-center gap-2"
+                            >
+                                <Plus className="h-4 w-4" />
+                                Load More ({filteredSales.length - itemsToShow} remaining)
+                            </button>
+                        </div>
+                    )}
+                    
+                    {/* Show All Button (if more than 30 items) */}
+                    {filteredSales.length > 30 && itemsToShow < filteredSales.length && (
+                        <div className="mt-2 text-center">
+                            <button
+                                onClick={() => setItemsToShow(filteredSales.length)}
+                                className="text-sm text-indigo-600 hover:text-indigo-800"
+                            >
+                                Show All {filteredSales.length} Items
+                            </button>
+                        </div>
+                    )}
+                </>
+            )}
             </div>
 
             {/* Sale Modal */}

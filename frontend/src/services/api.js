@@ -65,8 +65,8 @@ export const authAPI = {
 // Sales API calls
 export const salesAPI = {
     // Get all sales
-    getSales: async () => {
-        const response = await api.get('/sales');
+    getSales: async (params = {}) => {
+        const response = await api.get('/sales', { params });
         return response.data;
     },
 
@@ -104,8 +104,8 @@ export const salesAPI = {
 // Expenses API calls
 export const expensesAPI = {
     // Get all expenses
-    getExpenses: async () => {
-        const response = await api.get('/expenses');
+    getExpenses: async (params = {}) => {
+        const response = await api.get('/expenses', { params });
         return response.data;
     },
 
@@ -137,8 +137,8 @@ export const expensesAPI = {
 // Inventory API calls
 export const inventoryAPI = {
     // Get all inventory items
-    getInventory: async () => {
-        const response = await api.get('/inventory');
+    getInventory: async (params = {}) => {
+        const response = await api.get('/inventory', { params });
         return response.data;
     },
 
@@ -170,8 +170,8 @@ export const inventoryAPI = {
 // Customers API calls
 export const customersAPI = {
     // Get all customers
-    getCustomers: async () => {
-        const response = await api.get('/customers');
+    getCustomers: async (params = {}) => {
+        const response = await api.get('/customers', { params });
         return response.data;
     },
 

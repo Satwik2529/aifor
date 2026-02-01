@@ -6,8 +6,13 @@ const mongoose = require('mongoose');
 const notificationSchema = new mongoose.Schema({
   user_id: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
+    refPath: 'user_type_ref',
     required: [true, 'User ID is required']
+  },
+  user_type_ref: {
+    type: String,
+    enum: ['User', 'CustomerUser'],
+    required: true
   },
   user_type: {
     type: String,

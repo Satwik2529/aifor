@@ -280,6 +280,7 @@ const handleOrderConfirmation = async (userId, retailerId, message, language) =>
         const notification = new Notification({
             user_id: retailerId,
             user_type: 'retailer',
+            user_type_ref: 'User', // Retailers use the User model
             type: 'new_request',
             title: 'New Order Received',
             message: `${customer.name} placed an order for ₹${pendingOrder.totalAmount} (${orderItems.length} items)`,

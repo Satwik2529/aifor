@@ -1,6 +1,12 @@
 const geminiService = require('./geminiService');
 const Inventory = require('../models/Inventory');
 const CustomerRequest = require('../models/CustomerRequest');
+const CustomerUser = require('../models/CustomerUser');
+const User = require('../models/User');
+const Notification = require('../models/Notification');
+
+// In-memory storage for pending orders (in production, use Redis)
+const pendingOrders = new Map();
 
 /**
  * Customer Chatbot Service
@@ -54,6 +60,34 @@ Be helpful, ask clarifying questions when needed, and always maintain a friendly
    */
   async processMessage(message, customerId, retailerId, language = 'en') {
     try {
+      // Check if this is an order confirmation
+      const isConfirmation = ['yes', 'confirm', 'ok', 'proceed', 'हाँ', 'ఓకే'].some(
+        word => message.toLowerCase().trim() === word
+      );
+
+      if (isConfirmation) {
+        // Check for pending order
+        const orderKey = `${customerId}_${retailerId}`;
+        const pendingOrder = pendingOrders.get(orderKey);
+
+        if (pendingOrder && pendingOrder.items && pendingOrder.items.length > 0) {
+          // Create the order
+          const orderResult = await this.confirmPendingOrder(customerId, retailerId, pendingOrder);
+          
+          // Clear pending order
+          pendingOrders.delete(orderKey);
+          
+          return orderResult;
+        } else {
+          return {
+            intent: 'no_pending_order',
+            message: "I don't have any pending order for you. Please tell me what you'd like to order first.",
+            items: [],
+            can_order: false
+          };
+        }
+      }
+
       // Get retailer's inventory for context
       const inventory = await Inventory.find({ user_id: retailerId });
       const availableItems = inventory.map(item => item.item_name.toLowerCase());
@@ -76,6 +110,20 @@ Be helpful, ask clarifying questions when needed, and always maintain a friendly
       // Check item availability
       const availabilityCheck = await this.checkItemAvailability(parsedResponse.items, inventory);
       
+      // Store pending order if items are available
+      if (availabilityCheck.available.length > 0) {
+        const orderKey = `${customerId}_${retailerId}`;
+        const totalAmount = availabilityCheck.available.reduce((sum, item) => sum + item.total_price, 0);
+        
+        pendingOrders.set(orderKey, {
+          items: availabilityCheck.available,
+          totalAmount: totalAmount,
+          timestamp: Date.now()
+        });
+        
+        console.log(`🛒 Stored pending order for ${orderKey}: ${availabilityCheck.available.length} items, ₹${totalAmount}`);
+      }
+      
       // Build final response
       const finalResponse = {
         ...parsedResponse,
@@ -94,6 +142,72 @@ Be helpful, ask clarifying questions when needed, and always maintain a friendly
         items: [],
         can_order: false
       };
+    }
+  }
+
+  /**
+   * Confirm and create order from pending items
+   */
+  async confirmPendingOrder(customerId, retailerId, pendingOrder) {
+    try {
+      const customer = await CustomerUser.findById(customerId);
+      const retailer = await User.findById(retailerId);
+
+      if (!customer || !retailer) {
+        throw new Error('Customer or retailer not found');
+      }
+
+      // Format items for the order
+      const orderItems = pendingOrder.items.map(item => ({
+        item_name: item.item_name,
+        quantity: item.quantity,
+        unit: item.unit,
+        price_per_unit: item.price_per_unit,
+        total_price: item.total_price
+      }));
+
+      // Create customer request
+      const orderRequest = new CustomerRequest({
+        customer_id: customerId,
+        retailer_id: retailerId,
+        customer_name: customer.name,
+        customer_phone: customer.phone,
+        items: orderItems,
+        notes: 'Order placed via AI chatbot',
+        status: 'pending',
+        total_amount: pendingOrder.totalAmount
+      });
+
+      await orderRequest.save();
+
+      // Create notification for retailer
+      const notification = new Notification({
+        user_id: retailerId,
+        user_type: 'retailer',
+        user_type_ref: 'User',
+        type: 'new_request',
+        title: 'New Order Received',
+        message: `${customer.name} placed an order for ₹${pendingOrder.totalAmount} (${orderItems.length} items)`,
+        request_id: orderRequest._id,
+        is_read: false
+      });
+
+      await notification.save();
+      console.log(`✅ Order confirmed and notification sent to ${retailer.shop_name}`);
+
+      return {
+        intent: 'order_confirmed',
+        success: true,
+        message: `Order placed successfully!\n\nTotal: ₹${pendingOrder.totalAmount}\nItems: ${orderItems.length}\n\n${retailer.shop_name} will contact you soon.`,
+        order_id: orderRequest._id,
+        total_amount: pendingOrder.totalAmount,
+        items: orderItems,
+        can_order: false
+      };
+
+    } catch (error) {
+      console.error('Order confirmation error:', error);
+      throw error;
     }
   }
 

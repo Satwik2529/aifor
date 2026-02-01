@@ -43,7 +43,16 @@ const CustomerDashboard = () => {
 
     fetchRetailers();
     fetchMyRequests();
-  }, [token, navigate]);
+    
+    // Auto-refresh requests every 10 seconds when on My Orders tab
+    const interval = setInterval(() => {
+      if (activeTab === 'my-requests') {
+        fetchMyRequests();
+      }
+    }, 10000);
+    
+    return () => clearInterval(interval);
+  }, [token, navigate, activeTab]);
 
   useEffect(() => {
     localStorage.setItem('darkMode', isDarkMode);
@@ -86,7 +95,31 @@ const CustomerDashboard = () => {
       const result = await response.json();
 
       if (result.success) {
-        setRequests(result.data.requests);
+        const newRequests = result.data.requests;
+        
+        // Check if there are new completed orders
+        if (requests.length > 0) {
+          const newCompletedOrders = newRequests.filter(newReq => 
+            newReq.status === 'completed' && 
+            !requests.find(oldReq => oldReq._id === newReq._id && oldReq.status === 'completed')
+          );
+          
+          if (newCompletedOrders.length > 0) {
+            toast.success(`${newCompletedOrders.length} order(s) completed! 🎉`);
+          }
+          
+          // Check for billed orders
+          const newBilledOrders = newRequests.filter(newReq => 
+            newReq.status === 'billed' && 
+            !requests.find(oldReq => oldReq._id === newReq._id && oldReq.status === 'billed')
+          );
+          
+          if (newBilledOrders.length > 0) {
+            toast.success(`${newBilledOrders.length} order(s) billed!`);
+          }
+        }
+        
+        setRequests(newRequests);
       }
     } catch (error) {
       console.error('Fetch requests error:', error);

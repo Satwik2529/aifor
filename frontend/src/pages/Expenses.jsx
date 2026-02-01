@@ -20,6 +20,7 @@ const Expenses = () => {
     const [editingExpense, setEditingExpense] = useState(null);
     const [categoryFilter, setCategoryFilter] = useState('All');
     const [monthlyExpenses, setMonthlyExpenses] = useState(0);
+    const [itemsToShow, setItemsToShow] = useState(15); // Show 15 items initially
     const [formData, setFormData] = useState({
         amount: '',
         description: '',
@@ -35,7 +36,7 @@ const Expenses = () => {
     const fetchExpenses = async () => {
         try {
             setLoading(true);
-            const response = await expensesAPI.getExpenses();
+            const response = await expensesAPI.getExpenses({ limit: 1000 }); // Request up to 1000 items
             if (response.success) {
                 setExpenses(response.data);
                 calculateMonthlyExpenses(response.data);
@@ -310,20 +311,21 @@ const Expenses = () => {
                         </button>
                     </div>
                 ) : (
-                    <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50">
-                                <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
-                                {filteredExpenses.map((expense) => (
+                    <>
+                        <div className="overflow-x-auto">
+                            <table className="min-w-full divide-y divide-gray-200">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-200">
+                                    {filteredExpenses.slice(0, itemsToShow).map((expense) => (
                                     <tr key={expense._id}>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                             {new Date(expense.createdAt).toLocaleDateString()}
@@ -383,7 +385,33 @@ const Expenses = () => {
                             </tbody>
                         </table>
                     </div>
-                )}
+                    
+                    {/* Load More Button */}
+                    {filteredExpenses.length > itemsToShow && (
+                        <div className="mt-4 text-center">
+                            <button
+                                onClick={() => setItemsToShow(prev => prev + 15)}
+                                className="btn-secondary inline-flex items-center gap-2"
+                            >
+                                <DollarSign className="h-4 w-4" />
+                                Load More ({filteredExpenses.length - itemsToShow} remaining)
+                            </button>
+                        </div>
+                    )}
+                    
+                    {/* Show All Button (if more than 30 items) */}
+                    {filteredExpenses.length > 30 && itemsToShow < filteredExpenses.length && (
+                        <div className="mt-2 text-center">
+                            <button
+                                onClick={() => setItemsToShow(filteredExpenses.length)}
+                                className="text-sm text-indigo-600 hover:text-indigo-800"
+                            >
+                                Show All {filteredExpenses.length} Items
+                            </button>
+                        </div>
+                    )}
+                </>
+            )}
             </div>
 
             {/* Expense Modal */}

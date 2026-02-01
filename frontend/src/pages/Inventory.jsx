@@ -12,6 +12,7 @@ const Inventory = () => {
     const [showModal, setShowModal] = useState(false);
     const [editingItem, setEditingItem] = useState(null);
     const [showFilterModal, setShowFilterModal] = useState(false);
+    const [itemsToShow, setItemsToShow] = useState(15); // Show 15 items initially
     const [filters, setFilters] = useState({
         category: 'All',
         status: 'All'
@@ -32,7 +33,7 @@ const Inventory = () => {
     const fetchInventory = async () => {
         try {
             setLoading(true);
-            const response = await inventoryAPI.getInventory();
+            const response = await inventoryAPI.getInventory({ limit: 1000 }); // Request up to 1000 items
             if (response.success) {
                 setInventory(response.data);
             }
@@ -349,21 +350,22 @@ const Inventory = () => {
                         </button>
                     </div>
                 ) : (
-                    <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50">
-                                <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('inventory.table.itemName')}</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('inventory.table.category')}</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('inventory.table.stockQty')}</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('inventory.table.price')}</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('inventory.table.totalValue')}</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('inventory.table.status')}</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('common.actions')}</th>
-                                </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
-                                {filteredInventory.map((item) => (
+                    <>
+                        <div className="overflow-x-auto">
+                            <table className="min-w-full divide-y divide-gray-200">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('inventory.table.itemName')}</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('inventory.table.category')}</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('inventory.table.stockQty')}</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('inventory.table.price')}</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('inventory.table.totalValue')}</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('inventory.table.status')}</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('common.actions')}</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-200">
+                                    {filteredInventory.slice(0, itemsToShow).map((item) => (
                                     <tr key={item._id}>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                                             {item.item_name}
@@ -427,7 +429,33 @@ const Inventory = () => {
                             </tbody>
                         </table>
                     </div>
-                )}
+                    
+                    {/* Load More Button */}
+                    {filteredInventory.length > itemsToShow && (
+                        <div className="mt-4 text-center">
+                            <button
+                                onClick={() => setItemsToShow(prev => prev + 15)}
+                                className="btn-secondary inline-flex items-center gap-2"
+                            >
+                                <Package className="h-4 w-4" />
+                                Load More ({filteredInventory.length - itemsToShow} remaining)
+                            </button>
+                        </div>
+                    )}
+                    
+                    {/* Show All Button (if more than 30 items) */}
+                    {filteredInventory.length > 30 && itemsToShow < filteredInventory.length && (
+                        <div className="mt-2 text-center">
+                            <button
+                                onClick={() => setItemsToShow(filteredInventory.length)}
+                                className="text-sm text-indigo-600 hover:text-indigo-800"
+                            >
+                                Show All {filteredInventory.length} Items
+                            </button>
+                        </div>
+                    )}
+                </>
+            )}
             </div>
 
             {/* Inventory Modal */}

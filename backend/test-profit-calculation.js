@@ -35,16 +35,21 @@ const testProfitCalculation = async () => {
     // 1. Find or create test user
     let user = await User.findOne({ email: 'test@biznova.com' });
     if (!user) {
+      // Try to find by phone in case email doesn't match
+      user = await User.findOne({ phone: '9876543210' });
+    }
+    
+    if (!user) {
       user = await User.create({
         name: 'Test User',
         email: 'test@biznova.com',
-        phone: '1234567890',
+        phone: '9876543210',  // Valid Indian phone number format (10 digits, starts with 6-9)
         password: 'testpassword123',
         shop_name: 'Test Shop'
       });
       console.log('✅ Test user created');
     } else {
-      console.log('✅ Using existing test user');
+      console.log('✅ Using existing test user:', user.name);
     }
 
     const userId = user._id;

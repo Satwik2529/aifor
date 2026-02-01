@@ -42,7 +42,7 @@ const CustomerChatbot = ({ customerId, retailerId, onOrderPlaced }) => {
 
   const initializeChatbot = async () => {
     try {
-      const response = await axios.get('/api/chatbot/status', {
+      const response = await axios.get('/api/chatbot/customer/status', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
 
@@ -85,7 +85,7 @@ const CustomerChatbot = ({ customerId, retailerId, onOrderPlaced }) => {
     setIsLoading(true);
 
     try {
-      const response = await axios.post('/api/chatbot/chat', {
+      const response = await axios.post('/api/chatbot/customer/chat', {
         message: inputMessage,
         retailer_id: retailerId,
         language: selectedLanguage
@@ -96,22 +96,26 @@ const CustomerChatbot = ({ customerId, retailerId, onOrderPlaced }) => {
       const botResponse = {
         id: Date.now() + 1,
         type: 'bot',
-        content: response.data.message,
+        content: response.data.data.message || response.data.message,
         data: response.data.data,
         timestamp: new Date()
       };
 
       setMessages(prev => [...prev, botResponse]);
 
-      // Show order summary if items are suggested
-      if (response.data.data && response.data.data.suggested_order && response.data.data.suggested_order.length > 0) {
-        setConfirmedItems(response.data.data.suggested_order.filter(item => item.available));
-        setOrderData({
-          available: response.data.data.suggested_order.filter(item => item.available),
-          unavailable: response.data.data.suggested_order.filter(item => !item.available),
-          lowStock: []
-        });
-        setShowOrderSummary(true);
+      // Show order summary if items are available
+      if (response.data.data && response.data.data.availability) {
+        const { available, unavailable, lowStock } = response.data.data.availability;
+        
+        if (available && available.length > 0) {
+          setConfirmedItems(available);
+          setOrderData({
+            available: available,
+            unavailable: unavailable || [],
+            lowStock: lowStock || []
+          });
+          setShowOrderSummary(true);
+        }
       }
 
     } catch (error) {
@@ -134,10 +138,11 @@ const CustomerChatbot = ({ customerId, retailerId, onOrderPlaced }) => {
     setIsLoading(true);
 
     try {
-      // Send confirmation message to chatbot
-      const response = await axios.post('/api/chatbot/chat', {
-        message: 'yes',
+      // Use the dedicated order endpoint for customer chatbot
+      const response = await axios.post('/api/chatbot/customer/order', {
         retailer_id: retailerId,
+        confirmed_items: confirmedItems,
+        notes: 'Order placed via AI chatbot',
         language: selectedLanguage
       }, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
@@ -147,7 +152,7 @@ const CustomerChatbot = ({ customerId, retailerId, onOrderPlaced }) => {
         const orderConfirmation = {
           id: Date.now() + 2,
           type: 'bot',
-          content: response.data.message,
+          content: response.data.data.message || 'Order placed successfully! The retailer will process your order soon.',
           timestamp: new Date()
         };
         setMessages(prev => [...prev, orderConfirmation]);
@@ -166,7 +171,7 @@ const CustomerChatbot = ({ customerId, retailerId, onOrderPlaced }) => {
       const errorMessage = {
         id: Date.now() + 2,
         type: 'bot',
-        content: 'Failed to place order. Please try again.',
+        content: error.response?.data?.message || 'Failed to place order. Please try again.',
         timestamp: new Date()
       };
       setMessages(prev => [...prev, errorMessage]);

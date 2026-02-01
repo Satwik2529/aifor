@@ -94,7 +94,6 @@ function App() {
             {/* Customer Dashboard (separate from retailer) */}
             <Route path="/customer-dashboard" element={<CustomerDashboard />} />
             <Route path="/customer/chatbot" element={<CustomerChatbotPage />} />
-            <Route path="/customer-requests" element={<CustomerRequestsPage />} />
             <Route path="/customer/profile-settings" element={<ProfileSettings />} />
 
             {/* Protected retailer routes with layout */}

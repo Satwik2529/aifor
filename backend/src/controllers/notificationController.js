@@ -11,6 +11,7 @@ const notificationController = {
       const notification = new Notification({
         user_id: userId,
         user_type: userType,
+        user_type_ref: userType === 'customer' ? 'CustomerUser' : 'User',
         type,
         title,
         message,
