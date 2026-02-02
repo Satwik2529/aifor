@@ -18,12 +18,11 @@ const parseBillImage = async (req, res) => {
         }
 
         const userId = req.user.id;
-        const imagePath = req.file.path;
 
-        console.log('📄 Parsing bill image:', imagePath);
+        console.log('📄 Parsing bill image from memory buffer');
 
-        // Read image file
-        const imageBuffer = fs.readFileSync(imagePath);
+        // Get image buffer directly from memory (no file system needed)
+        const imageBuffer = req.file.buffer;
         const base64Image = imageBuffer.toString('base64');
 
         // Use Gemini 1.5 Flash - Stable FREE MODEL with vision support
@@ -96,7 +95,6 @@ Return ONLY the JSON object. No explanations.`;
             parsedData = JSON.parse(cleanedResponse);
         } catch (parseError) {
             console.error('JSON parse error:', parseError);
-            fs.unlinkSync(imagePath);
             return res.status(400).json({
                 success: false,
                 message: 'Could not parse bill image. Please ensure the image is clear and contains item details.',
@@ -106,7 +104,6 @@ Return ONLY the JSON object. No explanations.`;
 
         // Validate structure
         if (!parsedData.items || !Array.isArray(parsedData.items)) {
-            fs.unlinkSync(imagePath);
             return res.status(400).json({
                 success: false,
                 message: 'Invalid bill format. Please upload a clear bill image with item details.'
@@ -116,9 +113,6 @@ Return ONLY the JSON object. No explanations.`;
         // Check confidence
         const confidence = parsedData.confidence || 0;
         const needsReview = confidence < 0.7;
-
-        // Delete uploaded file
-        fs.unlinkSync(imagePath);
 
         // Log for debugging
         console.log('📊 Parsed items:', parsedData.items.length);
@@ -146,15 +140,8 @@ Return ONLY the JSON object. No explanations.`;
             name: error.name
         });
         
-        // Clean up uploaded file
-        if (req.file && req.file.path) {
-            try {
-                fs.unlinkSync(req.file.path);
-            } catch (unlinkError) {
-                console.error('Error deleting file:', unlinkError);
-            }
-        }
-
+        // No file cleanup needed (using memory storage)
+        
         return res.status(500).json({
             success: false,
             message: 'Error parsing bill: ' + error.message
