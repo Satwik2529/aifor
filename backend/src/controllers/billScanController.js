@@ -26,8 +26,8 @@ const parseBillImage = async (req, res) => {
         const imageBuffer = fs.readFileSync(imagePath);
         const base64Image = imageBuffer.toString('base64');
 
-        // Use Gemini 2.0 Flash - FREE MODEL with vision support
-        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+        // Use Gemini 1.5 Flash - Stable FREE MODEL with vision support
+        const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
         const prompt = `You are analyzing a wholesale purchase bill/invoice image.
 
@@ -139,7 +139,12 @@ Return ONLY the JSON object. No explanations.`;
         });
 
     } catch (error) {
-        console.error('Bill parsing error:', error);
+        console.error('❌ Bill parsing error:', error);
+        console.error('Error details:', {
+            message: error.message,
+            stack: error.stack,
+            name: error.name
+        });
         
         // Clean up uploaded file
         if (req.file && req.file.path) {
