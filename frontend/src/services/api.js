@@ -165,6 +165,32 @@ export const inventoryAPI = {
         const response = await api.delete(`/inventory/${id}`);
         return response.data;
     },
+
+    // Upload inventory image for AI processing (direct add)
+    uploadInventoryImage: async (formData) => {
+        const response = await api.post('/inventory/upload-image', formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data'
+            }
+        });
+        return response.data;
+    },
+
+    // Bill scanning - Parse bill image (Step 1: Extract items)
+    parseBillImage: async (formData) => {
+        const response = await api.post('/inventory/parse-bill', formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data'
+            }
+        });
+        return response.data;
+    },
+
+    // Bill scanning - Execute bill items (Step 2: Save to DB after confirmation)
+    executeBillItems: async (items) => {
+        const response = await api.post('/inventory/execute-bill', { items });
+        return response.data;
+    },
 };
 
 // Customers API calls

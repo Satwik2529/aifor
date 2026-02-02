@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, Filter, Download, Edit, Trash2, Package, AlertTriangle, X } from 'lucide-react';
+import { Plus, Search, Filter, Download, Edit, Trash2, Package, AlertTriangle, X, Image, FileText } from 'lucide-react';
 import { inventoryAPI } from '../services/api';
 import html2pdf from 'html2pdf.js';
 import toast, { Toaster } from 'react-hot-toast';
@@ -10,6 +10,13 @@ const Inventory = () => {
     const [inventory, setInventory] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
+    const [showImageUploadModal, setShowImageUploadModal] = useState(false);
+    const [showBillScanModal, setShowBillScanModal] = useState(false);
+    const [uploadingImage, setUploadingImage] = useState(false);
+    const [selectedImage, setSelectedImage] = useState(null);
+    const [imagePreview, setImagePreview] = useState(null);
+    const [parsedBillItems, setParsedBillItems] = useState(null);
+    const [billConfidence, setBillConfidence] = useState(0);
     const [editingItem, setEditingItem] = useState(null);
     const [showFilterModal, setShowFilterModal] = useState(false);
     const [itemsToShow, setItemsToShow] = useState(15); // Show 15 items initially
@@ -102,6 +109,161 @@ const Inventory = () => {
                 });
             }
         }
+    };
+
+    // Handle image selection
+    const handleImageSelect = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            setSelectedImage(file);
+            // Create preview
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setImagePreview(reader.result);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    // Upload and process image
+    const handleImageUpload = async () => {
+        if (!selectedImage) {
+            toast.error('Please select an image first');
+            return;
+        }
+
+        try {
+            setUploadingImage(true);
+            const formData = new FormData();
+            formData.append('image', selectedImage);
+
+            const response = await inventoryAPI.uploadInventoryImage(formData);
+
+            if (response.success) {
+                toast.success(
+                    `Successfully added ${response.data.summary.successful} item(s) from image!`,
+                    { duration: 5000 }
+                );
+                
+                // Show details of added items
+                if (response.data.items && response.data.items.length > 0) {
+                    const itemsList = response.data.items.map(item => 
+                        `${item.item_name}: ${item.stock_qty} units @ ₹${item.selling_price}`
+                    ).join('\n');
+                    console.log('Added items:\n', itemsList);
+                }
+
+                // Show errors if any
+                if (response.data.errors && response.data.errors.length > 0) {
+                    toast.error(
+                        `${response.data.errors.length} item(s) failed to process`,
+                        { duration: 4000 }
+                    );
+                }
+
+                // Close modal and refresh
+                setShowImageUploadModal(false);
+                setSelectedImage(null);
+                setImagePreview(null);
+                fetchInventory();
+            }
+        } catch (error) {
+            console.error('Error uploading image:', error);
+            toast.error(error.response?.data?.message || 'Failed to process image');
+        } finally {
+            setUploadingImage(false);
+        }
+    };
+
+    // BILL SCANNING - Step 1: Parse bill image
+    const handleBillScan = async () => {
+        if (!selectedImage) {
+            toast.error('Please select a bill image first');
+            return;
+        }
+
+        try {
+            setUploadingImage(true);
+            const formData = new FormData();
+            formData.append('image', selectedImage);
+
+            const response = await inventoryAPI.parseBillImage(formData);
+
+            if (response.success) {
+                // Store parsed items for confirmation
+                setParsedBillItems(response.data.items);
+                setBillConfidence(response.data.confidence);
+                
+                toast.success(response.message, { duration: 3000 });
+                
+                // Show low confidence warning
+                if (response.data.needsReview) {
+                    toast.warning('Low confidence - Please review items carefully', { duration: 4000 });
+                }
+            }
+        } catch (error) {
+            console.error('Error parsing bill:', error);
+            toast.error(error.response?.data?.message || 'Failed to parse bill image');
+            setShowBillScanModal(false);
+            setSelectedImage(null);
+            setImagePreview(null);
+        } finally {
+            setUploadingImage(false);
+        }
+    };
+
+    // BILL SCANNING - Step 2: Execute confirmed items
+    const handleBillConfirm = async () => {
+        if (!parsedBillItems || parsedBillItems.length === 0) {
+            toast.error('No items to confirm');
+            return;
+        }
+
+        try {
+            setUploadingImage(true);
+            const response = await inventoryAPI.executeBillItems(parsedBillItems);
+
+            if (response.success) {
+                toast.success(
+                    `${response.data.summary.created + response.data.summary.updated} item(s) added to inventory!`,
+                    { duration: 5000 }
+                );
+
+                // Show details
+                if (response.data.created.length > 0) {
+                    console.log('Created items:', response.data.created);
+                }
+                if (response.data.updated.length > 0) {
+                    console.log('Updated items:', response.data.updated);
+                }
+
+                // Close modal and refresh
+                setShowBillScanModal(false);
+                setSelectedImage(null);
+                setImagePreview(null);
+                setParsedBillItems(null);
+                setBillConfidence(0);
+                fetchInventory();
+            }
+        } catch (error) {
+            console.error('Error executing bill items:', error);
+            toast.error(error.response?.data?.message || 'Failed to add items to inventory');
+        } finally {
+            setUploadingImage(false);
+        }
+    };
+
+    // Remove item from parsed bill
+    const handleRemoveBillItem = (index) => {
+        const updatedItems = parsedBillItems.filter((_, i) => i !== index);
+        setParsedBillItems(updatedItems);
+    };
+
+    // Edit bill item
+    const handleEditBillItem = (index, field, value) => {
+        const updatedItems = [...parsedBillItems];
+        updatedItems[index][field] = value;
+        setParsedBillItems(updatedItems);
     };
 
     const categories = [
@@ -247,13 +409,22 @@ const Inventory = () => {
                     <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('inventory.title')}</h1>
                     <p className="text-gray-600 dark:text-gray-400">{t('inventory.subtitle')}</p>
                 </div>
-                <button
-                    onClick={() => setShowModal(true)}
-                    className="btn-primary flex items-center gap-2"
-                >
-                    <Plus className="h-4 w-4" />
-                    {t('inventory.addItem')}
-                </button>
+                <div className="flex gap-3">
+                    <button
+                        onClick={() => setShowBillScanModal(true)}
+                        className="bg-gradient-to-r from-green-600 to-teal-600 text-white px-4 py-2 rounded-lg hover:from-green-700 hover:to-teal-700 transition-all flex items-center gap-2 shadow-md"
+                    >
+                        <FileText className="h-4 w-4" />
+                        Scan Bill
+                    </button>
+                    <button
+                        onClick={() => setShowModal(true)}
+                        className="btn-primary flex items-center gap-2"
+                    >
+                        <Plus className="h-4 w-4" />
+                        {t('inventory.addItem')}
+                    </button>
+                </div>
             </div>
 
             {/* Stats Cards */}
@@ -483,6 +654,335 @@ const Inventory = () => {
                 </>
             )}
             </div>
+
+            {/* Bill Scanner Modal */}
+            {showBillScanModal && (
+                <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
+                    <div className="relative mx-auto p-6 border w-full max-w-4xl shadow-2xl rounded-xl bg-white max-h-[90vh] overflow-y-auto">
+                        <div className="flex justify-between items-center mb-6">
+                            <div>
+                                <h3 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                                    <FileText className="h-6 w-6 text-green-600" />
+                                    Scan Wholesale Bill
+                                </h3>
+                                <p className="text-sm text-gray-600 mt-1">
+                                    Upload bill image → AI extracts items → Review → Confirm to add
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => {
+                                    setShowBillScanModal(false);
+                                    setSelectedImage(null);
+                                    setImagePreview(null);
+                                    setParsedBillItems(null);
+                                    setBillConfidence(0);
+                                }}
+                                className="text-gray-400 hover:text-gray-600 transition-colors"
+                            >
+                                <X className="h-6 w-6" />
+                            </button>
+                        </div>
+
+                        {!parsedBillItems ? (
+                            /* Step 1: Upload Bill Image */
+                            <div className="space-y-6">
+                                <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-green-500 transition-colors">
+                                    {imagePreview ? (
+                                        <div className="space-y-4">
+                                            <img 
+                                                src={imagePreview} 
+                                                alt="Bill Preview" 
+                                                className="max-h-96 mx-auto rounded-lg shadow-md"
+                                            />
+                                            <button
+                                                onClick={() => {
+                                                    setSelectedImage(null);
+                                                    setImagePreview(null);
+                                                }}
+                                                className="text-red-600 hover:text-red-700 text-sm font-medium"
+                                            >
+                                                Remove Image
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div>
+                                            <FileText className="h-16 w-16 mx-auto text-gray-400 mb-4" />
+                                            <p className="text-gray-600 mb-2">Upload wholesale purchase bill</p>
+                                            <p className="text-sm text-gray-500">PNG, JPG, GIF up to 10MB</p>
+                                            <input
+                                                type="file"
+                                                accept="image/*"
+                                                onChange={handleImageSelect}
+                                                className="hidden"
+                                                id="bill-upload"
+                                            />
+                                            <label
+                                                htmlFor="bill-upload"
+                                                className="mt-4 inline-block bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 cursor-pointer transition-colors"
+                                            >
+                                                Select Bill Image
+                                            </label>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                                    <h4 className="font-semibold text-green-900 mb-2">📋 What we extract:</h4>
+                                    <ul className="text-sm text-green-800 space-y-1">
+                                        <li>• Item names from the bill</li>
+                                        <li>• Quantities purchased</li>
+                                        <li>• Purchase prices (cost per unit)</li>
+                                        <li>• You can review and edit before adding</li>
+                                    </ul>
+                                </div>
+
+                                <div className="flex gap-3 justify-end">
+                                    <button
+                                        onClick={() => {
+                                            setShowBillScanModal(false);
+                                            setSelectedImage(null);
+                                            setImagePreview(null);
+                                        }}
+                                        className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                                        disabled={uploadingImage}
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={handleBillScan}
+                                        disabled={!selectedImage || uploadingImage}
+                                        className="px-6 py-2 bg-gradient-to-r from-green-600 to-teal-600 text-white rounded-lg hover:from-green-700 hover:to-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2"
+                                    >
+                                        {uploadingImage ? (
+                                            <>
+                                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                                                Scanning...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <FileText className="h-4 w-4" />
+                                                Scan Bill
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
+                            </div>
+                        ) : (
+                            /* Step 2: Review & Confirm Extracted Items */
+                            <div className="space-y-6">
+                                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <h4 className="font-semibold text-blue-900">✅ Extracted {parsedBillItems.length} item(s) from bill</h4>
+                                            <p className="text-sm text-blue-700 mt-1">
+                                                Confidence: {(billConfidence * 100).toFixed(0)}% 
+                                                {billConfidence < 0.7 && ' - Please review carefully'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="border border-gray-200 rounded-lg overflow-hidden">
+                                    <table className="w-full">
+                                        <thead className="bg-gray-50">
+                                            <tr>
+                                                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Item Name</th>
+                                                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Quantity</th>
+                                                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Purchase Price</th>
+                                                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {parsedBillItems.map((item, index) => (
+                                                <tr key={index} className="border-t border-gray-200">
+                                                    <td className="px-4 py-3">
+                                                        <input
+                                                            type="text"
+                                                            value={item.item_name}
+                                                            onChange={(e) => handleEditBillItem(index, 'item_name', e.target.value)}
+                                                            className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                                                        />
+                                                    </td>
+                                                    <td className="px-4 py-3">
+                                                        <input
+                                                            type="number"
+                                                            value={item.quantity}
+                                                            onChange={(e) => handleEditBillItem(index, 'quantity', parseInt(e.target.value))}
+                                                            className="w-20 px-2 py-1 border border-gray-300 rounded text-sm"
+                                                        />
+                                                    </td>
+                                                    <td className="px-4 py-3">
+                                                        <input
+                                                            type="number"
+                                                            value={item.purchase_price}
+                                                            onChange={(e) => handleEditBillItem(index, 'purchase_price', parseInt(e.target.value))}
+                                                            className="w-24 px-2 py-1 border border-gray-300 rounded text-sm"
+                                                        />
+                                                    </td>
+                                                    <td className="px-4 py-3">
+                                                        <button
+                                                            onClick={() => handleRemoveBillItem(index)}
+                                                            className="text-red-600 hover:text-red-700 text-sm"
+                                                        >
+                                                            Remove
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <div className="flex gap-3 justify-end">
+                                    <button
+                                        onClick={() => {
+                                            setParsedBillItems(null);
+                                            setBillConfidence(0);
+                                        }}
+                                        className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                                        disabled={uploadingImage}
+                                    >
+                                        Back
+                                    </button>
+                                    <button
+                                        onClick={handleBillConfirm}
+                                        disabled={uploadingImage || parsedBillItems.length === 0}
+                                        className="px-6 py-2 bg-gradient-to-r from-green-600 to-teal-600 text-white rounded-lg hover:from-green-700 hover:to-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2"
+                                    >
+                                        {uploadingImage ? (
+                                            <>
+                                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                                                Adding...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Package className="h-4 w-4" />
+                                                Confirm & Add to Inventory
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {/* Image Upload Modal */}
+            {showImageUploadModal && (
+                <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center">
+                    <div className="relative mx-auto p-6 border w-11/12 md:w-2/3 lg:w-1/2 shadow-2xl rounded-xl bg-white">
+                        <div className="flex justify-between items-center mb-6">
+                            <div>
+                                <h3 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                                    <Image className="h-6 w-6 text-purple-600" />
+                                    Upload Inventory Image
+                                </h3>
+                                <p className="text-sm text-gray-600 mt-1">
+                                    Upload an image with product details (name, quantity, cost price, selling price, category)
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => {
+                                    setShowImageUploadModal(false);
+                                    setSelectedImage(null);
+                                    setImagePreview(null);
+                                }}
+                                className="text-gray-400 hover:text-gray-600 transition-colors"
+                            >
+                                <X className="h-6 w-6" />
+                            </button>
+                        </div>
+
+                        <div className="space-y-6">
+                            {/* Image Upload Area */}
+                            <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-purple-500 transition-colors">
+                                {imagePreview ? (
+                                    <div className="space-y-4">
+                                        <img 
+                                            src={imagePreview} 
+                                            alt="Preview" 
+                                            className="max-h-96 mx-auto rounded-lg shadow-md"
+                                        />
+                                        <button
+                                            onClick={() => {
+                                                setSelectedImage(null);
+                                                setImagePreview(null);
+                                            }}
+                                            className="text-red-600 hover:text-red-700 text-sm font-medium"
+                                        >
+                                            Remove Image
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div>
+                                        <Image className="h-16 w-16 mx-auto text-gray-400 mb-4" />
+                                        <p className="text-gray-600 mb-2">Click to upload or drag and drop</p>
+                                        <p className="text-sm text-gray-500">PNG, JPG, GIF up to 10MB</p>
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            onChange={handleImageSelect}
+                                            className="hidden"
+                                            id="image-upload"
+                                        />
+                                        <label
+                                            htmlFor="image-upload"
+                                            className="mt-4 inline-block bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700 cursor-pointer transition-colors"
+                                        >
+                                            Select Image
+                                        </label>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Info Box */}
+                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                <h4 className="font-semibold text-blue-900 mb-2">📋 Image Requirements:</h4>
+                                <ul className="text-sm text-blue-800 space-y-1">
+                                    <li>• Product name clearly visible</li>
+                                    <li>• Quantity/Stock information</li>
+                                    <li>• Cost Price (CP) - what you paid</li>
+                                    <li>• Selling Price (SP) - what customers pay</li>
+                                    <li>• Category (optional but helpful)</li>
+                                </ul>
+                            </div>
+
+                            {/* Action Buttons */}
+                            <div className="flex gap-3 justify-end">
+                                <button
+                                    onClick={() => {
+                                        setShowImageUploadModal(false);
+                                        setSelectedImage(null);
+                                        setImagePreview(null);
+                                    }}
+                                    className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                                    disabled={uploadingImage}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleImageUpload}
+                                    disabled={!selectedImage || uploadingImage}
+                                    className="px-6 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2"
+                                >
+                                    {uploadingImage ? (
+                                        <>
+                                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                                            Processing...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Image className="h-4 w-4" />
+                                            Process Image
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Inventory Modal */}
             {showModal && (
