@@ -564,7 +564,7 @@ biznova/
 ### Backend (.env)
 ```env
 # MongoDB
-MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/dbname
+
 
 # Server
 PORT=5000
