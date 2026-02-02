@@ -1,7 +1,7 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const Inventory = require('../models/Inventory');
-const fs = require('fs');
 
+// Initialize Gemini AI with v1 API (stable)
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 /**
@@ -25,8 +25,10 @@ const parseBillImage = async (req, res) => {
         const imageBuffer = req.file.buffer;
         const base64Image = imageBuffer.toString('base64');
 
-        // Use Gemini 1.5 Flash Latest - Stable FREE MODEL with vision support
-        const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash-latest' });
+        // Use Gemini Pro Vision - Most stable model with vision support
+        const model = genAI.getGenerativeModel({ 
+            model: 'gemini-pro-vision'
+        });
 
         const prompt = `You are analyzing a wholesale purchase bill/invoice image.
 
