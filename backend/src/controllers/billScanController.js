@@ -25,8 +25,8 @@ const parseBillImage = async (req, res) => {
         const imageBuffer = req.file.buffer;
         const base64Image = imageBuffer.toString('base64');
 
-        // Use Gemini 1.5 Flash - Stable FREE MODEL with vision support
-        const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+        // Use Gemini 1.5 Flash Latest - Stable FREE MODEL with vision support
+        const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash-latest' });
 
         const prompt = `You are analyzing a wholesale purchase bill/invoice image.
 
