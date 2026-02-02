@@ -35,16 +35,18 @@ STRICT EXTRACTION RULES:
 1. Extract ONLY clearly visible items from the bill
 2. Do NOT guess missing values - return null if unsure
 3. Ignore: GST, totals, addresses, vendor details, dates
-4. Focus ONLY on:
+4. Focus on extracting:
    - Item name (product name)
    - Quantity (number of units purchased)
-   - Purchase price (cost per unit in rupees)
+   - Cost Price (purchase price per unit in rupees)
+   - Selling Price (if visible, otherwise estimate 20% markup)
+   - Category (guess from item name: Food & Beverages, Electronics, Clothing, Books, Home & Garden, Sports, Beauty & Health, Automotive, Office Supplies, Other)
 
 IMPORTANT:
-- Extract only items with ALL three fields visible
-- If quantity or price is unclear, skip that item
-- Do NOT make assumptions
-- Return empty array if nothing is clear
+- Extract only items with at least item name, quantity, and cost price visible
+- If selling price is not visible, calculate as: cost_price * 1.2 (20% markup)
+- Assign appropriate category based on item type
+- Do NOT make wild assumptions
 
 OUTPUT FORMAT (JSON only, no markdown):
 {
@@ -52,15 +54,19 @@ OUTPUT FORMAT (JSON only, no markdown):
     {
       "item_name": "Parle-G Biscuit",
       "quantity": 20,
-      "purchase_price": 8
+      "cost_price": 8,
+      "selling_price": 10,
+      "category": "Food & Beverages"
     }
   ],
   "confidence": 0.85
 }
 
+Valid categories: Food & Beverages, Electronics, Clothing, Books, Home & Garden, Sports, Beauty & Health, Automotive, Office Supplies, Other
+
 Confidence scoring:
-- 0.9-1.0: All items clearly visible
-- 0.7-0.89: Most items clear, some unclear
+- 0.9-1.0: All items clearly visible with all fields
+- 0.7-0.89: Most items clear, some fields estimated
 - Below 0.7: Poor quality, manual review needed
 
 Return ONLY the JSON object. No explanations.`;
@@ -180,19 +186,29 @@ const executeBillItems = async (req, res) => {
         for (const item of items) {
             try {
                 // Validate item data
-                if (!item.item_name || !item.quantity || !item.purchase_price) {
+                if (!item.item_name || !item.quantity || !item.cost_price) {
                     results.errors.push({
                         item: item.item_name || 'Unknown',
-                        error: 'Missing required fields'
+                        error: 'Missing required fields (name, quantity, cost price)'
                     });
                     continue;
                 }
 
                 // Validate positive numbers
-                if (item.quantity <= 0 || item.purchase_price <= 0) {
+                if (item.quantity <= 0 || item.cost_price <= 0) {
                     results.errors.push({
                         item: item.item_name,
-                        error: 'Quantity and price must be positive'
+                        error: 'Quantity and cost price must be positive'
+                    });
+                    continue;
+                }
+
+                // Ensure selling price is higher than cost price
+                const sellingPrice = item.selling_price || Math.round(item.cost_price * 1.2);
+                if (sellingPrice <= item.cost_price) {
+                    results.errors.push({
+                        item: item.item_name,
+                        error: 'Selling price must be higher than cost price'
                     });
                     continue;
                 }
@@ -206,10 +222,13 @@ const executeBillItems = async (req, res) => {
                 if (existingItem) {
                     // Update existing item - increase stock
                     existingItem.stock_qty += item.quantity;
+                    existingItem.cost_price = item.cost_price;
+                    existingItem.selling_price = sellingPrice;
+                    existingItem.price_per_unit = sellingPrice;
                     
-                    // Update cost price if provided
-                    if (item.purchase_price) {
-                        existingItem.cost_price = item.purchase_price;
+                    // Update category if provided
+                    if (item.category) {
+                        existingItem.category = item.category;
                     }
                     
                     await existingItem.save();
@@ -218,18 +237,17 @@ const executeBillItems = async (req, res) => {
                         item_name: existingItem.item_name,
                         quantity_added: item.quantity,
                         new_stock: existingItem.stock_qty,
-                        cost_price: existingItem.cost_price
+                        cost_price: existingItem.cost_price,
+                        selling_price: existingItem.selling_price,
+                        category: existingItem.category
                     });
                 } else {
                     // Create new item
-                    // Set selling price as 20% markup if not provided
-                    const sellingPrice = item.selling_price || Math.round(item.purchase_price * 1.2);
-                    
                     const newItem = new Inventory({
                         user_id: userId,
                         item_name: item.item_name,
                         stock_qty: item.quantity,
-                        cost_price: item.purchase_price,
+                        cost_price: item.cost_price,
                         selling_price: sellingPrice,
                         price_per_unit: sellingPrice,
                         category: item.category || 'Other',
@@ -243,7 +261,8 @@ const executeBillItems = async (req, res) => {
                         item_name: newItem.item_name,
                         quantity: newItem.stock_qty,
                         cost_price: newItem.cost_price,
-                        selling_price: newItem.selling_price
+                        selling_price: newItem.selling_price,
+                        category: newItem.category
                     });
                 }
 

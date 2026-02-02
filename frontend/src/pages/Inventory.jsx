@@ -788,41 +788,82 @@ const Inventory = () => {
                                             <tr>
                                                 <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Item Name</th>
                                                 <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Quantity</th>
-                                                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Purchase Price</th>
+                                                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Cost Price (CP)</th>
+                                                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Selling Price (SP)</th>
+                                                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Category</th>
                                                 <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Actions</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             {parsedBillItems.map((item, index) => (
-                                                <tr key={index} className="border-t border-gray-200">
+                                                <tr key={index} className="border-t border-gray-200 hover:bg-gray-50">
                                                     <td className="px-4 py-3">
                                                         <input
                                                             type="text"
                                                             value={item.item_name}
                                                             onChange={(e) => handleEditBillItem(index, 'item_name', e.target.value)}
-                                                            className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                                                            className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                                            placeholder="Item name"
                                                         />
                                                     </td>
                                                     <td className="px-4 py-3">
                                                         <input
                                                             type="number"
                                                             value={item.quantity}
-                                                            onChange={(e) => handleEditBillItem(index, 'quantity', parseInt(e.target.value))}
-                                                            className="w-20 px-2 py-1 border border-gray-300 rounded text-sm"
+                                                            onChange={(e) => handleEditBillItem(index, 'quantity', parseInt(e.target.value) || 0)}
+                                                            className="w-20 px-2 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                                            placeholder="Qty"
+                                                            min="1"
                                                         />
                                                     </td>
                                                     <td className="px-4 py-3">
-                                                        <input
-                                                            type="number"
-                                                            value={item.purchase_price}
-                                                            onChange={(e) => handleEditBillItem(index, 'purchase_price', parseInt(e.target.value))}
-                                                            className="w-24 px-2 py-1 border border-gray-300 rounded text-sm"
-                                                        />
+                                                        <div className="flex items-center">
+                                                            <span className="text-gray-500 mr-1">₹</span>
+                                                            <input
+                                                                type="number"
+                                                                value={item.cost_price}
+                                                                onChange={(e) => handleEditBillItem(index, 'cost_price', parseInt(e.target.value) || 0)}
+                                                                className="w-24 px-2 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                                                placeholder="Cost"
+                                                                min="1"
+                                                            />
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-4 py-3">
+                                                        <div className="flex items-center">
+                                                            <span className="text-gray-500 mr-1">₹</span>
+                                                            <input
+                                                                type="number"
+                                                                value={item.selling_price}
+                                                                onChange={(e) => handleEditBillItem(index, 'selling_price', parseInt(e.target.value) || 0)}
+                                                                className="w-24 px-2 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                                                placeholder="Selling"
+                                                                min="1"
+                                                            />
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-4 py-3">
+                                                        <select
+                                                            value={item.category || 'Other'}
+                                                            onChange={(e) => handleEditBillItem(index, 'category', e.target.value)}
+                                                            className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                                        >
+                                                            <option value="Food & Beverages">Food & Beverages</option>
+                                                            <option value="Electronics">Electronics</option>
+                                                            <option value="Clothing">Clothing</option>
+                                                            <option value="Books">Books</option>
+                                                            <option value="Home & Garden">Home & Garden</option>
+                                                            <option value="Sports">Sports</option>
+                                                            <option value="Beauty & Health">Beauty & Health</option>
+                                                            <option value="Automotive">Automotive</option>
+                                                            <option value="Office Supplies">Office Supplies</option>
+                                                            <option value="Other">Other</option>
+                                                        </select>
                                                     </td>
                                                     <td className="px-4 py-3">
                                                         <button
                                                             onClick={() => handleRemoveBillItem(index)}
-                                                            className="text-red-600 hover:text-red-700 text-sm"
+                                                            className="text-red-600 hover:text-red-700 text-sm font-medium"
                                                         >
                                                             Remove
                                                         </button>
@@ -831,6 +872,25 @@ const Inventory = () => {
                                             ))}
                                         </tbody>
                                     </table>
+                                </div>
+
+                                {/* Profit Preview */}
+                                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                                    <h4 className="font-semibold text-green-900 mb-2">💰 Profit Preview:</h4>
+                                    <div className="space-y-1 text-sm">
+                                        {parsedBillItems.map((item, index) => {
+                                            const profit = (item.selling_price || 0) - (item.cost_price || 0);
+                                            const margin = item.selling_price > 0 ? ((profit / item.selling_price) * 100).toFixed(1) : 0;
+                                            return (
+                                                <div key={index} className="flex justify-between text-green-800">
+                                                    <span>{item.item_name}</span>
+                                                    <span className="font-semibold">
+                                                        ₹{profit} profit/unit ({margin}% margin)
+                                                    </span>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
                                 </div>
 
                                 <div className="flex gap-3 justify-end">

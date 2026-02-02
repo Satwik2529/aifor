@@ -1,93 +1,59 @@
-# Dependencies
+# ===================================================================
+# BizNova Project - .gitignore
+# ===================================================================
+
+# #######################
+# ## Environment Variables & Secrets
+# #######################
+# CRITICAL: Never commit these files!
+.env
+.env.local
+.env.development
+.env.production
+.env.test
+backend/.env
+backend/.env.*
+frontend/.env
+frontend/.env.*
+!.env.example
+!backend/.env.example
+!frontend/.env.example
+
+# API Keys & Secrets
+*.pem
+*.key
+*.p12
+*.pfx
+config/secrets.json
+secrets/
+
+# #######################
+# ## Dependencies
+# #######################
+node_modules/
 /node_modules
 /backend/node_modules
-
-# ===================================================================
-# A general-purpose .gitignore file.
-#
-# To use, copy this file to your project's root directory and
-# rename it to .gitignore. Uncomment or add what you need.
-# ===================================================================
-
-# #######################
-# ## Operating System Files
-# #######################
-
-# macOS
-.DS_Store
-.AppleDouble
-.LSOverride
-.Trashes
-.AppleDB
-.AppleDesktop
-
-# Windows
-Thumbs.db
-ehthumbs.db
-desktop.ini
-$RECYCLE.BIN/
-ntuser.dat
-ntuser.dat.log*
-
-# Linux
-*~
-.directory
-.Trash-*
-
-# #######################
-# ## Dependency Directories
-# #######################
-# These should be installed by a package manager, not stored in Git.
-
-node_modules/
+/frontend/node_modules
 bower_components/
 jspm_packages/
-vendor/ # For PHP Composer
+vendor/
+
+# Package lock files (optional - uncomment if you want to ignore)
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
 
 # #######################
 # ## Build & Compiled Output
 # #######################
-# General
 build/
 dist/
-bin/
+/frontend/build
+/backend/dist
 out/
-target/ # For Java/Maven
-
-# Java
-*.class
-*.jar
-*.war
-*.ear
-
-# C, C++, etc.
-*.o
-*.a
-*.so
-*.obj
-*.exe
-
-# #######################
-# ## IDE & Editor Configs
-# #######################
-
-# VS Code
-.vscode/*
-!.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
-!.vscode/extensions.json
-*.code-workspace
-
-# JetBrains (IntelliJ, PyCharm, WebStorm, etc.)
-.idea/
-
-# Sublime Text
-*.sublime-project
-*.sublime-workspace
-
-# Atom
-.atom/
+target/
+*.bundle.js
+*.bundle.css
 
 # #######################
 # ## Logs & Temporary Files
@@ -101,16 +67,106 @@ pnpm-debug.log*
 lerna-debug.log*
 *.tmp
 *.temp
+.cache/
 
 # #######################
-# ## Secrets & Environment Variables
+# ## Uploaded Files & User Content
 # #######################
-# Never commit secrets!
-.env
-.env.*
-!.env.example
-*.pem
-*.key
+# Don't commit uploaded images/files
+/backend/uploads/*
+!/backend/uploads/.gitkeep
+/backend/uploads/inventory/*
+!/backend/uploads/inventory/.gitkeep
+
+# #######################
+# ## Database Files
+# #######################
+# Local database files (if using SQLite or similar)
+*.sqlite
+*.sqlite3
+*.db
+data/
+mongodb-data/
+
+# Database dumps
+*.sql
+*.dump
+*.bak
+
+# #######################
+# ## Test Coverage & Reports
+# #######################
+coverage/
+.nyc_output/
+junit.xml
+test-results/
+*.lcov
+
+# #######################
+# ## IDE & Editor Configs
+# #######################
+
+# VS Code
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+.history/
+
+# JetBrains (IntelliJ, PyCharm, WebStorm, etc.)
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Atom
+.atom/
+
+# Vim
+*.swp
+*.swo
+*~
+
+# Emacs
+*~
+\#*\#
+.\#*
+
+# #######################
+# ## Operating System Files
+# #######################
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+.Trashes
+.AppleDB
+.AppleDesktop
+._*
+.Spotlight-V100
+.TemporaryItems
+
+# Windows
+Thumbs.db
+ehthumbs.db
+desktop.ini
+$RECYCLE.BIN/
+*.lnk
+ntuser.dat
+ntuser.dat.log*
+
+# Linux
+*~
+.directory
+.Trash-*
+.nfs*
 
 # #######################
 # ## Language-Specific
@@ -124,24 +180,133 @@ __pycache__/
 .Python
 env/
 venv/
+ENV/
 pip-log.txt
-pip-delete-this-directory.txt
 .eggs/
 *.egg-info/
+.pytest_cache/
 
-# Sass
+# Java
+*.class
+*.jar
+*.war
+*.ear
+
+# C/C++
+*.o
+*.a
+*.so
+*.obj
+*.exe
+*.dll
+
+# Sass/SCSS
 .sass-cache/
+*.css.map
 
 # #######################
-# ## Other
+# ## Frontend Specific
 # #######################
 
-# Test reports
-coverage/
-.nyc_output/
-junit.xml
+# React build
+/frontend/build
+/frontend/.cache
+
+# Next.js
+.next/
+next-env.d.ts
+
+# Nuxt.js
+.nuxt/
+.output/
+
+# Gatsby
+.cache/
+public/
+
+# Vite
+/frontend/dist
+
+# #######################
+# ## Backend Specific
+# #######################
+
+# Express sessions
+sessions/
+
+# PM2
+.pm2/
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# #######################
+# ## Documentation (Optional)
+# #######################
+# Uncomment if you don't want to commit certain docs
+# docs/build/
+# *.pdf
+
+# #######################
+# ## Miscellaneous
+# #######################
 
 # Archives
 *.zip
 *.tar.gz
 *.rar
+*.7z
+
+# Backup files
+*.bak
+*.backup
+*.old
+
+# Debug files
+debug/
+*.debug
+
+# Temporary folders
+tmp/
+temp/
+
+# Lock files (optional)
+# .lock
+
+# #######################
+# ## Project-Specific
+# #######################
+
+# Test files (if you don't want to commit)
+# backend/test-*.js
+# backend/debug-*.js
+
+# Migration scripts (if one-time use)
+# backend/migrate-*.js
+
+# Local configuration
+config.local.js
+config.local.json
+
+# #######################
+# ## Keep These Files
+# #######################
+# Use ! to force-include important files
+
+# Keep example environment files
+!.env.example
+!backend/.env.example
+!frontend/.env.example
+
+# Keep README and documentation
+!README.md
+!QUICK_DEPLOYMENT_STEPS.txt
+
+# Keep package.json files
+!package.json
+!backend/package.json
+!frontend/package.json
+
+# Keep gitkeep files in empty directories
+!.gitkeep
