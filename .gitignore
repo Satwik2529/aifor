@@ -222,7 +222,7 @@ next-env.d.ts
 
 # Gatsby
 .cache/
-public/
+# public/ # Commented out - we need frontend/public for React
 
 # Vite
 /frontend/dist
