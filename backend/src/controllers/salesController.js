@@ -96,7 +96,6 @@ const salesController = {
       // Check for validation errors
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
-        console.log('❌ Validation errors:', errors.array());
         return res.status(400).json({
           success: false,
           message: 'Validation failed',
@@ -107,23 +106,14 @@ const salesController = {
       const userId = req.user._id;
       const { items, payment_method, date, customer_name, customer_phone } = req.body;
 
-      console.log('=== Create Sale Debug ===');
-      console.log('User ID:', userId);
-      console.log('Items received:', JSON.stringify(items, null, 2));
-
       // Validate and prepare items with cost prices from inventory
       const saleItems = [];
       for (const item of items) {
-        console.log(`Processing item: ${item.item_name}, quantity: ${item.quantity} (type: ${typeof item.quantity})`);
-        
         // Parse and validate quantity
         const parsedQty = typeof item.quantity === 'string' ? parseFloat(item.quantity) : item.quantity;
         
-        console.log(`Parsed quantity: ${parsedQty} (type: ${typeof parsedQty})`);
-        
         // Check if parsedQty is a valid number (not NaN, not null, not undefined)
         if (parsedQty === null || parsedQty === undefined || isNaN(parsedQty) || !isValidQuantity(parsedQty)) {
-          console.log(`❌ Invalid quantity detected for ${item.item_name}`);
           return res.status(400).json({
             success: false,
             message: `Invalid quantity for '${item.item_name}'`,
@@ -133,7 +123,6 @@ const salesController = {
 
         // Normalize quantity
         const normalizedQty = normalize(parsedQty);
-        console.log(`Normalized quantity: ${normalizedQty}`);
 
         // Find inventory item
         const inventoryItem = await Inventory.findOne({

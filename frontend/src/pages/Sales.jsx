@@ -86,26 +86,17 @@ const Sales = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         
-        console.log('=== Sales Form Submit Debug ===');
-        console.log('Raw formData:', JSON.stringify(formData, null, 2));
-        
         // Validate all items have valid quantities
         const invalidItems = formData.items.filter(item => {
             // Check if quantity is empty or invalid
             if (item.quantity === '' || item.quantity === null || item.quantity === undefined) {
-                console.log('Invalid item (empty):', item.item_name, 'quantity:', item.quantity);
                 return true;
             }
             const qty = typeof item.quantity === 'string' ? parseFloat(item.quantity) : item.quantity;
-            const isInvalid = isNaN(qty) || qty <= 0;
-            if (isInvalid) {
-                console.log('Invalid item (NaN or <=0):', item.item_name, 'quantity:', item.quantity, 'parsed:', qty);
-            }
-            return isInvalid;
+            return isNaN(qty) || qty <= 0;
         });
         
         if (invalidItems.length > 0) {
-            console.log('Validation failed. Invalid items:', invalidItems.length);
             toast.error('Please enter valid quantities for all items (must be greater than 0)', {
                 duration: 4000,
                 position: 'top-right',
@@ -120,18 +111,13 @@ const Sales = () => {
                 const qty = typeof item.quantity === 'string' ? parseFloat(item.quantity) : item.quantity;
                 const price = typeof item.price_per_unit === 'string' ? parseFloat(item.price_per_unit) : item.price_per_unit;
                 
-                const sanitized = {
+                return {
                     ...item,
                     quantity: Number(qty.toFixed(3)), // Normalize to 3 decimals
                     price_per_unit: Number(price.toFixed(2)) // Normalize to 2 decimals
                 };
-                
-                console.log('Sanitized item:', sanitized.item_name, 'qty:', sanitized.quantity, 'price:', sanitized.price_per_unit);
-                return sanitized;
             })
         };
-        
-        console.log('Sanitized data to send:', JSON.stringify(sanitizedFormData, null, 2));
         
         try {
             if (editingSale) {

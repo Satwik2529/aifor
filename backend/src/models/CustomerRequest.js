@@ -26,7 +26,7 @@ const customerRequestSchema = new mongoose.Schema({
     quantity: {
       type: Number,
       required: [true, 'Quantity is required'],
-      min: [1, 'Quantity must be at least 1']
+      min: [0.001, 'Quantity must be at least 0.001']
     },
     price_per_unit: {
       type: Number,

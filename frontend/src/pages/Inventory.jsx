@@ -57,12 +57,8 @@ const Inventory = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         
-        console.log('=== Inventory Form Submit Debug ===');
-        console.log('Raw formData:', JSON.stringify(formData, null, 2));
-        
         // Validate stock quantity
         if (formData.stock_qty === '' || formData.stock_qty === null || formData.stock_qty === undefined) {
-            console.log('❌ Validation failed: stock_qty is empty/null/undefined');
             toast.error('Please enter a valid stock quantity', {
                 position: 'top-right',
                 duration: 4000,
@@ -71,10 +67,8 @@ const Inventory = () => {
         }
         
         const qty = typeof formData.stock_qty === 'string' ? parseFloat(formData.stock_qty) : formData.stock_qty;
-        console.log('Parsed quantity:', qty, '(type:', typeof qty, ')');
         
         if (isNaN(qty) || qty <= 0) {
-            console.log('❌ Validation failed: qty is NaN or <=0');
             toast.error('Stock quantity must be greater than 0', {
                 position: 'top-right',
                 duration: 4000,
@@ -91,18 +85,14 @@ const Inventory = () => {
             price_per_unit: Number(parseFloat(formData.selling_price).toFixed(2)) // For backward compatibility
         };
         
-        console.log('Sanitized data to send:', JSON.stringify(sanitizedData, null, 2));
-        
         try {
             if (editingItem) {
-                console.log('Updating item:', editingItem._id);
                 await inventoryAPI.updateInventoryItem(editingItem._id, sanitizedData);
                 toast.success(t('inventory.toast.updated'), {
                     position: 'top-right',
                     duration: 3000,
                 });
             } else {
-                console.log('Creating new item');
                 await inventoryAPI.createInventoryItem(sanitizedData);
                 toast.success(t('inventory.toast.created'), {
                     position: 'top-right',

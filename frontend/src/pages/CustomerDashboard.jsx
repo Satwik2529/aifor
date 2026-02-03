@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Send, Package, Clock, CheckCircle, XCircle, Plus, Store, ShoppingCart, AlertCircle, Settings, Bot, MessageCircle, Moon, Sun, Sparkles, FileText, X } from 'lucide-react';
-import toast from 'react-hot-toast';
+import toast, { Toaster } from 'react-hot-toast';
 import NotificationBell from '../components/NotificationBell';
 import FloatingAIChatbot from '../components/FloatingAIChatbot';
 
@@ -215,7 +215,15 @@ const CustomerDashboard = () => {
 
   const handleItemChange = async (index, field, value) => {
     const newItems = [...messageForm.items];
-    newItems[index][field] = field === 'quantity' ? parseInt(value) || 1 : value;
+    
+    if (field === 'quantity') {
+      // Allow fractional quantities
+      const qty = value === '' ? '' : parseFloat(value);
+      newItems[index][field] = isNaN(qty) ? '' : qty;
+    } else {
+      newItems[index][field] = value;
+    }
+    
     setMessageForm({ ...messageForm, items: newItems });
 
     // Check availability after change (debounced)
@@ -430,6 +438,31 @@ const CustomerDashboard = () => {
 
   return (
     <div className={`min-h-screen ${isDarkMode ? 'bg-gray-950' : 'bg-gray-50'}`}>
+      {/* Toast Notifications */}
+      <Toaster 
+        position="top-right"
+        toastOptions={{
+          duration: 4000,
+          style: {
+            background: isDarkMode ? '#1F2937' : '#FFFFFF',
+            color: isDarkMode ? '#F9FAFB' : '#111827',
+            border: isDarkMode ? '1px solid #374151' : '1px solid #E5E7EB',
+          },
+          success: {
+            iconTheme: {
+              primary: '#10B981',
+              secondary: '#FFFFFF',
+            },
+          },
+          error: {
+            iconTheme: {
+              primary: '#EF4444',
+              secondary: '#FFFFFF',
+            },
+          },
+        }}
+      />
+      
       {/* Floating AI Chatbot */}
       <FloatingAIChatbot />
 
@@ -640,12 +673,21 @@ const CustomerDashboard = () => {
                     <div className={`rounded-lg p-4 max-h-48 overflow-y-auto transition-colors ${isDarkMode ? 'bg-gray-700/50 border border-gray-600' : 'bg-gray-50 border border-gray-200'}`}>
                       <h4 className={`text-sm font-medium mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Available Inventory</h4>
                       {retailerInventory.length > 0 ? (
-                        <div className="space-y-1">
+                        <div className="space-y-2">
                           {retailerInventory.map((invItem, idx) => (
-                            <div key={idx} className="flex justify-between items-center text-sm">
-                              <span className={isDarkMode ? 'text-gray-200' : 'text-gray-900'}>{invItem.item_name}</span>
+                            <div key={idx} className={`flex justify-between items-center p-2 rounded-lg ${isDarkMode ? 'bg-gray-800/50' : 'bg-white'}`}>
+                              <div className="flex-1">
+                                <span className={`font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-900'}`}>{invItem.item_name}</span>
+                                <div className="flex items-center space-x-3 mt-1">
+                                  <span className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                    {invItem.quantity} {invItem.unit || 'units'}
+                                  </span>
+                                  <span className={`text-sm font-semibold ${isDarkMode ? 'text-green-400' : 'text-green-600'}`}>
+                                    ₹{invItem.selling_price || invItem.price_per_unit || 0}/{invItem.unit || 'unit'}
+                                  </span>
+                                </div>
+                              </div>
                               <div className="flex items-center space-x-2">
-                                <span className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>{invItem.quantity} {invItem.unit || 'units'}</span>
                                 {invItem.stock_status === 'out_of_stock' && (
                                   <span className="text-xs bg-red-100 text-red-800 px-2 py-0.5 rounded-full">Out of Stock</span>
                                 )}
@@ -692,7 +734,7 @@ const CustomerDashboard = () => {
                               <datalist id={`inventory-items-${index}`}>
                                 {retailerInventory.filter(i => i.stock_status !== 'out_of_stock').map((invItem, idx) => (
                                   <option key={idx} value={invItem.item_name}>
-                                    {invItem.quantity} {invItem.unit || 'units'} available
+                                    {invItem.quantity} {invItem.unit || 'units'} @ ₹{invItem.selling_price || invItem.price_per_unit || 0}/{invItem.unit || 'unit'}
                                   </option>
                                 ))}
                               </datalist>
@@ -703,7 +745,8 @@ const CustomerDashboard = () => {
                                 placeholder="Qty"
                                 value={item.quantity}
                                 onChange={(e) => handleItemChange(index, 'quantity', e.target.value)}
-                                min="1"
+                                min="0.001"
+                                step="0.001"
                                 max={availability && availability.can_order ? availability.available_quantity : undefined}
                                 className={`w-full sm:w-24 px-3 py-2 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 transition-colors ${availability && !availability.can_order
                                   ? 'border-red-500 bg-red-50'
@@ -1102,10 +1145,15 @@ const CustomerDashboard = () => {
                             <input
                               type="number"
                               value={item.quantity}
-                              onChange={(e) => handleEditBillItem(index, 'quantity', parseInt(e.target.value) || 1)}
+                              onChange={(e) => {
+                                const value = e.target.value;
+                                const qty = value === '' ? '' : parseFloat(value);
+                                handleEditBillItem(index, 'quantity', isNaN(qty) ? '' : qty);
+                              }}
                               className={`w-20 px-2 py-1 border rounded text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'border-gray-300'}`}
                               placeholder="Qty"
-                              min="1"
+                              min="0.001"
+                              step="0.001"
                             />
                           </td>
                           <td className="px-4 py-3">
