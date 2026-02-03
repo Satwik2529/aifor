@@ -4,6 +4,7 @@ const CustomerRequest = require('../models/CustomerRequest');
 const CustomerUser = require('../models/CustomerUser');
 const User = require('../models/User');
 const Notification = require('../models/Notification');
+const { normalize, isValidQuantity, normalizeQuantity } = require('../utils/quantityHelper');
 
 // In-memory storage for pending orders (in production, use Redis)
 const pendingOrders = new Map();
@@ -21,10 +22,17 @@ Your purpose is to help customers order groceries and ingredients for cooking.
 
 CAPABILITIES:
 1. Understand dish requests and generate ONLY the most ESSENTIAL ingredient lists
-2. Parse direct grocery lists with items and quantities
+2. Parse direct grocery lists with items and quantities (supports fractional quantities)
 3. Handle mixed requests (dishes + specific groceries)
 4. Support multiple languages (English, Hindi, Telugu, Tamil, etc.)
 5. Provide conversational, friendly service
+
+FRACTIONAL QUANTITY SUPPORT:
+- Rice, Dal, Sugar, Flour → measured in KG (supports 0.5 kg, 2.5 kg, etc.)
+- Oil, Milk, Juice → measured in LITRES (supports 0.5 L, 1.5 L, etc.)
+- Eggs, Bottles, Packets → measured in PIECES (whole numbers only)
+- When customer says "500 grams", convert to 0.5 kg
+- When customer says "250ml", convert to 0.25 litres
 
 ULTRA-STRICT RULES FOR DISH ORDERS:
 - ONLY include ingredients that are ABSOLUTELY ESSENTIAL for the dish
@@ -43,8 +51,8 @@ Always respond in JSON format:
   "items": [
     {
       "item_name": "string (exact name, commonly used)",
-      "quantity": number,
-      "unit": "kg | litres | pieces | packets | grams | ml",
+      "quantity": number (supports decimals: 0.5, 2.5, etc.),
+      "unit": "kg | litre | piece",
       "confidence": "high | medium | low",
       "essential": boolean (true for must-have ingredients)
     }
@@ -57,33 +65,25 @@ Always respond in JSON format:
   "removable_items": ["string"] (items customer can remove)
 }
 
+QUANTITY EXAMPLES:
+- "500 grams rice" → {"item_name": "rice", "quantity": 0.5, "unit": "kg"}
+- "2.5 kg sugar" → {"item_name": "sugar", "quantity": 2.5, "unit": "kg"}
+- "1.5 litres oil" → {"item_name": "oil", "quantity": 1.5, "unit": "litre"}
+- "6 eggs" → {"item_name": "eggs", "quantity": 6, "unit": "piece"}
+
 ULTRA-MINIMAL DISH GUIDELINES (ONLY CORE INGREDIENTS):
-- Chicken Curry: chicken, onions, tomatoes (ONLY these 3)
-- Rice: rice (ONLY rice, nothing else)
-- Dal: dal/lentils, onions (ONLY these 2)
-- Vegetable Curry: specific vegetables mentioned, onions (NO tomatoes unless requested)
-- Biryani: rice, meat/vegetables (ONLY these 2)
-- Roti/Chapati: wheat flour (ONLY flour)
-- Sambar: dal, vegetables (drumstick OR okra OR tomato - not all)
-- Rasam: tomatoes, dal (ONLY these 2)
-- Curd Rice: rice, curd (ONLY these 2)
-- Egg Curry: eggs, onions (ONLY these 2)
-- Fried Rice: rice, vegetables (ONLY these)
-- Pasta: pasta (ONLY pasta)
-- Sandwich: bread (ONLY bread, let customer specify fillings)
+- Chicken Curry: chicken (0.5-1 kg), onions (0.25 kg), tomatoes (0.2 kg) - ONLY these 3
+- Rice: rice (0.5-1 kg per 4 people) - ONLY rice
+- Dal: dal (0.25 kg), onions (0.1 kg) - ONLY these 2
+- Biryani: rice (1 kg), chicken/vegetables (0.5 kg) - ONLY these 2
+- Roti/Chapati: wheat flour (0.5 kg) - ONLY flour
+- Egg Curry: eggs (6 pieces), onions (0.2 kg) - ONLY these 2
 
-EXAMPLES:
-Input: "I want to make chicken curry for 4 people"
-Output: {"intent": "dish_order", "dish_name": "chicken curry", "servings": 4, "items": [{"item_name": "chicken", "quantity": 1, "unit": "kg", "confidence": "high", "essential": true}, {"item_name": "onions", "quantity": 300, "unit": "grams", "confidence": "high", "essential": true}, {"item_name": "tomatoes", "quantity": 200, "unit": "grams", "confidence": "high", "essential": true}], "message": "I'll help you get the core ingredients for chicken curry. Here are the 3 essential items:", "removable_items": ["tomatoes", "onions"]}
-
-Input: "I want to make rice"
-Output: {"intent": "dish_order", "dish_name": "rice", "servings": 4, "items": [{"item_name": "rice", "quantity": 1, "unit": "kg", "confidence": "high", "essential": true}], "message": "For rice, you just need rice. Here it is:", "removable_items": []}
-
-Input: "Remove tomatoes from my order"
-Output: {"intent": "item_removal", "items": [{"item_name": "tomatoes", "quantity": 0, "unit": "grams", "confidence": "high"}], "message": "I'll remove tomatoes from your order."}
-
-CRITICAL: When in doubt, include FEWER items, not more. It's better to suggest too little than too much.
-REMEMBER: Customers can always ask for additional items if they need them.`;
+CRITICAL: 
+- Use fractional quantities for kg and litres
+- Use whole numbers for pieces
+- When in doubt, include FEWER items, not more
+- Always normalize quantities (500g → 0.5kg, 250ml → 0.25L)`;
   }
 
   /**
@@ -536,6 +536,28 @@ CRITICAL: This is a fresh request. Give me ONLY the TOP 3 most essential items f
     const lowStock = [];
 
     for (const requestedItem of requestedItems) {
+      // Normalize quantity if needed (convert grams to kg, ml to litres)
+      let normalizedQty = requestedItem.quantity;
+      let normalizedUnit = requestedItem.unit;
+      
+      // Convert grams to kg
+      if (requestedItem.unit === 'grams' || requestedItem.unit === 'gram' || requestedItem.unit === 'g') {
+        normalizedQty = normalize(requestedItem.quantity / 1000);
+        normalizedUnit = 'kg';
+      }
+      
+      // Convert ml to litres
+      if (requestedItem.unit === 'ml' || requestedItem.unit === 'milliliters') {
+        normalizedQty = normalize(requestedItem.quantity / 1000);
+        normalizedUnit = 'litre';
+      }
+      
+      // Validate normalized quantity
+      if (!isValidQuantity(normalizedQty)) {
+        console.warn(`Invalid quantity for ${requestedItem.item_name}: ${normalizedQty}`);
+        normalizedQty = 1; // Default to 1
+      }
+      
       // Try exact match first
       let inventoryItem = inventory.find(
         item => item.item_name.toLowerCase() === requestedItem.item_name.toLowerCase()
@@ -555,11 +577,15 @@ CRITICAL: This is a fresh request. Give me ONLY the TOP 3 most essential items f
       if (!inventoryItem) {
         unavailable.push({
           ...requestedItem,
+          quantity: normalizedQty,
+          unit: normalizedUnit,
           alternatives: this.findAlternatives(requestedItem.item_name, inventory)
         });
-      } else if (inventoryItem.stock_qty < requestedItem.quantity) {
+      } else if (inventoryItem.stock_qty < normalizedQty) {
         lowStock.push({
           ...requestedItem,
+          quantity: normalizedQty,
+          unit: normalizedUnit,
           available_quantity: inventoryItem.stock_qty,
           price_per_unit: inventoryItem.selling_price || inventoryItem.price_per_unit,
           inventory_id: inventoryItem._id
@@ -567,8 +593,10 @@ CRITICAL: This is a fresh request. Give me ONLY the TOP 3 most essential items f
       } else {
         available.push({
           ...requestedItem,
+          quantity: normalizedQty,
+          unit: normalizedUnit,
           price_per_unit: inventoryItem.selling_price || inventoryItem.price_per_unit,
-          total_price: (inventoryItem.selling_price || inventoryItem.price_per_unit) * requestedItem.quantity,
+          total_price: normalize((inventoryItem.selling_price || inventoryItem.price_per_unit) * normalizedQty),
           available: true,
           stock_available: inventoryItem.stock_qty,
           inventory_id: inventoryItem._id

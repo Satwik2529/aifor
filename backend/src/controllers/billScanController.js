@@ -1,5 +1,6 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const Inventory = require('../models/Inventory');
+const { normalize, isValidQuantity } = require('../utils/quantityHelper');
 
 // Initialize Gemini AI with v1 API (stable)
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
@@ -38,31 +39,50 @@ STRICT EXTRACTION RULES:
 3. Ignore: GST, totals, addresses, vendor details, dates
 4. Focus on extracting:
    - Item name (product name)
-   - Quantity (number of units purchased)
+   - Quantity (number with unit - kg, litre, or pieces)
+   - Unit (kg, litre, or piece - IMPORTANT!)
    - Cost Price (purchase price per unit in rupees)
    - Selling Price (if visible, otherwise estimate 20% markup)
    - Category (guess from item name: Food & Beverages, Electronics, Clothing, Books, Home & Garden, Sports, Beauty & Health, Automotive, Office Supplies, Other)
+
+UNIT DETECTION (VERY IMPORTANT):
+- Rice, Sugar, Dal, Flour, Wheat → unit: "kg"
+- Oil, Milk, Juice → unit: "litre"
+- Eggs, Bottles, Packets → unit: "piece"
+- If quantity shows "500g" → convert to 0.5 kg
+- If quantity shows "2L" → convert to 2 litre
 
 IMPORTANT:
 - Extract only items with at least item name, quantity, and cost price visible
 - If selling price is not visible, calculate as: cost_price * 1.2 (20% markup)
 - Assign appropriate category based on item type
+- ALWAYS include unit field
 - Do NOT make wild assumptions
 
 OUTPUT FORMAT (JSON only, no markdown):
 {
   "items": [
     {
-      "item_name": "Parle-G Biscuit",
-      "quantity": 20,
-      "cost_price": 8,
-      "selling_price": 10,
+      "item_name": "Basmati Rice",
+      "quantity": 25,
+      "unit": "kg",
+      "cost_price": 80,
+      "selling_price": 100,
+      "category": "Food & Beverages"
+    },
+    {
+      "item_name": "Sunflower Oil",
+      "quantity": 5,
+      "unit": "litre",
+      "cost_price": 150,
+      "selling_price": 180,
       "category": "Food & Beverages"
     }
   ],
   "confidence": 0.85
 }
 
+Valid units: kg, litre, piece
 Valid categories: Food & Beverages, Electronics, Clothing, Books, Home & Garden, Sports, Beauty & Health, Automotive, Office Supplies, Other
 
 Confidence scoring:
@@ -188,8 +208,20 @@ const executeBillItems = async (req, res) => {
                     continue;
                 }
 
+                // Validate quantity
+                if (!isValidQuantity(item.quantity)) {
+                    results.errors.push({
+                        item: item.item_name,
+                        error: 'Invalid quantity - must be a positive number'
+                    });
+                    continue;
+                }
+
+                // Normalize quantity
+                const normalizedQty = normalize(item.quantity);
+
                 // Validate positive numbers
-                if (item.quantity <= 0 || item.cost_price <= 0) {
+                if (normalizedQty <= 0 || item.cost_price <= 0) {
                     results.errors.push({
                         item: item.item_name,
                         error: 'Quantity and cost price must be positive'
@@ -207,6 +239,9 @@ const executeBillItems = async (req, res) => {
                     continue;
                 }
 
+                // Determine unit (default to piece for backward compatibility)
+                const unit = item.unit || 'piece';
+
                 // Check if item exists (case-insensitive)
                 const existingItem = await Inventory.findOne({
                     user_id: userId,
@@ -214,11 +249,14 @@ const executeBillItems = async (req, res) => {
                 });
 
                 if (existingItem) {
-                    // Update existing item - increase stock
-                    existingItem.stock_qty += item.quantity;
+                    // Update existing item - increase stock (safely)
+                    const newStock = normalize(existingItem.stock_qty + normalizedQty);
+                    
+                    existingItem.stock_qty = newStock;
                     existingItem.cost_price = item.cost_price;
                     existingItem.selling_price = sellingPrice;
                     existingItem.price_per_unit = sellingPrice;
+                    existingItem.unit = unit; // Update unit if changed
                     
                     // Update category if provided
                     if (item.category) {
@@ -229,8 +267,9 @@ const executeBillItems = async (req, res) => {
                     
                     results.updated.push({
                         item_name: existingItem.item_name,
-                        quantity_added: item.quantity,
-                        new_stock: existingItem.stock_qty,
+                        quantity_added: normalizedQty,
+                        new_stock: newStock,
+                        unit: unit,
                         cost_price: existingItem.cost_price,
                         selling_price: existingItem.selling_price,
                         category: existingItem.category
@@ -240,20 +279,22 @@ const executeBillItems = async (req, res) => {
                     const newItem = new Inventory({
                         user_id: userId,
                         item_name: item.item_name,
-                        stock_qty: item.quantity,
+                        stock_qty: normalizedQty,
                         cost_price: item.cost_price,
                         selling_price: sellingPrice,
                         price_per_unit: sellingPrice,
                         category: item.category || 'Other',
                         description: 'Added from bill scan',
-                        min_stock_level: 5
+                        min_stock_level: 5,
+                        unit: unit
                     });
                     
                     await newItem.save();
                     
                     results.created.push({
                         item_name: newItem.item_name,
-                        quantity: newItem.stock_qty,
+                        quantity: normalizedQty,
+                        unit: unit,
                         cost_price: newItem.cost_price,
                         selling_price: newItem.selling_price,
                         category: newItem.category

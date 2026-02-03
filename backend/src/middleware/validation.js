@@ -125,8 +125,8 @@ const validateSale = [
   body('items.*.quantity')
     .isNumeric()
     .withMessage('Quantity must be a number')
-    .isInt({ min: 1 })
-    .withMessage('Quantity must be at least 1'),
+    .isFloat({ min: 0.001 })
+    .withMessage('Quantity must be at least 0.001'),
   
   body('items.*.price_per_unit')
     .isNumeric()
@@ -174,8 +174,8 @@ const validateInventory = [
   body('stock_qty')
     .isNumeric()
     .withMessage('Stock quantity must be a number')
-    .isInt({ min: 0 })
-    .withMessage('Stock quantity cannot be negative'),
+    .isFloat({ min: 0.001 })
+    .withMessage('Stock quantity must be at least 0.001'),
   
   body('price_per_unit')
     .isNumeric()
@@ -293,8 +293,8 @@ const validateCustomerRequest = [
   body('items.*.quantity')
     .isNumeric()
     .withMessage('Quantity must be a number')
-    .isInt({ min: 1 })
-    .withMessage('Quantity must be at least 1'),
+    .isFloat({ min: 0.001 })
+    .withMessage('Quantity must be at least 0.001'),
   
   body('notes')
     .optional()

@@ -1,10 +1,12 @@
 const Sale = require('../models/Sale');
 const Inventory = require('../models/Inventory');
 const { validationResult } = require('express-validator');
+const { normalize, isValidQuantity, hasSufficientStock, deductStock, calculatePrice } = require('../utils/quantityHelper');
 
 /**
  * Sales Controller - Sales Management with CRUD Operations
  * Handles sales transaction recording and analytics
+ * Supports fractional quantities for retail items (kg, litre, piece)
  * Future: Integration with AI for sales insights and predictions
  */
 
@@ -94,6 +96,7 @@ const salesController = {
       // Check for validation errors
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
+        console.log('❌ Validation errors:', errors.array());
         return res.status(400).json({
           success: false,
           message: 'Validation failed',
@@ -104,9 +107,34 @@ const salesController = {
       const userId = req.user._id;
       const { items, payment_method, date, customer_name, customer_phone } = req.body;
 
+      console.log('=== Create Sale Debug ===');
+      console.log('User ID:', userId);
+      console.log('Items received:', JSON.stringify(items, null, 2));
+
       // Validate and prepare items with cost prices from inventory
       const saleItems = [];
       for (const item of items) {
+        console.log(`Processing item: ${item.item_name}, quantity: ${item.quantity} (type: ${typeof item.quantity})`);
+        
+        // Parse and validate quantity
+        const parsedQty = typeof item.quantity === 'string' ? parseFloat(item.quantity) : item.quantity;
+        
+        console.log(`Parsed quantity: ${parsedQty} (type: ${typeof parsedQty})`);
+        
+        // Check if parsedQty is a valid number (not NaN, not null, not undefined)
+        if (parsedQty === null || parsedQty === undefined || isNaN(parsedQty) || !isValidQuantity(parsedQty)) {
+          console.log(`❌ Invalid quantity detected for ${item.item_name}`);
+          return res.status(400).json({
+            success: false,
+            message: `Invalid quantity for '${item.item_name}'`,
+            error: `Quantity must be a positive number. Received: ${item.quantity} (parsed as: ${parsedQty})`
+          });
+        }
+
+        // Normalize quantity
+        const normalizedQty = normalize(parsedQty);
+        console.log(`Normalized quantity: ${normalizedQty}`);
+
         // Find inventory item
         const inventoryItem = await Inventory.findOne({
           user_id: userId,
@@ -121,21 +149,24 @@ const salesController = {
           });
         }
 
-        // Check if sufficient stock available
-        if (inventoryItem.stock_qty < item.quantity) {
+        // Check if sufficient stock available (using safe comparison)
+        if (!hasSufficientStock(inventoryItem.stock_qty, normalizedQty)) {
           return res.status(400).json({
             success: false,
             message: `Insufficient stock for '${item.item_name}'`,
-            error: `Only ${inventoryItem.stock_qty} units available, but ${item.quantity} requested`
+            error: `Only ${inventoryItem.stock_qty} ${inventoryItem.unit} available, but ${normalizedQty} ${inventoryItem.unit} requested`
           });
         }
+
+        // Calculate price safely
+        const totalPrice = calculatePrice(normalizedQty, item.price_per_unit);
 
         // Add cost price from inventory for COGS calculation
         saleItems.push({
           item_name: item.item_name,
-          quantity: item.quantity,
+          quantity: normalizedQty,
           price_per_unit: item.price_per_unit, // Selling price
-          cost_per_unit: inventoryItem.price_per_unit // Cost price from inventory
+          cost_per_unit: inventoryItem.cost_price // Cost price from inventory
         });
       }
 
@@ -151,17 +182,28 @@ const salesController = {
 
       await sale.save();
 
-      // Deduct inventory quantities
+      // Deduct inventory quantities (using safe deduction)
       for (const item of saleItems) {
-        await Inventory.findOneAndUpdate(
-          {
-            user_id: userId,
-            item_name: { $regex: new RegExp(`^${item.item_name}$`, 'i') }
-          },
-          {
-            $inc: { stock_qty: -item.quantity }
-          }
-        );
+        const inventoryItem = await Inventory.findOne({
+          user_id: userId,
+          item_name: { $regex: new RegExp(`^${item.item_name}$`, 'i') }
+        });
+
+        if (inventoryItem) {
+          // Calculate new stock safely
+          const newStock = deductStock(inventoryItem.stock_qty, item.quantity);
+          
+          // Update with normalized value
+          await Inventory.findOneAndUpdate(
+            {
+              user_id: userId,
+              item_name: { $regex: new RegExp(`^${item.item_name}$`, 'i') }
+            },
+            {
+              stock_qty: newStock
+            }
+          );
+        }
       }
 
       await sale.populate('user_id', 'name shop_name');

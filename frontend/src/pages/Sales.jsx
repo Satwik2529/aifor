@@ -86,15 +86,62 @@ const Sales = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         
+        console.log('=== Sales Form Submit Debug ===');
+        console.log('Raw formData:', JSON.stringify(formData, null, 2));
+        
+        // Validate all items have valid quantities
+        const invalidItems = formData.items.filter(item => {
+            // Check if quantity is empty or invalid
+            if (item.quantity === '' || item.quantity === null || item.quantity === undefined) {
+                console.log('Invalid item (empty):', item.item_name, 'quantity:', item.quantity);
+                return true;
+            }
+            const qty = typeof item.quantity === 'string' ? parseFloat(item.quantity) : item.quantity;
+            const isInvalid = isNaN(qty) || qty <= 0;
+            if (isInvalid) {
+                console.log('Invalid item (NaN or <=0):', item.item_name, 'quantity:', item.quantity, 'parsed:', qty);
+            }
+            return isInvalid;
+        });
+        
+        if (invalidItems.length > 0) {
+            console.log('Validation failed. Invalid items:', invalidItems.length);
+            toast.error('Please enter valid quantities for all items (must be greater than 0)', {
+                duration: 4000,
+                position: 'top-right',
+            });
+            return;
+        }
+        
+        // Ensure quantities are numbers before sending (convert and validate)
+        const sanitizedFormData = {
+            ...formData,
+            items: formData.items.map(item => {
+                const qty = typeof item.quantity === 'string' ? parseFloat(item.quantity) : item.quantity;
+                const price = typeof item.price_per_unit === 'string' ? parseFloat(item.price_per_unit) : item.price_per_unit;
+                
+                const sanitized = {
+                    ...item,
+                    quantity: Number(qty.toFixed(3)), // Normalize to 3 decimals
+                    price_per_unit: Number(price.toFixed(2)) // Normalize to 2 decimals
+                };
+                
+                console.log('Sanitized item:', sanitized.item_name, 'qty:', sanitized.quantity, 'price:', sanitized.price_per_unit);
+                return sanitized;
+            })
+        };
+        
+        console.log('Sanitized data to send:', JSON.stringify(sanitizedFormData, null, 2));
+        
         try {
             if (editingSale) {
-                await salesAPI.updateSale(editingSale._id, formData);
+                await salesAPI.updateSale(editingSale._id, sanitizedFormData);
                 toast.success(t('sales.toast.updated'), {
                     duration: 4000,
                     position: 'top-right',
                 });
             } else {
-                const response = await salesAPI.createSale(formData);
+                await salesAPI.createSale(sanitizedFormData);
                 toast.success(t('sales.toast.created'), {
                     duration: 4000,
                     position: 'top-right',
@@ -115,7 +162,7 @@ const Sales = () => {
         } catch (error) {
             console.error('Error saving sale:', error);
             const errorMessage = error.response?.data?.message || error.message || 'Failed to create sale';
-            toast.error(t('sales.toast.error'), {
+            toast.error(errorMessage, {
                 duration: 5000,
                 position: 'top-right',
                 icon: '❌',
@@ -164,9 +211,14 @@ const Sales = () => {
     };
 
     const calculateTotal = () => {
-        return formData.items.reduce((total, item) =>
-            total + (item.quantity * item.price_per_unit), 0
-        );
+        return formData.items.reduce((total, item) => {
+            const qty = typeof item.quantity === 'string' ? parseFloat(item.quantity) : item.quantity;
+            const price = typeof item.price_per_unit === 'string' ? parseFloat(item.price_per_unit) : item.price_per_unit;
+            
+            if (!qty || !price || isNaN(qty) || isNaN(price)) return total;
+            
+            return total + (qty * price);
+        }, 0);
     };
 
     // Filter sales by payment method
@@ -712,27 +764,37 @@ const Sales = () => {
                                                     <option value="">Select item...</option>
                                                     {inventory.map((invItem) => (
                                                         <option key={invItem._id} value={invItem.item_name}>
-                                                            {invItem.item_name} (Stock: {invItem.stock_qty})
+                                                            {invItem.item_name} (Stock: {invItem.stock_qty} {invItem.unit || ''})
                                                         </option>
                                                     ))}
                                                 </select>
                                             </div>
                                             <div className="col-span-2">
-                                                <select
+                                                <input
+                                                    type="number"
                                                     value={item.quantity}
-                                                    onChange={(e) => updateItem(index, 'quantity', parseInt(e.target.value))}
+                                                    onChange={(e) => {
+                                                        const value = e.target.value;
+                                                        // Allow empty string during typing, otherwise parse as number
+                                                        if (value === '') {
+                                                            updateItem(index, 'quantity', '');
+                                                        } else {
+                                                            const qty = parseFloat(value);
+                                                            updateItem(index, 'quantity', isNaN(qty) ? '' : qty);
+                                                        }
+                                                    }}
                                                     className="input-field"
+                                                    placeholder="Qty"
+                                                    min="0.001"
+                                                    step="0.001"
                                                     required
                                                     disabled={!item.item_name}
-                                                >
-                                                    <option value="">Qty</option>
-                                                    {item.item_name && Array.from(
-                                                        { length: getAvailableQuantity(item.item_name) }, 
-                                                        (_, i) => i + 1
-                                                    ).map(qty => (
-                                                        <option key={qty} value={qty}>{qty}</option>
-                                                    ))}
-                                                </select>
+                                                />
+                                                {item.item_name && (
+                                                    <p className="text-xs text-gray-500 mt-1">
+                                                        Available: {getAvailableQuantity(item.item_name)} {inventory.find(inv => inv.item_name === item.item_name)?.unit || ''}
+                                                    </p>
+                                                )}
                                             </div>
                                             <div className="col-span-3">
                                                 <input
@@ -747,8 +809,13 @@ const Sales = () => {
                                                 />
                                             </div>
                                             <div className="col-span-1">
-                                                <span className="text-sm font-medium text-gray-900">
-                                                    ₹{(item.quantity * item.price_per_unit).toLocaleString()}
+                                                <span className="text-sm font-medium text-gray-900 dark:text-white">
+                                                    ₹{(() => {
+                                                        const qty = typeof item.quantity === 'string' ? parseFloat(item.quantity) : item.quantity;
+                                                        const price = typeof item.price_per_unit === 'string' ? parseFloat(item.price_per_unit) : item.price_per_unit;
+                                                        if (!qty || !price || isNaN(qty) || isNaN(price)) return '0';
+                                                        return (qty * price).toLocaleString();
+                                                    })()}
                                                 </span>
                                             </div>
                                             <div className="col-span-1">
@@ -780,11 +847,37 @@ const Sales = () => {
                                     </select>
                                 </div>
 
-                                {/* Total */}
-                                <div className="bg-gray-50 p-4 rounded-lg">
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-lg font-medium text-gray-900">Total Amount:</span>
-                                        <span className="text-xl font-bold text-gray-900">₹{calculateTotal()}</span>
+                                {/* Total & Profit Summary */}
+                                <div className="bg-gradient-to-r from-green-50 to-blue-50 p-4 rounded-lg border border-green-200">
+                                    <div className="space-y-2">
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-lg font-medium text-gray-900">Total Amount:</span>
+                                            <span className="text-xl font-bold text-gray-900">₹{calculateTotal().toLocaleString()}</span>
+                                        </div>
+                                        {formData.items.some(item => item.item_name) && (
+                                            <>
+                                                <div className="flex justify-between items-center text-sm">
+                                                    <span className="text-gray-600">Estimated COGS:</span>
+                                                    <span className="font-medium text-gray-700">
+                                                        ₹{formData.items.reduce((sum, item) => {
+                                                            const invItem = inventory.find(inv => inv.item_name === item.item_name);
+                                                            const costPrice = invItem?.cost_price || invItem?.price_per_unit * 0.8 || 0;
+                                                            return sum + (item.quantity * costPrice);
+                                                        }, 0).toFixed(2)}
+                                                    </span>
+                                                </div>
+                                                <div className="flex justify-between items-center pt-2 border-t border-green-300">
+                                                    <span className="text-base font-semibold text-green-700">Gross Profit:</span>
+                                                    <span className="text-lg font-bold text-green-600">
+                                                        ₹{(calculateTotal() - formData.items.reduce((sum, item) => {
+                                                            const invItem = inventory.find(inv => inv.item_name === item.item_name);
+                                                            const costPrice = invItem?.cost_price || invItem?.price_per_unit * 0.8 || 0;
+                                                            return sum + (item.quantity * costPrice);
+                                                        }, 0)).toFixed(2)}
+                                                    </span>
+                                                </div>
+                                            </>
+                                        )}
                                     </div>
                                 </div>
 

@@ -1,9 +1,11 @@
 const Inventory = require('../models/Inventory');
 const { validationResult } = require('express-validator');
+const { normalize, isValidQuantity, normalizeQuantity } = require('../utils/quantityHelper');
 
 /**
  * Inventory Controller - Inventory Management with CRUD Operations
  * Handles stock management, low stock alerts, and inventory analytics
+ * Supports fractional quantities for retail items (kg, litre, piece)
  * Future: Integration with AI for demand forecasting and automated reordering
  */
 
@@ -88,9 +90,13 @@ const inventoryController = {
   // Create new inventory item
   createInventoryItem: async (req, res) => {
     try {
+      console.log('=== Create Inventory Debug ===');
+      console.log('Request body:', JSON.stringify(req.body, null, 2));
+      
       // Check for validation errors
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
+        console.log('❌ Validation errors:', JSON.stringify(errors.array(), null, 2));
         return res.status(400).json({
           success: false,
           message: 'Validation failed',
@@ -107,19 +113,60 @@ const inventoryController = {
         price_per_unit, // For backward compatibility
         min_stock_level, 
         category, 
-        description 
+        description,
+        unit // NEW: Support for kg, litre, piece
       } = req.body;
+
+      console.log('Extracted values:');
+      console.log('  item_name:', item_name);
+      console.log('  stock_qty:', stock_qty, '(type:', typeof stock_qty, ')');
+      console.log('  cost_price:', cost_price);
+      console.log('  selling_price:', selling_price);
+      console.log('  unit:', unit);
+
+      // Validate quantity
+      if (stock_qty === undefined || stock_qty === null || stock_qty === '') {
+        console.log('❌ Stock quantity is missing or empty');
+        return res.status(400).json({
+          success: false,
+          message: 'Stock quantity is required',
+          error: 'Please provide a valid stock quantity'
+        });
+      }
+
+      const parsedQty = parseFloat(stock_qty);
+      console.log('  parsed stock_qty:', parsedQty, '(type:', typeof parsedQty, ')');
+      
+      if (!isValidQuantity(parsedQty)) {
+        console.log('❌ Invalid quantity:', parsedQty);
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid stock quantity',
+          error: `Stock quantity must be a positive number greater than 0. Received: ${stock_qty} (parsed as: ${parsedQty})`
+        });
+      }
+
+      // Normalize quantity to prevent floating-point errors
+      const normalizedQty = normalize(parsedQty);
+      console.log('  normalized stock_qty:', normalizedQty);
 
       // Handle backward compatibility - if only price_per_unit is provided
       let finalCostPrice = cost_price;
       let finalSellingPrice = selling_price;
 
+      console.log('Price validation:');
+      console.log('  cost_price:', cost_price, '(type:', typeof cost_price, ')');
+      console.log('  selling_price:', selling_price, '(type:', typeof selling_price, ')');
+      console.log('  price_per_unit:', price_per_unit, '(type:', typeof price_per_unit, ')');
+
       if (!cost_price && !selling_price && price_per_unit) {
+        console.log('  Using backward compatibility mode');
         // Backward compatibility: assume price_per_unit is selling price
         // Set cost price to 80% of selling price (20% profit margin)
         finalSellingPrice = price_per_unit;
         finalCostPrice = price_per_unit * 0.8;
       } else if (!cost_price || !selling_price) {
+        console.log('❌ Missing cost_price or selling_price');
         return res.status(400).json({
           success: false,
           message: 'Both cost_price and selling_price are required',
@@ -127,8 +174,13 @@ const inventoryController = {
         });
       }
 
+      console.log('Final prices:');
+      console.log('  finalCostPrice:', finalCostPrice);
+      console.log('  finalSellingPrice:', finalSellingPrice);
+
       // Validate that selling price is higher than cost price
       if (finalSellingPrice <= finalCostPrice) {
+        console.log('❌ Selling price not higher than cost price');
         return res.status(400).json({
           success: false,
           message: 'Selling price must be higher than cost price',
@@ -136,7 +188,10 @@ const inventoryController = {
         });
       }
 
+      console.log('✅ Price validation passed');
+
       // Check if item already exists for this user
+      console.log('Checking for existing item...');
       const existingItem = await Inventory.findOne({ 
         user_id: userId, 
         item_name: { $regex: new RegExp(`^${item_name}$`, 'i') }
@@ -154,13 +209,14 @@ const inventoryController = {
       const item = new Inventory({
         user_id: userId,
         item_name,
-        stock_qty,
+        stock_qty: normalizedQty,
         cost_price: finalCostPrice,
         selling_price: finalSellingPrice,
         price_per_unit: finalSellingPrice, // For backward compatibility
         min_stock_level: min_stock_level || 5,
         category: category || 'Other',
-        description: description || ''
+        description: description || '',
+        unit: unit || 'piece' // Default to piece for backward compatibility
       });
 
       await item.save();
@@ -208,11 +264,31 @@ const inventoryController = {
         price_per_unit, // For backward compatibility
         min_stock_level, 
         category, 
-        description 
+        description,
+        unit // NEW: Support for kg, litre, piece
       } = req.body;
 
+      // Validate quantity if provided
+      if (stock_qty !== undefined && stock_qty !== null && stock_qty !== '') {
+        const parsedQty = parseFloat(stock_qty);
+        
+        if (!isValidQuantity(parsedQty)) {
+          return res.status(400).json({
+            success: false,
+            message: 'Invalid stock quantity',
+            error: 'Stock quantity must be a positive number greater than 0'
+          });
+        }
+      }
+
       // Handle backward compatibility and validation
-      let updateData = { item_name, stock_qty, min_stock_level, category, description };
+      let updateData = { item_name, min_stock_level, category, description, unit };
+      
+      // Normalize stock quantity if provided
+      if (stock_qty !== undefined && stock_qty !== null && stock_qty !== '') {
+        const parsedQty = parseFloat(stock_qty);
+        updateData.stock_qty = normalize(parsedQty);
+      }
 
       if (cost_price !== undefined || selling_price !== undefined) {
         // New pricing structure

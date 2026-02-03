@@ -26,7 +26,8 @@ const saleSchema = new mongoose.Schema({
     quantity: {
       type: Number,
       required: [true, 'Quantity is required'],
-      min: [1, 'Quantity must be at least 1']
+      min: [0.001, 'Quantity must be greater than 0']
+      // Supports fractional quantities (e.g., 0.5 kg, 0.25 litre)
     },
     price_per_unit: {
       type: Number,

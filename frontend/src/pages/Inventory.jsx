@@ -32,7 +32,8 @@ const Inventory = () => {
         price_per_unit: 0, // Keep for backward compatibility
         description: '',
         category: 'Other',
-        min_stock_level: 5
+        min_stock_level: 5,
+        unit: 'piece' // NEW: Default to piece for backward compatibility
     });
 
     useEffect(() => {
@@ -55,15 +56,54 @@ const Inventory = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        
+        console.log('=== Inventory Form Submit Debug ===');
+        console.log('Raw formData:', JSON.stringify(formData, null, 2));
+        
+        // Validate stock quantity
+        if (formData.stock_qty === '' || formData.stock_qty === null || formData.stock_qty === undefined) {
+            console.log('❌ Validation failed: stock_qty is empty/null/undefined');
+            toast.error('Please enter a valid stock quantity', {
+                position: 'top-right',
+                duration: 4000,
+            });
+            return;
+        }
+        
+        const qty = typeof formData.stock_qty === 'string' ? parseFloat(formData.stock_qty) : formData.stock_qty;
+        console.log('Parsed quantity:', qty, '(type:', typeof qty, ')');
+        
+        if (isNaN(qty) || qty <= 0) {
+            console.log('❌ Validation failed: qty is NaN or <=0');
+            toast.error('Stock quantity must be greater than 0', {
+                position: 'top-right',
+                duration: 4000,
+            });
+            return;
+        }
+        
+        // Normalize the data before sending
+        const sanitizedData = {
+            ...formData,
+            stock_qty: Number(qty.toFixed(3)), // Normalize to 3 decimals
+            cost_price: Number(parseFloat(formData.cost_price).toFixed(2)),
+            selling_price: Number(parseFloat(formData.selling_price).toFixed(2)),
+            price_per_unit: Number(parseFloat(formData.selling_price).toFixed(2)) // For backward compatibility
+        };
+        
+        console.log('Sanitized data to send:', JSON.stringify(sanitizedData, null, 2));
+        
         try {
             if (editingItem) {
-                await inventoryAPI.updateInventoryItem(editingItem._id, formData);
+                console.log('Updating item:', editingItem._id);
+                await inventoryAPI.updateInventoryItem(editingItem._id, sanitizedData);
                 toast.success(t('inventory.toast.updated'), {
                     position: 'top-right',
                     duration: 3000,
                 });
             } else {
-                await inventoryAPI.createInventoryItem(formData);
+                console.log('Creating new item');
+                await inventoryAPI.createInventoryItem(sanitizedData);
                 toast.success(t('inventory.toast.created'), {
                     position: 'top-right',
                     duration: 3000,
@@ -79,7 +119,8 @@ const Inventory = () => {
                 price_per_unit: 0,
                 description: '',
                 category: 'Other',
-                min_stock_level: 5
+                min_stock_level: 5,
+                unit: 'piece'
             });
             fetchInventory();
         } catch (error) {
@@ -482,13 +523,26 @@ const Inventory = () => {
             {/* Low Stock Alert */}
             {lowStockItems.length > 0 && (
                 <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                    <div className="flex items-center">
-                        <AlertTriangle className="h-5 w-5 text-red-600 mr-2" />
-                        <div>
-                            <h3 className="text-sm font-medium text-red-800">{t('inventory.lowStockAlert')}</h3>
-                            <p className="text-sm text-red-700">
-                                {t('inventory.lowStockMessage', { count: lowStockItems.length })}
-                            </p>
+                    <div className="flex items-start">
+                        <AlertTriangle className="h-5 w-5 text-red-600 mr-3 mt-0.5 flex-shrink-0" />
+                        <div className="flex-1">
+                            <h3 className="text-sm font-medium text-red-800 mb-2">{t('inventory.lowStockAlert')}</h3>
+                            <div className="space-y-1">
+                                {lowStockItems.slice(0, 5).map((item) => (
+                                    <div key={item._id} className="flex justify-between text-sm text-red-700">
+                                        <span className="font-medium">{item.item_name}</span>
+                                        <span className="text-red-600">
+                                            {item.stock_qty} {item.unit || 'pieces'} left
+                                            {item.stock_qty <= 0 && ' (OUT OF STOCK)'}
+                                        </span>
+                                    </div>
+                                ))}
+                                {lowStockItems.length > 5 && (
+                                    <p className="text-xs text-red-600 mt-2">
+                                        + {lowStockItems.length - 5} more items need restocking
+                                    </p>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -565,7 +619,7 @@ const Inventory = () => {
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            {item.stock_qty}
+                                            {item.stock_qty} {item.unit || 'pieces'}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                             ₹{item.cost_price || (item.price_per_unit * 0.8).toFixed(2)}
@@ -603,7 +657,8 @@ const Inventory = () => {
                                                             price_per_unit: item.price_per_unit,
                                                             description: item.description || '',
                                                             category: item.category || '',
-                                                            min_stock_level: item.min_stock_level || 0
+                                                            min_stock_level: item.min_stock_level || 0,
+                                                            unit: item.unit || 'piece'
                                                         });
                                                         setShowModal(true);
                                                     }}
@@ -1065,7 +1120,8 @@ const Inventory = () => {
                                             price_per_unit: 0,
                                             description: '',
                                             category: '',
-                                            min_stock_level: 0
+                                            min_stock_level: 0,
+                                            unit: 'piece'
                                         });
                                     }}
                                     className="text-gray-400 hover:text-gray-600"
@@ -1103,16 +1159,81 @@ const Inventory = () => {
                                         </select>
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700">Stock Quantity</label>
+                                        <label className="block text-sm font-medium text-gray-700">Unit</label>
+                                        <select
+                                            value={formData.unit}
+                                            onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
+                                            className="input-field"
+                                            required
+                                        >
+                                            <option value="piece">Piece</option>
+                                            <option value="kg">Kilogram (kg)</option>
+                                            <option value="litre">Litre</option>
+                                        </select>
+                                        <p className="text-xs text-gray-500 mt-1">
+                                            Rice, Dal → kg | Oil, Milk → litre | Eggs → piece
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">Stock Quantity</label>
+                                    <div className="flex gap-2">
                                         <input
                                             type="number"
                                             value={formData.stock_qty}
-                                            onChange={(e) => setFormData({ ...formData, stock_qty: parseInt(e.target.value) || 0 })}
-                                            className="input-field"
+                                            onChange={(e) => {
+                                                const value = e.target.value;
+                                                // Allow empty string during typing, otherwise parse as number
+                                                if (value === '') {
+                                                    setFormData({ ...formData, stock_qty: '' });
+                                                } else {
+                                                    const qty = parseFloat(value);
+                                                    setFormData({ ...formData, stock_qty: isNaN(qty) ? '' : qty });
+                                                }
+                                            }}
+                                            className="input-field flex-1"
                                             min="0"
+                                            step={formData.unit === 'piece' ? '1' : '0.001'}
+                                            placeholder={formData.unit === 'piece' ? 'e.g., 10' : 'e.g., 2.5'}
                                             required
                                         />
+                                        {formData.unit === 'kg' && (
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    const grams = prompt('Enter grams to convert:');
+                                                    if (grams && !isNaN(grams)) {
+                                                        setFormData({ ...formData, stock_qty: parseFloat((grams / 1000).toFixed(3)) });
+                                                        toast.success(`${grams}g = ${(grams / 1000).toFixed(3)}kg`);
+                                                    }
+                                                }}
+                                                className="px-3 py-2 text-xs bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors whitespace-nowrap"
+                                                title="Convert grams to kg"
+                                            >
+                                                g→kg
+                                            </button>
+                                        )}
+                                        {formData.unit === 'litre' && (
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    const ml = prompt('Enter milliliters to convert:');
+                                                    if (ml && !isNaN(ml)) {
+                                                        setFormData({ ...formData, stock_qty: parseFloat((ml / 1000).toFixed(3)) });
+                                                        toast.success(`${ml}ml = ${(ml / 1000).toFixed(3)}L`);
+                                                    }
+                                                }}
+                                                className="px-3 py-2 text-xs bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors whitespace-nowrap"
+                                                title="Convert ml to litres"
+                                            >
+                                                ml→L
+                                            </button>
+                                        )}
                                     </div>
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        {formData.unit === 'piece' ? 'Enter whole numbers for pieces' : 'Supports fractional quantities (e.g., 0.5, 2.25)'}
+                                    </p>
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-4">

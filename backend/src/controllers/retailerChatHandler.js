@@ -4,6 +4,7 @@ const Expense = require('../models/Expense');
 const User = require('../models/User');
 const CustomerRequest = require('../models/CustomerRequest');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
+const { normalize, isValidQuantity } = require('../utils/quantityHelper');
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const pendingOrders = new Map();
