@@ -165,7 +165,7 @@ Return ONLY valid JSON, no explanation.
 `;
 
             // Use Gemini to parse intent
-            const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+            const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
             const result = await model.generateContent(intentPrompt);
             const response = await result.response;
             const responseText = response.text();

@@ -265,7 +265,7 @@ const parseMessageFallback = (message) => {
  * Enhanced AI processing for retailer requests
  */
 const processRetailerRequest = async (message, businessData, language) => {
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
     
     const prompt = `
 You are an advanced business assistant for a retail store. Analyze this request: "${message}"

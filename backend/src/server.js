@@ -45,7 +45,8 @@ const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:3001', 
   'https://biznova.onrender.com',
-  'https://aiforall-8d15.onrender.com'
+  'https://aiforall-8d15.onrender.com',
+  // Add your new frontend URL here
 ];
 
 app.use(cors({

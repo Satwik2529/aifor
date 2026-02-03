@@ -71,7 +71,7 @@ const handleCustomerChat = async (userId, retailerId, message, language) => {
         }
 
         // Use Gemini to understand customer intent and extract items
-        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
         console.log('📦 Available Inventory:', inventory.map(item => `${item.item_name}: ${item.stock_qty}`).join(', '));
 
@@ -329,7 +329,7 @@ const handleCustomerWithoutRetailer = async (userId, message, language) => {
         // Get available retailers
         const retailers = await User.find({ role: 'retailer' }).select('shop_name phone address');
 
-        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
         const prompt = `
         Customer message: "${message}"
