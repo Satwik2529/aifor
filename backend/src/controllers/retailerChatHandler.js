@@ -22,14 +22,19 @@ const handleRetailerChat = async (userId, message, language) => {
             return await handleConfirmation(userId);
         }
 
+        // Handle cancellations for pending operations
+        if (['no', 'cancel', 'नहीं', 'रद्द करें'].some(word => message.toLowerCase().trim() === word)) {
+            return await handleCancellation(userId);
+        }
+
         // Get comprehensive business data
         const businessData = await getBusinessData(userId);
         
         // Use enhanced AI to understand and process the request
         const aiResponse = await processRetailerRequest(message, businessData, language);
         
-        // Execute the determined action
-        return await executeAction(userId, aiResponse, businessData);
+        // Execute the determined action (pass original message for auto-confirm detection)
+        return await executeAction(userId, aiResponse, businessData, message);
 
     } catch (error) {
         console.error('Retailer chat error:', error);
@@ -307,7 +312,8 @@ ${businessData.expenses.slice(0, 3).map(expense =>
 DETERMINE THE ACTION AND RESPOND WITH JSON:
 
 FOR BILLING/SALES (creating a sale):
-{"action": "create_sale", "items": [{"item_name": "exact_name_from_inventory", "quantity": number, "price_per_unit": number}], "customer_name": "name", "payment_method": "Cash|Card|UPI"}
+{"action": "create_sale", "items": [{"item_name": "exact_name_from_inventory", "quantity": number, "price_per_unit": number}], "customer_name": "Walk-in Customer", "payment_method": "Cash"}
+NOTE: Always use "Walk-in Customer" as default customer name. Do NOT ask for customer name.
 
 FOR ADDING INVENTORY:
 {"action": "add_inventory", "item_name": "name", "quantity": number, "cost_per_unit": number, "price_per_unit": number, "category": "category", "min_stock_level": number}
@@ -364,11 +370,18 @@ Return ONLY valid JSON, no markdown or extra text.
 /**
  * Execute the determined action
  */
-const executeAction = async (userId, aiResponse, businessData) => {
+const executeAction = async (userId, aiResponse, businessData, originalMessage) => {
     try {
+        // Check if message contains "make bill" or similar direct commands
+        const directBillCommands = ['make bill', 'create bill', 'bill for', 'make sale', 'create sale'];
+        const isDirectBillCommand = directBillCommands.some(cmd => 
+            originalMessage.toLowerCase().includes(cmd)
+        );
+        
         switch (aiResponse.action) {
             case 'create_sale':
-                return await createSalePreview(userId, aiResponse, businessData);
+                // Auto-confirm if it's a direct "make bill" command
+                return await createSalePreview(userId, aiResponse, businessData, isDirectBillCommand);
             case 'add_inventory':
                 return await addInventoryItem(userId, aiResponse);
             case 'update_inventory':
@@ -431,9 +444,32 @@ const handleConfirmation = async (userId) => {
 };
 
 /**
+ * Handle cancellations for pending operations
+ */
+const handleCancellation = async (userId) => {
+    const pendingOperation = pendingOrders.get(`retailer_${userId}`);
+    if (!pendingOperation) {
+        return {
+            success: true,
+            message: "No pending operation to cancel. What else can I help you with?",
+            data: null
+        };
+    }
+
+    // Clear the pending operation
+    pendingOrders.delete(`retailer_${userId}`);
+
+    return {
+        success: true,
+        message: "✅ Order cancelled. What else can I help you with?",
+        data: { type: 'operation_cancelled' }
+    };
+};
+
+/**
  * Create sale preview with enhanced validation
  */
-const createSalePreview = async (userId, aiResponse, businessData) => {
+const createSalePreview = async (userId, aiResponse, businessData, autoConfirm = false) => {
     if (!aiResponse.items || aiResponse.items.length === 0) {
         return {
             success: false,
@@ -469,13 +505,13 @@ const createSalePreview = async (userId, aiResponse, businessData) => {
         }
 
         const itemTotal = item.quantity * item.price_per_unit;
-        const itemCogs = item.quantity * (inventoryItem.cost_per_unit || 0);
+        const itemCogs = item.quantity * (inventoryItem.cost_per_unit || inventoryItem.cost_price || 0);
         
         saleItems.push({
             item_name: inventoryItem.item_name,
             quantity: item.quantity,
             price_per_unit: item.price_per_unit,
-            cost_per_unit: inventoryItem.cost_per_unit || 0,
+            cost_per_unit: inventoryItem.cost_per_unit || inventoryItem.cost_price || 0,
             total: itemTotal,
             inventory_id: inventoryItem._id,
             current_stock: inventoryItem.stock_qty,
@@ -510,6 +546,11 @@ const createSalePreview = async (userId, aiResponse, businessData) => {
         payment_method: aiResponse.payment_method || 'Cash',
         timestamp: Date.now()
     };
+
+    // If autoConfirm is true, create the sale immediately
+    if (autoConfirm) {
+        return await confirmSale(userId, pendingSale);
+    }
 
     pendingOrders.set(`retailer_${userId}`, pendingSale);
 
