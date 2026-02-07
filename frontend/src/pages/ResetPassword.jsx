@@ -54,10 +54,6 @@ const ResetPassword = () => {
     if (!validatePassword()) return;
 
     const endpoint = `${API_URL}/api/auth/reset-password/${token}`;
-    console.log('🔐 ============ RESET PASSWORD ============');
-    console.log('Token:', token);
-    console.log('Endpoint:', endpoint);
-    console.log('API_URL:', API_URL);
     
     setIsLoading(true);
 
@@ -73,9 +69,7 @@ const ResetPassword = () => {
         })
       });
 
-      console.log('📥 Response status:', response.status, response.statusText);
       const result = await response.json();
-      console.log('📥 Response data:', result);
 
       if (result.success) {
         setIsSuccess(true);

@@ -16,10 +16,21 @@ const userSchema = new mongoose.Schema({
   },
   phone: {
     type: String,
-    required: [true, 'Phone number is required'],
-    unique: true,
+    required: function() {
+      // Phone is not required if user has google_id
+      return !this.google_id;
+    },
+    sparse: true, // Allows multiple empty values
     trim: true,
-    match: [/^[6-9]\d{9}$/, 'Please enter a valid Indian phone number']
+    validate: {
+      validator: function(v) {
+        // If empty and has google_id, it's valid
+        if (!v && this.google_id) return true;
+        // Otherwise must match Indian phone pattern
+        return /^[6-9]\d{9}$/.test(v);
+      },
+      message: 'Please enter a valid Indian phone number'
+    }
   },
   email: {
     type: String,
@@ -109,6 +120,25 @@ const userSchema = new mongoose.Schema({
   resetPasswordExpires: {
     type: Date,
     default: null
+  },
+  // Account lockout fields
+  loginAttempts: {
+    type: Number,
+    default: 0
+  },
+  lockUntil: {
+    type: Date,
+    default: null
+  },
+  // Google OAuth fields
+  google_id: {
+    type: String,
+    sparse: true,
+    unique: true
+  },
+  avatar_url: {
+    type: String,
+    trim: true
   }
 }, {
   timestamps: true,
@@ -154,6 +184,39 @@ userSchema.pre('save', async function(next) {
 // Compare password method
 userSchema.methods.comparePassword = async function(candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password);
+};
+
+// Check if account is locked
+userSchema.methods.isLocked = function() {
+  return this.lockUntil && this.lockUntil > Date.now();
+};
+
+// Increment login attempts
+userSchema.methods.incLoginAttempts = async function() {
+  // If lock has expired, reset attempts
+  if (this.lockUntil && this.lockUntil < Date.now()) {
+    return this.updateOne({
+      $set: { loginAttempts: 1 },
+      $unset: { lockUntil: 1 }
+    });
+  }
+  
+  const updates = { $inc: { loginAttempts: 1 } };
+  
+  // Lock account after 5 failed attempts
+  if (this.loginAttempts + 1 >= 5 && !this.isLocked()) {
+    updates.$set = { lockUntil: Date.now() + 30 * 60 * 1000 }; // 30 minutes
+  }
+  
+  return this.updateOne(updates);
+};
+
+// Reset login attempts on successful login
+userSchema.methods.resetLoginAttempts = async function() {
+  return this.updateOne({
+    $set: { loginAttempts: 0 },
+    $unset: { lockUntil: 1 }
+  });
 };
 
 // Remove password from JSON output

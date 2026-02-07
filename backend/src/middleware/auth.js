@@ -6,8 +6,16 @@ const CustomerUser = require('../models/CustomerUser');
  * JWT Authentication Middleware
  * Protects routes by verifying JWT tokens
  * Used for securing API endpoints and user identification
- * Future: Integration with role-based access control
+ * Includes role-based access control
  */
+
+// Ensure JWT_SECRET is set
+if (!process.env.JWT_SECRET) {
+  console.error('❌ FATAL: JWT_SECRET environment variable is not set!');
+  process.exit(1);
+}
+
+const JWT_SECRET = process.env.JWT_SECRET;
 
 // Verify JWT token middleware
 const authenticateToken = async (req, res, next) => {
@@ -25,15 +33,27 @@ const authenticateToken = async (req, res, next) => {
     }
 
     // Verify token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your_jwt_secret_here');
+    const decoded = jwt.verify(token, JWT_SECRET);
     
-    // Try to find user in both User (retailer) and CustomerUser models
-    let user = await User.findById(decoded.userId).select('-password');
-    let userType = 'retailer';
+    // Try to find user based on userType in token
+    let user;
+    let userType = decoded.userType || 'retailer'; // Default to retailer for backward compatibility
     
-    if (!user) {
+    if (userType === 'customer') {
       user = await CustomerUser.findById(decoded.userId).select('-password');
-      userType = 'customer';
+    } else {
+      user = await User.findById(decoded.userId).select('-password');
+    }
+    
+    // If not found with specified type, try the other collection
+    if (!user) {
+      if (userType === 'customer') {
+        user = await User.findById(decoded.userId).select('-password');
+        userType = 'retailer';
+      } else {
+        user = await CustomerUser.findById(decoded.userId).select('-password');
+        userType = 'customer';
+      }
     }
     
     if (!user) {
@@ -73,13 +93,37 @@ const authenticateToken = async (req, res, next) => {
   }
 };
 
-// Generate JWT token
-const generateToken = (userId) => {
+// Generate JWT token with userType
+const generateToken = (userId, userType = 'retailer') => {
   return jwt.sign(
-    { userId },
-    process.env.JWT_SECRET || 'your_jwt_secret_here',
+    { userId, userType },
+    JWT_SECRET,
     { expiresIn: '7d' } // Token expires in 7 days
   );
+};
+
+// Role-based middleware - Require Retailer
+const requireRetailer = (req, res, next) => {
+  if (req.userType !== 'retailer') {
+    return res.status(403).json({
+      success: false,
+      message: 'Access denied',
+      error: 'Retailer account required'
+    });
+  }
+  next();
+};
+
+// Role-based middleware - Require Customer
+const requireCustomer = (req, res, next) => {
+  if (req.userType !== 'customer') {
+    return res.status(403).json({
+      success: false,
+      message: 'Access denied',
+      error: 'Customer account required'
+    });
+  }
+  next();
 };
 
 // Optional authentication (doesn't fail if no token)
@@ -89,10 +133,11 @@ const optionalAuth = async (req, res, next) => {
     const token = authHeader && authHeader.split(' ')[1];
 
     if (token) {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your_jwt_secret_here');
+      const decoded = jwt.verify(token, JWT_SECRET);
       const user = await User.findById(decoded.userId).select('-password');
       if (user) {
         req.user = user;
+        req.userType = decoded.userType || 'retailer';
       }
     }
     next();
@@ -105,5 +150,7 @@ const optionalAuth = async (req, res, next) => {
 module.exports = {
   authenticateToken,
   generateToken,
+  requireRetailer,
+  requireCustomer,
   optionalAuth
 };

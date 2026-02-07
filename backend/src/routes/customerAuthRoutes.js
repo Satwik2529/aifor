@@ -4,6 +4,7 @@ const customerAuthController = require('../controllers/customerAuthController');
 const passwordController = require('../controllers/passwordController');
 const { authenticateToken } = require('../middleware/auth');
 const { validateCustomerRegistration, validateCustomerLogin } = require('../middleware/validation');
+const { loginLimiter, passwordResetLimiter, registrationLimiter } = require('../middleware/rateLimiter');
 
 /**
  * Customer Authentication Routes
@@ -11,12 +12,12 @@ const { validateCustomerRegistration, validateCustomerLogin } = require('../midd
  */
 
 // Public routes
-router.post('/register', validateCustomerRegistration, customerAuthController.register);
-router.post('/login', validateCustomerLogin, customerAuthController.login);
+router.post('/register', registrationLimiter, validateCustomerRegistration, customerAuthController.register);
+router.post('/login', loginLimiter, validateCustomerLogin, customerAuthController.login);
 
 // Password reset routes (public) - Customer uses email
-router.post('/forgot-password', passwordController.forgotPasswordCustomer);
-router.post('/reset-password/:token', passwordController.resetPassword);
+router.post('/forgot-password', passwordResetLimiter, passwordController.forgotPasswordCustomer);
+router.post('/reset-password/:token', passwordResetLimiter, passwordController.resetPassword);
 
 // Protected routes
 router.get('/profile', authenticateToken, customerAuthController.getProfile);

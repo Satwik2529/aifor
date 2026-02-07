@@ -20,14 +20,14 @@ const Sidebar = ({ isOpen, onClose }) => {
   const { t } = useTranslation();
   
   const menu = [
-    { name: t('nav.dashboard'), href: '/', icon: LayoutDashboard },
-    { name: t('nav.sales'), href: '/sales', icon: ShoppingCart },
-    { name: t('nav.expenses'), href: '/expenses', icon: Receipt },
-    { name: t('nav.inventory'), href: '/inventory', icon: Package },
-    { name: t('nav.customers'), href: '/customers', icon: Users },
-    { name: t('nav.customerRequests'), href: '/customer-requests', icon: MessageSquare },
-    { name: t('nav.aiInsights'), href: '/ai', icon: Brain },
-    { name: t('nav.analytics'), href: '/analytics', icon: BarChart3 },
+    { name: t('nav.dashboard'), href: '/dashboard', icon: LayoutDashboard },
+    { name: t('nav.sales'), href: '/dashboard/sales', icon: ShoppingCart },
+    { name: t('nav.expenses'), href: '/dashboard/expenses', icon: Receipt },
+    { name: t('nav.inventory'), href: '/dashboard/inventory', icon: Package },
+    { name: t('nav.customers'), href: '/dashboard/customers', icon: Users },
+    { name: t('nav.customerRequests'), href: '/dashboard/customer-requests', icon: MessageSquare },
+    { name: t('nav.aiInsights'), href: '/dashboard/ai', icon: Brain },
+    { name: t('nav.analytics'), href: '/dashboard/analytics', icon: BarChart3 },
   ];
 
   return (

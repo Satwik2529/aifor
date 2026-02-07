@@ -402,17 +402,22 @@ const customerRequestController = {
           console.log(`📦 Deducted ${deductAmount} ${inventoryItem.unit || 'units'} of ${item.item_name}. New stock: ${inventoryItem.stock_qty}`);
 
           // Prepare sale item
-          // Get cost: try purchase_price, then 70% of selling price as fallback
-          const selling_price = inventoryItem.price || inventoryItem.price_per_unit || item.price_per_unit;
-          const cost_per_unit = inventoryItem.purchase_price || inventoryItem.cost || (selling_price * 0.7);
+          // Get selling price: use item price if set, otherwise use inventory price
+          const selling_price = item.price_per_unit || inventoryItem.price_per_unit || inventoryItem.selling_price || inventoryItem.price || 0;
+          
+          // Get cost: try cost_per_unit, cost_price, purchase_price, then 70% of selling price as fallback
+          const cost_per_unit = inventoryItem.cost_per_unit || inventoryItem.cost_price || inventoryItem.purchase_price || inventoryItem.cost || (selling_price * 0.7);
+          
+          console.log(`💰 Item pricing: ${item.item_name} - Selling: ₹${selling_price}, Cost: ₹${cost_per_unit}`);
+          
           saleItems.push({
             item_name: item.item_name,
             quantity: item.quantity,
-            price_per_unit: item.price_per_unit,
+            price_per_unit: selling_price,
             cost_per_unit: cost_per_unit
           });
 
-          total_amount += item.total_price;
+          total_amount += selling_price * item.quantity;
           total_cogs += cost_per_unit * item.quantity;
         }
 
@@ -559,15 +564,51 @@ const customerRequestController = {
       // Update items with prices
       if (items && Array.isArray(items)) {
         console.log('✅ Updating item prices...');
-        items.forEach((item, index) => {
-          if (request.items[index]) {
-            const oldPrice = request.items[index].price_per_unit;
-            request.items[index].price_per_unit = item.price_per_unit || 0;
-            console.log(`  ${request.items[index].item_name}: ₹${oldPrice} → ₹${item.price_per_unit}`);
+        for (let i = 0; i < items.length; i++) {
+          if (request.items[i]) {
+            const oldPrice = request.items[i].price_per_unit;
+            const newPrice = items[i].price_per_unit;
+            
+            // If no price provided, fetch from inventory
+            if (!newPrice || newPrice === 0) {
+              console.log(`⚠️ No price for ${request.items[i].item_name}, fetching from inventory...`);
+              const inventoryItem = await Inventory.findOne({
+                user_id: retailer_id,
+                item_name: { $regex: new RegExp(`^${request.items[i].item_name}$`, 'i') }
+              });
+              
+              if (inventoryItem) {
+                const inventoryPrice = inventoryItem.price_per_unit || inventoryItem.selling_price || inventoryItem.price || 0;
+                request.items[i].price_per_unit = inventoryPrice;
+                console.log(`  ${request.items[i].item_name}: ₹${oldPrice} → ₹${inventoryPrice} (from inventory)`);
+              } else {
+                console.warn(`  ⚠️ ${request.items[i].item_name}: Not found in inventory, keeping ₹${oldPrice}`);
+                request.items[i].price_per_unit = oldPrice || 0;
+              }
+            } else {
+              request.items[i].price_per_unit = newPrice;
+              console.log(`  ${request.items[i].item_name}: ₹${oldPrice} → ₹${newPrice}`);
+            }
           }
-        });
+        }
       } else {
-        console.warn('⚠️ No items provided for price update');
+        console.warn('⚠️ No items provided for price update, fetching from inventory...');
+        // Fetch prices from inventory for all items
+        for (let i = 0; i < request.items.length; i++) {
+          const inventoryItem = await Inventory.findOne({
+            user_id: retailer_id,
+            item_name: { $regex: new RegExp(`^${request.items[i].item_name}$`, 'i') }
+          });
+          
+          if (inventoryItem) {
+            const inventoryPrice = inventoryItem.price_per_unit || inventoryItem.selling_price || inventoryItem.price || 0;
+            const oldPrice = request.items[i].price_per_unit;
+            request.items[i].price_per_unit = inventoryPrice;
+            console.log(`  ${request.items[i].item_name}: ₹${oldPrice} → ₹${inventoryPrice} (from inventory)`);
+          } else {
+            console.warn(`  ⚠️ ${request.items[i].item_name}: Not found in inventory`);
+          }
+        }
       }
 
       // Calculate bill

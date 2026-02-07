@@ -5,6 +5,8 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import DashboardLayout from './components/DashboardLayout';
 import FloatingChatbot from './components/FloatingChatbot';
+import LandingPage from './pages/LandingPage';
+import AuthCallback from './pages/AuthCallback';
 import Dashboard from './pages/Dashboard';
 import Sales from './pages/Sales';
 import Expenses from './pages/Expenses';
@@ -47,7 +49,14 @@ const PublicRoute = ({ children }) => {
     );
   }
 
-  return isAuthenticated ? <Navigate to="/" /> : children;
+  if (isAuthenticated) {
+    // Check userType to redirect to correct dashboard
+    const userType = localStorage.getItem('userType');
+    const redirectPath = userType === 'customer' ? '/customer-dashboard' : '/dashboard';
+    return <Navigate to={redirectPath} />;
+  }
+
+  return children;
 };
 
 /**
@@ -86,9 +95,23 @@ function App() {
             }}
           />
           <Routes>
+            {/* Landing Page */}
+            <Route path="/" element={<LandingPage />} />
+
+            {/* Auth Callback for Google OAuth */}
+            <Route path="/auth/callback" element={<AuthCallback />} />
+
             {/* Public routes */}
-            <Route path="/login" element={<LoginNew />} />
-            <Route path="/register" element={<RegisterNew />} />
+            <Route path="/login" element={
+              <PublicRoute>
+                <LoginNew />
+              </PublicRoute>
+            } />
+            <Route path="/register" element={
+              <PublicRoute>
+                <RegisterNew />
+              </PublicRoute>
+            } />
             <Route path="/reset-password/:token" element={<ResetPassword />} />
 
             {/* Customer Dashboard (separate from retailer) */}
@@ -97,7 +120,7 @@ function App() {
             <Route path="/customer/profile-settings" element={<ProfileSettings />} />
 
             {/* Protected retailer routes with layout */}
-            <Route path="/" element={
+            <Route path="/dashboard" element={
               <ProtectedRoute>
                 <>
                   <DashboardLayout />

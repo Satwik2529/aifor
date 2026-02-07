@@ -109,9 +109,7 @@ const Register = () => {
       // Remove confirmPassword from data sent to backend
       const { confirmPassword, ...registrationData } = formData;
 
-      console.log('Attempting registration with:', registrationData);
       const result = await register(registrationData);
-      console.log('Registration result:', result);
 
       if (result.success) {
         toast.success('Account created successfully! Welcome to BizNova');

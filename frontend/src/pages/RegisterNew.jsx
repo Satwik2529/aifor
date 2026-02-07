@@ -158,7 +158,7 @@ const RegisterNew = () => {
         if (result.success) {
           toast.success(t('auth.register.success'));
           // Delay navigation to show toast
-          setTimeout(() => navigate('/'), 1000);
+          setTimeout(() => navigate('/dashboard'), 1000);
         } else {
           toast.error(result.message || t('auth.register.errors.registrationFailed'));
         }
@@ -184,7 +184,6 @@ const RegisterNew = () => {
         if (result.success) {
           localStorage.setItem('token', result.data.token);
           localStorage.setItem('userType', 'customer');
-          localStorage.setItem('user', JSON.stringify(result.data.customer));
           toast.success(t('auth.register.success'));
           // Delay navigation to show toast
           setTimeout(() => navigate('/customer-dashboard'), 1000);

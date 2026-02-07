@@ -181,7 +181,6 @@ const AIInsights = () => {
                 pdfHeader.style.display = 'none';
             }
             
-            console.log('✅ PDF exported successfully:', fileName);
         } catch (error) {
             console.error('Error exporting PDF:', error);
             alert('Failed to export PDF. Please try again.');

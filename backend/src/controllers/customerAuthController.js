@@ -24,20 +24,37 @@ const customerAuthController = {
 
       const { name, email, password, phone, address } = req.body;
 
-      // Check if customer already exists with email
-      const existingCustomer = await CustomerUser.findOne({ email });
-      if (existingCustomer) {
+      // Check if customer already exists with email (case-insensitive, both collections)
+      const normalizedEmail = email.toLowerCase();
+      const existingCustomer = await CustomerUser.findOne({ email: normalizedEmail });
+      const existingRetailer = await User.findOne({ email: normalizedEmail });
+      
+      if (existingCustomer || existingRetailer) {
         return res.status(400).json({
           success: false,
-          message: 'Customer already exists with this email',
-          error: 'Email already registered'
+          message: 'Email already registered',
+          error: 'Email already in use'
         });
+      }
+      
+      // Check phone if provided (both collections)
+      if (phone) {
+        const existingCustomerPhone = await CustomerUser.findOne({ phone });
+        const existingRetailerPhone = await User.findOne({ phone });
+        
+        if (existingCustomerPhone || existingRetailerPhone) {
+          return res.status(400).json({
+            success: false,
+            message: 'Phone number already registered',
+            error: 'Phone number already in use'
+          });
+        }
       }
 
       // Create new customer
       const customer = new CustomerUser({
         name,
-        email,
+        email: normalizedEmail,
         password,
         phone,
         address: address || {}
@@ -45,14 +62,23 @@ const customerAuthController = {
 
       await customer.save();
 
-      // Generate JWT token
-      const token = generateToken(customer._id);
+      // Generate JWT token with userType
+      const token = generateToken(customer._id, 'customer');
 
       res.status(201).json({
         success: true,
         message: 'Customer registered successfully',
         data: {
-          customer: customer.profile,
+          customer: {
+            id: customer._id,
+            name: customer.name,
+            email: customer.email,
+            phone: customer.phone,
+            address: customer.address,
+            avatar: customer.avatar,
+            createdAt: customer.createdAt,
+            updatedAt: customer.updatedAt
+          },
           token,
           userType: 'customer'
         }
@@ -82,8 +108,10 @@ const customerAuthController = {
 
       const { email, password } = req.body;
 
-      // Find customer by email
-      const customer = await CustomerUser.findOne({ email });
+      // Find customer by email (case-insensitive)
+      const normalizedEmail = email.toLowerCase();
+      const customer = await CustomerUser.findOne({ email: normalizedEmail });
+      
       if (!customer) {
         return res.status(401).json({
           success: false,
@@ -92,24 +120,55 @@ const customerAuthController = {
         });
       }
 
-      // Check password
-      const isPasswordValid = await customer.comparePassword(password);
-      if (!isPasswordValid) {
-        return res.status(401).json({
+      // Check if account is locked
+      if (customer.isLocked()) {
+        const lockTimeRemaining = Math.ceil((customer.lockUntil - Date.now()) / 60000);
+        return res.status(423).json({
           success: false,
-          message: 'Invalid credentials',
-          error: 'Email or password incorrect'
+          message: `Account temporarily locked due to multiple failed login attempts. Please try again in ${lockTimeRemaining} minutes.`,
+          error: 'Account locked'
         });
       }
 
-      // Generate JWT token
-      const token = generateToken(customer._id);
+      // Check password
+      const isPasswordValid = await customer.comparePassword(password);
+      if (!isPasswordValid) {
+        // Increment login attempts
+        await customer.incLoginAttempts();
+        
+        const attemptsRemaining = Math.max(0, 5 - (customer.loginAttempts + 1));
+        
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid credentials',
+          error: 'Email or password incorrect',
+          attemptsRemaining: attemptsRemaining > 0 ? attemptsRemaining : undefined,
+          ...(attemptsRemaining === 0 && { lockMessage: 'Account will be locked for 30 minutes' })
+        });
+      }
+
+      // Reset login attempts on successful login
+      if (customer.loginAttempts > 0 || customer.lockUntil) {
+        await customer.resetLoginAttempts();
+      }
+
+      // Generate JWT token with userType
+      const token = generateToken(customer._id, 'customer');
 
       res.status(200).json({
         success: true,
         message: 'Login successful',
         data: {
-          customer: customer.profile,
+          customer: {
+            id: customer._id,
+            name: customer.name,
+            email: customer.email,
+            phone: customer.phone,
+            address: customer.address,
+            avatar: customer.avatar,
+            createdAt: customer.createdAt,
+            updatedAt: customer.updatedAt
+          },
           token,
           userType: 'customer'
         }
@@ -140,7 +199,16 @@ const customerAuthController = {
         success: true,
         message: 'Customer profile retrieved successfully',
         data: {
-          customer: customer.profile,
+          customer: {
+            id: customer._id,
+            name: customer.name,
+            email: customer.email,
+            phone: customer.phone,
+            address: customer.address,
+            avatar: customer.avatar,
+            createdAt: customer.createdAt,
+            updatedAt: customer.updatedAt
+          },
           userType: 'customer'
         }
       });

@@ -23,16 +23,32 @@ const authController = {
         });
       }
 
-      const { name, phone, password, shop_name, language, upi_id } = req.body;
+      const { name, phone, password, shop_name, language, upi_id, email } = req.body;
 
-      // Check if user already exists
+      // Check if user already exists (phone in both collections)
       const existingUser = await User.findOne({ phone });
-      if (existingUser) {
+      const existingCustomer = await CustomerUser.findOne({ phone });
+      
+      if (existingUser || existingCustomer) {
         return res.status(400).json({
           success: false,
-          message: 'User already exists with this phone number',
-          error: 'Phone number already registered'
+          message: 'Phone number already registered',
+          error: 'Phone number already in use'
         });
+      }
+      
+      // Check email if provided (case-insensitive, both collections)
+      if (email) {
+        const existingUserEmail = await User.findOne({ email: email.toLowerCase() });
+        const existingCustomerEmail = await CustomerUser.findOne({ email: email.toLowerCase() });
+        
+        if (existingUserEmail || existingCustomerEmail) {
+          return res.status(400).json({
+            success: false,
+            message: 'Email already registered',
+            error: 'Email already in use'
+          });
+        }
       }
 
       // Create new user
@@ -40,6 +56,7 @@ const authController = {
         name,
         phone,
         password,
+        email: email ? email.toLowerCase() : undefined,
         shop_name,
         language,
         upi_id
@@ -47,15 +64,16 @@ const authController = {
 
       await user.save();
 
-      // Generate JWT token
-      const token = generateToken(user._id);
+      // Generate JWT token with userType
+      const token = generateToken(user._id, 'retailer');
 
       res.status(201).json({
         success: true,
         message: 'User registered successfully',
         data: {
           user: user.profile,
-          token
+          token,
+          userType: 'retailer'
         }
       });
     } catch (error) {
@@ -93,25 +111,48 @@ const authController = {
         });
       }
 
-      // Check password
-      const isPasswordValid = await user.comparePassword(password);
-      if (!isPasswordValid) {
-        return res.status(401).json({
+      // Check if account is locked
+      if (user.isLocked()) {
+        const lockTimeRemaining = Math.ceil((user.lockUntil - Date.now()) / 60000);
+        return res.status(423).json({
           success: false,
-          message: 'Invalid credentials',
-          error: 'Phone number or password incorrect'
+          message: `Account temporarily locked due to multiple failed login attempts. Please try again in ${lockTimeRemaining} minutes.`,
+          error: 'Account locked'
         });
       }
 
-      // Generate JWT token
-      const token = generateToken(user._id);
+      // Check password
+      const isPasswordValid = await user.comparePassword(password);
+      if (!isPasswordValid) {
+        // Increment login attempts
+        await user.incLoginAttempts();
+        
+        const attemptsRemaining = Math.max(0, 5 - (user.loginAttempts + 1));
+        
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid credentials',
+          error: 'Phone number or password incorrect',
+          attemptsRemaining: attemptsRemaining > 0 ? attemptsRemaining : undefined,
+          ...(attemptsRemaining === 0 && { lockMessage: 'Account will be locked for 30 minutes' })
+        });
+      }
+
+      // Reset login attempts on successful login
+      if (user.loginAttempts > 0 || user.lockUntil) {
+        await user.resetLoginAttempts();
+      }
+
+      // Generate JWT token with userType
+      const token = generateToken(user._id, 'retailer');
 
       res.status(200).json({
         success: true,
         message: 'Login successful',
         data: {
           user: user.profile,
-          token
+          token,
+          userType: 'retailer'
         }
       });
     } catch (error) {
