@@ -13,12 +13,19 @@ const User = require('../models/User');
 const CustomerUser = require('../models/CustomerUser');
 const Notification = require('../models/Notification');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
+const OpenAI = require('openai');
 const ttsService = require('../services/ttsService');
 const mongoose = require('mongoose');
 const { handleRetailerChat } = require('./retailerChatHandler');
+const { handleRetailerChatOptimized } = require('./retailerChatHandlerOptimized');
 
-// Initialize Gemini AI
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+// Initialize OpenAI
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY
+});
+
+// Feature flag: Use optimized handler (set to true to enable)
+const USE_OPTIMIZED_HANDLER = process.env.USE_OPTIMIZED_CHAT === 'true' || false;
 
 // In-memory storage for pending orders (use Redis in production)
 const pendingOrders = new Map();
@@ -70,8 +77,17 @@ const handleCustomerChat = async (userId, retailerId, message, language) => {
             return await handleOrderConfirmation(userId, retailerId, message, language);
         }
 
-        // Use Gemini to understand customer intent and extract items
-        const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+        // Use OpenAI to understand customer intent and extract items
+        const completion = await openai.chat.completions.create({
+          model: 'gpt-4o-mini',
+          messages: [{
+            role: 'user',
+            content: `${prompt}\n\nCustomer message: "${message}"`
+          }],
+          temperature: 0.3,
+          max_tokens: 500,
+          response_format: { type: "json_object" }
+        });
 
         console.log('📦 Available Inventory:', inventory.map(item => `${item.item_name}: ${item.stock_qty}`).join(', '));
 
@@ -113,22 +129,17 @@ Return ONLY a valid JSON array (no markdown, no explanation):
 If message is unclear or not a shopping request, return: []
 `;
 
-        const result = await model.generateContent(intentPrompt);
-        const aiResponse = await result.response;
-        let responseText = aiResponse.text().trim();
+        const aiResponse = completion.choices[0].message.content.trim();
+        console.log('🤖 AI Raw Response:', aiResponse);
 
-        console.log('🤖 AI Raw Response:', responseText);
-
-        // Clean and parse JSON
-        responseText = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-
+        // Parse JSON
         let orderItems = [];
         try {
-            orderItems = JSON.parse(responseText);
+            orderItems = JSON.parse(aiResponse);
             if (!Array.isArray(orderItems)) orderItems = [];
             console.log('🤖 Parsed Order Items:', orderItems);
         } catch (e) {
-            console.log('Failed to parse order items:', responseText);
+            console.log('Failed to parse order items:', aiResponse);
         }
 
         // Match items with actual inventory and calculate prices
@@ -329,8 +340,6 @@ const handleCustomerWithoutRetailer = async (userId, message, language) => {
         // Get available retailers
         const retailers = await User.find({ role: 'retailer' }).select('shop_name phone address');
 
-        const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
-
         const prompt = `
         Customer message: "${message}"
         Available retailers:
@@ -339,12 +348,16 @@ const handleCustomerWithoutRetailer = async (userId, message, language) => {
         The customer hasn't selected a retailer yet. Help them choose one or answer general questions.
         `;
 
-        const result = await model.generateContent(prompt);
-        const aiResponse = await result.response;
+        const completion = await openai.chat.completions.create({
+          model: 'gpt-4o-mini',
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0.7,
+          max_tokens: 300
+        });
 
         return {
             success: true,
-            message: aiResponse.text(),
+            message: completion.choices[0].message.content,
             data: {
                 available_retailers: retailers,
                 needs_retailer_selection: true
@@ -414,7 +427,10 @@ const chat = async (req, res) => {
             response = await handleCustomerChat(userId, retailer_id, message, language);
         } else if (isRetailer) {
             // Retailer chatting with their own business data
-            response = await handleRetailerChat(userId, message, language);
+            // Use optimized handler if enabled (reduces token usage by 80%+)
+            response = USE_OPTIMIZED_HANDLER 
+                ? await handleRetailerChatOptimized(userId, message, language)
+                : await handleRetailerChat(userId, message, language);
         } else if (isCustomer && !retailer_id) {
             // Customer needs to select a retailer first
             response = await handleCustomerWithoutRetailer(userId, message, language);

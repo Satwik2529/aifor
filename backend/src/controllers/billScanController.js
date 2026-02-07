@@ -1,9 +1,11 @@
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+const OpenAI = require('openai');
 const Inventory = require('../models/Inventory');
 const { normalize, isValidQuantity } = require('../utils/quantityHelper');
 
-// Initialize Gemini AI with v1 API (stable)
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+// Initialize OpenAI
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY
+});
 
 /**
  * STEP 1: PARSE BILL IMAGE
@@ -25,11 +27,6 @@ const parseBillImage = async (req, res) => {
         // Get image buffer directly from memory (no file system needed)
         const imageBuffer = req.file.buffer;
         const base64Image = imageBuffer.toString('base64');
-
-        // Use Gemini 2.5 Flash - Current stable model with vision support (free tier)
-        const model = genAI.getGenerativeModel({ 
-            model: 'gemini-2.5-flash'
-        });
 
         const prompt = `You are analyzing a wholesale purchase bill/invoice image.
 
@@ -92,29 +89,33 @@ Confidence scoring:
 
 Return ONLY the JSON object. No explanations.`;
 
-        const result = await model.generateContent([
-            prompt,
-            {
-                inlineData: {
-                    mimeType: req.file.mimetype,
-                    data: base64Image
+        // Use OpenAI Vision API (gpt-4o-mini supports vision)
+        const completion = await openai.chat.completions.create({
+          model: 'gpt-4o-mini',
+          messages: [{
+            role: 'user',
+            content: [
+              { type: 'text', text: prompt },
+              {
+                type: 'image_url',
+                image_url: {
+                  url: `data:${req.file.mimetype};base64,${base64Image}`
                 }
-            }
-        ]);
+              }
+            ]
+          }],
+          temperature: 0.3,
+          max_tokens: 1500,
+          response_format: { type: "json_object" }
+        });
 
-        const responseText = result.response.text().trim();
+        const responseText = completion.choices[0].message.content.trim();
         console.log('🤖 AI Response:', responseText);
-
-        // Clean up response
-        let cleanedResponse = responseText
-            .replace(/```json\n?/g, '')
-            .replace(/```\n?/g, '')
-            .trim();
 
         // Parse AI response
         let parsedData;
         try {
-            parsedData = JSON.parse(cleanedResponse);
+            parsedData = JSON.parse(responseText);
         } catch (parseError) {
             console.error('JSON parse error:', parseError);
             return res.status(400).json({

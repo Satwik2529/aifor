@@ -372,8 +372,8 @@ export const aiInsightsAPI = {
 // Chatbot API calls
 export const chatbotAPI = {
     // Send message to chatbot
-    chat: async (message, language = 'en') => {
-        const response = await api.post('/chatbot/chat', { message, language });
+    chat: async (message, language = 'en', retailer_id = null) => {
+        const response = await api.post('/chatbot/chat', { message, language, retailer_id });
         return response.data;
     },
 
@@ -382,6 +382,15 @@ export const chatbotAPI = {
         const response = await api.get('/chatbot/status');
         return response.data;
     },
+
+    // Get festival demand forecast (optimized tool-based)
+    getFestivalForecast: async () => {
+        const response = await api.post('/chatbot/chat', { 
+            message: 'What should I stock for upcoming festival?',
+            language: 'en'
+        });
+        return response.data;
+    }
 };
 
 export default api;

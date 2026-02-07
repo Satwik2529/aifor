@@ -1,8 +1,10 @@
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+const OpenAI = require('openai');
 const Inventory = require('../models/Inventory');
 const fs = require('fs');
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY
+});
 
 /**
  * Process uploaded image and extract inventory data using Gemini Vision
@@ -26,9 +28,7 @@ const processInventoryImage = async (req, res) => {
         const imageBuffer = fs.readFileSync(imagePath);
         const base64Image = imageBuffer.toString('base64');
 
-        // Use Gemini 2.0 Flash - FREE MODEL with vision support
-        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
-
+        // Use OpenAI Vision API
         const prompt = `You are an inventory data extraction assistant. Analyze this image and extract ALL inventory items with their details.
 
 The image may contain:
@@ -61,29 +61,34 @@ If you cannot extract clear data, return an empty array: []
 
 Return ONLY the JSON array, no markdown, no explanations.`;
 
-        const result = await model.generateContent([
-            prompt,
-            {
-                inlineData: {
-                    mimeType: req.file.mimetype,
-                    data: base64Image
+        const completion = await openai.chat.completions.create({
+          model: 'gpt-4o-mini',
+          messages: [{
+            role: 'user',
+            content: [
+              { type: 'text', text: prompt },
+              {
+                type: 'image_url',
+                image_url: {
+                  url: `data:${req.file.mimetype};base64,${base64Image}`
                 }
-            }
-        ]);
+              }
+            ]
+          }],
+          temperature: 0.3,
+          max_tokens: 1500,
+          response_format: { type: "json_object" }
+        });
 
-        const responseText = result.response.text().trim();
+        const responseText = completion.choices[0].message.content.trim();
         console.log('🤖 AI Response:', responseText);
-
-        // Clean up response
-        let cleanedResponse = responseText
-            .replace(/```json\n?/g, '')
-            .replace(/```\n?/g, '')
-            .trim();
 
         // Parse the extracted data
         let extractedItems;
         try {
-            extractedItems = JSON.parse(cleanedResponse);
+            const parsed = JSON.parse(responseText);
+            // OpenAI might wrap in an object, extract array
+            extractedItems = Array.isArray(parsed) ? parsed : (parsed.items || []);
         } catch (parseError) {
             console.error('JSON parse error:', parseError);
             fs.unlinkSync(imagePath);

@@ -1,6 +1,10 @@
-const geminiService = require('./geminiService');
+const OpenAI = require('openai');
 const Inventory = require('../models/Inventory');
 const CustomerRequest = require('../models/CustomerRequest');
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY
+});
 const CustomerUser = require('../models/CustomerUser');
 const User = require('../models/User');
 const Notification = require('../models/Notification');
@@ -141,8 +145,16 @@ CRITICAL:
       // Build context-aware prompt
       const contextPrompt = this.buildContextPrompt(message, availableItems, language);
       
-      // Get AI response
-      const aiResponse = await geminiService.generateResponse(contextPrompt);
+      // Get AI response using OpenAI
+      const completion = await openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [{ role: 'user', content: contextPrompt }],
+        temperature: 0.7,
+        max_tokens: 800,
+        response_format: { type: "json_object" }
+      });
+      
+      const aiResponse = completion.choices[0].message.content;
       
       // Parse AI response
       let parsedResponse;

@@ -7,13 +7,15 @@ import {
     Loader2,
     AlertCircle,
     CheckCircle,
-    BarChart3,
-    ShoppingCart,
     Sparkles,
     RefreshCw,
-    Download
+    Download,
+    PartyPopper,
+    Clock,
+    Package,
+    TrendingDown
 } from 'lucide-react';
-import { aiInsightsAPI } from '../services/api';
+import { aiInsightsAPI, chatbotAPI } from '../services/api';
 import ReactMarkdown from 'react-markdown';
 import html2pdf from 'html2pdf.js';
 import { useTranslation } from 'react-i18next';
@@ -24,17 +26,20 @@ const AIInsights = () => {
     const [loading, setLoading] = useState({
         demand: false,
         revenue: false,
-        expense: false
+        expense: false,
+        festival: false
     });
     const [insights, setInsights] = useState({
         demand: null,
         revenue: null,
-        expense: null
+        expense: null,
+        festival: null
     });
     const [error, setError] = useState({
         demand: null,
         revenue: null,
-        expense: null
+        expense: null,
+        festival: null
     });
     const [exportingPDF, setExportingPDF] = useState(false);
     
@@ -64,6 +69,13 @@ const AIInsights = () => {
             icon: Calendar,
             color: 'purple',
             description: t('ai.tabs.expense.description')
+        },
+        {
+            id: 'festival',
+            name: 'Festival Planning',
+            icon: PartyPopper,
+            color: 'orange',
+            description: 'AI-powered festival demand forecasting for better inventory planning'
         }
     ];
 
@@ -83,12 +95,15 @@ const AIInsights = () => {
                 case 'expense':
                     response = await aiInsightsAPI.generateExpenseForecast();
                     break;
+                case 'festival':
+                    response = await chatbotAPI.getFestivalForecast();
+                    break;
                 default:
                     throw new Error('Invalid insight type');
             }
 
             if (response.success) {
-                setInsights(prev => ({ ...prev, [type]: response.data }));
+                setInsights(prev => ({ ...prev, [type]: response.data || response }));
             } else {
                 throw new Error(response.message || 'Failed to generate insights');
             }
@@ -239,7 +254,236 @@ const AIInsights = () => {
         );
     };
 
+    const renderFestivalForecast = () => {
+        const festivalData = insights.festival;
+        const isLoading = loading.festival;
+        const errorMsg = error.festival;
+
+        if (isLoading) {
+            return (
+                <div className="flex flex-col items-center justify-center py-20">
+                    <Loader2 className="h-12 w-12 text-orange-600 animate-spin mb-4" />
+                    <p className="text-gray-600">Analyzing festival demand...</p>
+                    <p className="text-sm text-gray-500 mt-2">Checking upcoming festivals and your inventory</p>
+                </div>
+            );
+        }
+
+        if (errorMsg) {
+            return (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+                    <div className="flex items-start">
+                        <AlertCircle className="h-6 w-6 text-red-600 mt-0.5 mr-3" />
+                        <div>
+                            <h3 className="text-red-900 font-semibold mb-2">Error</h3>
+                            <p className="text-red-700 text-sm">{errorMsg}</p>
+                            <button
+                                onClick={() => generateInsight('festival')}
+                                className="mt-4 btn-primary"
+                            >
+                                <RefreshCw className="h-4 w-4 mr-2" />
+                                Try Again
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        if (!festivalData) {
+            return (
+                <div className="text-center py-20">
+                    <PartyPopper className="h-16 w-16 text-orange-400 mx-auto mb-4" />
+                    <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+                        Festival Demand Forecasting
+                    </h3>
+                    <p className="text-gray-600 mb-6 max-w-md mx-auto">
+                        Get AI-powered recommendations on what to stock for upcoming Indian festivals based on your sales history and inventory.
+                    </p>
+                    <button
+                        onClick={() => generateInsight('festival')}
+                        className="btn-primary inline-flex items-center"
+                    >
+                        <PartyPopper className="h-5 w-5 mr-2" />
+                        Generate Festival Forecast
+                    </button>
+                </div>
+            );
+        }
+
+        // Parse the festival data from chatbot response
+        const forecast = festivalData.tools_used?.includes('getFestivalDemandForecast') 
+            ? festivalData.results?.getFestivalDemandForecast 
+            : null;
+
+        if (!forecast || !forecast.has_forecast) {
+            return (
+                <div className="text-center py-12">
+                    <Calendar className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                        No Upcoming Festivals Found
+                    </h3>
+                    <p className="text-gray-600">
+                        Check back later for festival recommendations
+                    </p>
+                </div>
+            );
+        }
+
+        const { festival_name, months_away, is_imminent, demand_level, forecast_items, summary } = forecast;
+
+        const getConfidenceBadge = (confidence) => {
+            const badges = {
+                'High': { bg: 'bg-green-100', text: 'text-green-800', icon: '✅' },
+                'Medium': { bg: 'bg-yellow-100', text: 'text-yellow-800', icon: '⚠️' },
+                'Low': { bg: 'bg-gray-100', text: 'text-gray-800', icon: 'ℹ️' }
+            };
+            return badges[confidence] || badges['Low'];
+        };
+
+        return (
+            <div className="space-y-6">
+                {/* Festival Header Card */}
+                <div className="bg-gradient-to-r from-orange-500 to-pink-500 rounded-lg p-6 text-white">
+                    <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                            <div className="flex items-center mb-2">
+                                <PartyPopper className="h-8 w-8 mr-3" />
+                                <h2 className="text-2xl font-bold">{festival_name}</h2>
+                            </div>
+                            <div className="flex items-center space-x-4 text-sm">
+                                <div className="flex items-center">
+                                    <Clock className="h-4 w-4 mr-1" />
+                                    <span>{months_away === 0 ? 'This month' : `${months_away} month${months_away > 1 ? 's' : ''} away`}</span>
+                                </div>
+                                <div className="flex items-center">
+                                    <TrendingUp className="h-4 w-4 mr-1" />
+                                    <span>{demand_level} Demand</span>
+                                </div>
+                                {is_imminent && (
+                                    <span className="bg-white/20 px-2 py-1 rounded text-xs font-semibold">
+                                        🔥 URGENT
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+                        <button
+                            onClick={() => generateInsight('festival')}
+                            className="bg-white/20 hover:bg-white/30 px-3 py-2 rounded-lg flex items-center text-sm"
+                        >
+                            <RefreshCw className="h-4 w-4 mr-1" />
+                            Refresh
+                        </button>
+                    </div>
+                </div>
+
+                {/* Summary Stats */}
+                <div className="grid grid-cols-3 gap-4">
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm text-green-600 font-medium">High Confidence</p>
+                                <p className="text-2xl font-bold text-green-900">{summary.high_confidence}</p>
+                            </div>
+                            <CheckCircle className="h-8 w-8 text-green-500" />
+                        </div>
+                    </div>
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm text-yellow-600 font-medium">Medium Confidence</p>
+                                <p className="text-2xl font-bold text-yellow-900">{summary.medium_confidence}</p>
+                            </div>
+                            <AlertCircle className="h-8 w-8 text-yellow-500" />
+                        </div>
+                    </div>
+                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm text-gray-600 font-medium">Low Confidence</p>
+                                <p className="text-2xl font-bold text-gray-900">{summary.low_confidence}</p>
+                            </div>
+                            <TrendingDown className="h-8 w-8 text-gray-500" />
+                        </div>
+                    </div>
+                </div>
+
+                {/* Recommended Items */}
+                <div>
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
+                        <Package className="h-5 w-5 mr-2 text-orange-600" />
+                        Recommended Items to Stock
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {forecast_items.map((item, index) => {
+                            const badge = getConfidenceBadge(item.confidence);
+                            return (
+                                <div key={index} className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                                    <div className="flex items-start justify-between mb-3">
+                                        <h4 className="font-semibold text-gray-900 flex-1">{item.item_name}</h4>
+                                        <span className={`${badge.bg} ${badge.text} px-2 py-1 rounded text-xs font-medium`}>
+                                            {badge.icon} {item.confidence}
+                                        </span>
+                                    </div>
+                                    <div className="space-y-2 text-sm">
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-600">Current Stock:</span>
+                                            <span className="font-medium text-gray-900">{item.current_stock} units</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-600">Sales Velocity:</span>
+                                            <span className="font-medium text-gray-900">{item.recent_sales_velocity} units/day</span>
+                                        </div>
+                                        <div className="pt-2 border-t border-gray-100">
+                                            <p className="text-xs text-gray-600 mb-2">
+                                                {item.reasoning}
+                                            </p>
+                                            <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${
+                                                item.action.includes('Restock') 
+                                                    ? 'bg-red-100 text-red-800' 
+                                                    : 'bg-blue-100 text-blue-800'
+                                            }`}>
+                                                {item.action}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                {/* AI Response */}
+                {festivalData.message && (
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+                        <h3 className="text-lg font-semibold text-blue-900 mb-3 flex items-center">
+                            <Brain className="h-5 w-5 mr-2" />
+                            AI Recommendations
+                        </h3>
+                        <div className="prose prose-sm max-w-none">
+                            <ReactMarkdown
+                                components={{
+                                    p: ({ node, ...props }) => <p className="text-blue-800 mb-2" {...props} />,
+                                    ul: ({ node, ...props }) => <ul className="list-disc list-inside space-y-1 text-blue-800" {...props} />,
+                                    li: ({ node, ...props }) => <li className="text-blue-800" {...props} />,
+                                    strong: ({ node, ...props }) => <strong className="font-semibold text-blue-900" {...props} />,
+                                }}
+                            >
+                                {festivalData.message}
+                            </ReactMarkdown>
+                        </div>
+                    </div>
+                )}
+            </div>
+        );
+    };
+
     const renderInsightContent = (type) => {
+        // Special handling for festival forecast
+        if (type === 'festival') {
+            return renderFestivalForecast();
+        }
+
         const insight = insights[type];
         const isLoading = loading[type];
         const errorMsg = error[type];

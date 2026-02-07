@@ -332,7 +332,7 @@ async function runTests() {
     console.log('- Expenses: GET/POST/PUT/DELETE /api/expenses');
     console.log('- Inventory: GET/POST/PUT/DELETE /api/inventory');
     console.log('- Customers: GET/POST/PUT/DELETE /api/customers');
-    console.log('- AI Insights: GET/POST/PUT/DELETE /api/ai-insights');
+    console.log('- AI Insights: GET/POST/PUT/DELETE /api/ai-insights');  
     console.log('- Messages: GET/POST/PUT/DELETE /api/messages');
 
   } catch (error) {

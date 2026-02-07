@@ -3,10 +3,12 @@ const Inventory = require('../models/Inventory');
 const Expense = require('../models/Expense');
 const User = require('../models/User');
 const CustomerRequest = require('../models/CustomerRequest');
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+const OpenAI = require('openai');
 const { normalize, isValidQuantity } = require('../utils/quantityHelper');
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY
+});
 const pendingOrders = new Map();
 
 /**
@@ -271,8 +273,6 @@ const parseMessageFallback = (message) => {
  * Enhanced AI processing for retailer requests
  */
 const processRetailerRequest = async (message, businessData, language) => {
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
-    
     const prompt = `
 You are an advanced business assistant for a retail store. Analyze this request: "${message}"
 
@@ -344,12 +344,15 @@ Return ONLY valid JSON, no markdown or extra text.
 `;
 
     try {
-        const result = await model.generateContent(prompt);
-        let responseText = result.response.text().trim();
+        const completion = await openai.chat.completions.create({
+          model: 'gpt-4o-mini',
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0.3,
+          max_tokens: 1000,
+          response_format: { type: "json_object" }
+        });
         
-        // Clean up response
-        responseText = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-        
+        const responseText = completion.choices[0].message.content.trim();
         return JSON.parse(responseText);
     } catch (error) {
         console.error('AI processing error:', error);
