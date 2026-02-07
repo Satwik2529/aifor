@@ -1,8 +1,28 @@
 import axios from 'axios';
 
+// Auto-detect API URL based on environment
+const getApiUrl = () => {
+  // If environment variable is set, use it
+  if (process.env.REACT_APP_API_URL) {
+    return process.env.REACT_APP_API_URL;
+  }
+  
+  // Auto-detect based on hostname
+  const hostname = window.location.hostname;
+  
+  // Local development
+  if (hostname === 'localhost' || hostname === '127.0.0.1') {
+    return 'http://localhost:5000';
+  }
+  
+  // Production - Update this with your actual backend URL
+  // For Render.com, it's usually: https://your-backend-service.onrender.com
+  return 'https://biznova1-bkd.onrender.com'; // Update this!
+};
+
 // Create axios instance with base configuration
 const api = axios.create({
-    baseURL: (process.env.REACT_APP_API_URL || 'http://localhost:5000') + '/api',
+    baseURL: getApiUrl() + '/api',
     headers: {
         'Content-Type': 'application/json',
     },
@@ -28,7 +48,7 @@ api.interceptors.response.use(
     (error) => {
         if (error.response?.status === 401) {
             localStorage.removeItem('token');
-            localStorage.removeItem('user');
+            localStorage.removeItem('userType');
             window.location.href = '/login';
         }
         return Promise.reject(error);

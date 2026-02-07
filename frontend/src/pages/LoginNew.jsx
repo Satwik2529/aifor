@@ -126,7 +126,6 @@ const LoginNew = () => {
         if (result.success) {
           localStorage.setItem('token', result.data.token);
           localStorage.setItem('userType', 'customer');
-          localStorage.setItem('user', JSON.stringify(result.data.customer));
           toast.success(t('auth.login.success'));
           // Delay navigation to show toast
           setTimeout(() => navigate('/customer-dashboard'), 1000);

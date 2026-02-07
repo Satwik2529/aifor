@@ -17,7 +17,6 @@ const AuthCallback = () => {
     const handleCallback = async () => {
       // Prevent duplicate processing using ref
       if (hasProcessed.current) {
-        console.log('⚠️  Already processed callback, skipping...');
         return;
       }
       
@@ -36,8 +35,6 @@ const AuthCallback = () => {
         }
 
         if (session) {
-          console.log('✅ Google auth successful:', session.user);
-          
           // Extract user info from Google
           const { user } = session;
           const pendingUserType = localStorage.getItem('pendingGoogleUserType') || 'retailer';
@@ -63,10 +60,8 @@ const AuthCallback = () => {
           const result = await response.json();
 
           if (result.success) {
-            // Store token and user data
+            // Store only token and userType (not full user data for security)
             localStorage.setItem('token', result.data.token);
-            localStorage.setItem('user', JSON.stringify(result.data.user));
-            // Set userType based on user data
             localStorage.setItem('userType', result.data.user.userType || 'retailer');
             
             setStatus('success');
