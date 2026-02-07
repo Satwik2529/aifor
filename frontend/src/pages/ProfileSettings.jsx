@@ -45,11 +45,14 @@ const ProfileSettings = () => {
     try {
       const token = localStorage.getItem('token');
       const storedUserType = localStorage.getItem('userType') || 'retailer';
+      console.log('🔍 ProfileSettings - User Type:', storedUserType);
       setUserType(storedUserType);
 
       const endpoint = storedUserType === 'customer' 
         ? `${API_URL}/api/customer-auth/profile`
         : `${API_URL}/api/auth/profile`;
+
+      console.log('🔍 ProfileSettings - Fetching from:', endpoint);
 
       const response = await fetch(endpoint, {
         headers: {
@@ -58,6 +61,7 @@ const ProfileSettings = () => {
       });
 
       const result = await response.json();
+      console.log('🔍 ProfileSettings - Fetch result:', result);
 
       if (result.success) {
         const profileData = storedUserType === 'customer' ? result.data.customer : result.data.user;
@@ -110,11 +114,14 @@ const ProfileSettings = () => {
     e.preventDefault();
     setSaving(true);
 
-    console.log('💾 Saving profile:', formData);
+    console.log('💾 Saving profile...');
+    console.log('   User Type:', userType);
+    console.log('   Form Data:', formData);
 
     try {
       // For retailers, use AuthContext which updates both state and localStorage
       if (userType === 'retailer') {
+        console.log('   Using retailer update (AuthContext)');
         const result = await updateAuthProfile(formData);
         
         if (result.success) {
@@ -127,8 +134,12 @@ const ProfileSettings = () => {
         }
       } else {
         // For customers, direct API call
+        console.log('   Using customer update (Direct API)');
         const token = localStorage.getItem('token');
-        const response = await fetch(`${API_URL}/api/customer-auth/profile`, {
+        const endpoint = `${API_URL}/api/customer-auth/profile`;
+        console.log('   Endpoint:', endpoint);
+        
+        const response = await fetch(endpoint, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',

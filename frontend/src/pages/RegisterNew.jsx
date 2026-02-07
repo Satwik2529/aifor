@@ -158,7 +158,7 @@ const RegisterNew = () => {
         if (result.success) {
           toast.success(t('auth.register.success'));
           // Delay navigation to show toast
-          setTimeout(() => navigate('/'), 1000);
+          setTimeout(() => navigate('/dashboard'), 1000);
         } else {
           toast.error(result.message || t('auth.register.errors.registrationFailed'));
         }

@@ -20,7 +20,10 @@ export const AuthProvider = ({ children }) => {
     useEffect(() => {
         const checkAuth = async () => {
             const token = localStorage.getItem('token');
-            if (token) {
+            const userType = localStorage.getItem('userType');
+            
+            // Only check auth for retailers (customers manage their own auth)
+            if (token && userType !== 'customer') {
                 try {
                     const response = await authAPI.getProfile();
                     if (response.success) {
@@ -31,6 +34,7 @@ export const AuthProvider = ({ children }) => {
                     console.error('Auth check failed:', error);
                     localStorage.removeItem('token');
                     localStorage.removeItem('user');
+                    localStorage.removeItem('userType');
                 }
             }
             setLoading(false);

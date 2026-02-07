@@ -35,7 +35,7 @@ const Header = ({ onMenuClick }) => {
   };
 
   const handleProfileSettings = () => {
-    navigate('/profile-settings');
+    navigate('/dashboard/profile-settings');
     setShowUserMenu(false);
   };
 

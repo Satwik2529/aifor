@@ -4,6 +4,7 @@
   "description": "BizNova Frontend - React.js Business Management Interface",
   "private": true,
   "dependencies": {
+    "@supabase/supabase-js": "^2.95.3",
     "axios": "^1.6.2",
     "html2pdf.js": "^0.12.1",
     "i18next": "^23.7.0",
