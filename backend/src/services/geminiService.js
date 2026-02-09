@@ -1,16 +1,18 @@
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+const OpenAI = require('openai');
 
 /**
- * Google Gemini AI Service
- * Provides AI-powered business insights using Google Gemini
+ * OpenAI Service
+ * Provides AI-powered business insights using OpenAI GPT
  */
 
-// Initialize Gemini with API key from environment
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+// Initialize OpenAI with API key from environment
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY || ''
+});
 
-class GeminiService {
+class OpenAIService {
   constructor() {
-    this.model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+    this.model = 'gpt-4o-mini'; // Fast and cost-effective
   }
 
   /**
@@ -19,11 +21,15 @@ class GeminiService {
   async generateResponse(prompt, context = {}) {
     try {
       const fullPrompt = this.buildPromptWithContext(prompt, context);
-      const result = await this.model.generateContent(fullPrompt);
-      const response = await result.response;
-      return response.text();
+      const completion = await openai.chat.completions.create({
+        model: this.model,
+        messages: [{ role: 'user', content: fullPrompt }],
+        temperature: 0.7,
+        max_tokens: 2000
+      });
+      return completion.choices[0].message.content;
     } catch (error) {
-      console.error('Gemini API Error:', error);
+      console.error('OpenAI API Error:', error);
       throw new Error('Failed to generate AI response: ' + error.message);
     }
   }
@@ -157,4 +163,4 @@ Be professional, friendly, and actionable in your advice.
   }
 }
 
-module.exports = new GeminiService();
+module.exports = new OpenAIService();

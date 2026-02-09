@@ -524,15 +524,21 @@ const CustomerChatbot = ({ retailerId, onOrderPlaced }) => {
               {/* Action Buttons */}
               <div className="flex space-x-3 mt-4">
                 <button
-                  onClick={handleOrderConfirm}
+                  onClick={() => {
+                    setInputMessage('yes');
+                    setTimeout(() => sendMessage(), 100);
+                  }}
                   disabled={isLoading || !orderData.available || orderData.available.length === 0}
-                  className="flex-1 bg-green-500 text-white py-2 px-4 rounded-lg hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 bg-green-500 text-white py-3 px-4 rounded-lg hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed font-semibold flex items-center justify-center space-x-2 shadow-md"
                 >
-                  {isLoading ? 'Placing Order...' : 'Confirm Order'}
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span>{isLoading ? 'Placing Order...' : 'Yes, Confirm Order'}</span>
                 </button>
                 <button
                   onClick={handleOrderCancel}
-                  className="flex-1 bg-gray-500 text-white py-2 px-4 rounded-lg hover:bg-gray-600"
+                  className="flex-1 bg-gray-500 text-white py-3 px-4 rounded-lg hover:bg-gray-600 font-semibold"
                 >
                   Cancel
                 </button>

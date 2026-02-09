@@ -22,18 +22,13 @@ const CustomerChatbotPage = () => {
       API_URL = API_URL.replace(/\/api$/, '');
       
       const url = `${API_URL}/api/customer-requests/retailers?search=`;
-      console.log('Fetching retailers from:', url);
       const response = await fetch(url, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const result = await response.json();
-      console.log('Retailers response:', result);
       
       if (result.success) {
         setRetailers(result.data.retailers || []);
-        if (!result.data.retailers || result.data.retailers.length === 0) {
-          console.log('No retailers found');
-        }
       } else {
         console.error('Failed to load retailers');
       }

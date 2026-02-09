@@ -36,7 +36,6 @@ const CustomerChatbotDemo = () => {
     };
 
     const handleOrderPlaced = (orderData) => {
-        console.log('Order placed:', orderData);
         // You can add notification or redirect logic here
     };
 

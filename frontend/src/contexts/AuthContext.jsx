@@ -20,7 +20,10 @@ export const AuthProvider = ({ children }) => {
     useEffect(() => {
         const checkAuth = async () => {
             const token = localStorage.getItem('token');
-            if (token) {
+            const userType = localStorage.getItem('userType');
+            
+            // Only check auth for retailers (customers manage their own auth)
+            if (token && userType !== 'customer') {
                 try {
                     const response = await authAPI.getProfile();
                     if (response.success) {
@@ -30,7 +33,7 @@ export const AuthProvider = ({ children }) => {
                 } catch (error) {
                     console.error('Auth check failed:', error);
                     localStorage.removeItem('token');
-                    localStorage.removeItem('user');
+                    localStorage.removeItem('userType');
                 }
             }
             setLoading(false);
@@ -48,9 +51,9 @@ export const AuthProvider = ({ children }) => {
             if (response.success) {
                 const { user: userData, token } = response.data;
 
-                // Store token
+                // Store only token (not user data for security)
                 localStorage.setItem('token', token);
-                localStorage.setItem('user', JSON.stringify(userData));
+                localStorage.setItem('userType', 'retailer');
 
                 // Fetch fresh profile data after login to ensure we have the latest
                 try {
@@ -58,13 +61,11 @@ export const AuthProvider = ({ children }) => {
                     if (profileResponse.success) {
                         const freshUserData = profileResponse.data.user;
                         setUser(freshUserData);
-                        localStorage.setItem('user', JSON.stringify(freshUserData));
                     } else {
                         // Fallback to login response data
                         setUser(userData);
                     }
                 } catch (profileError) {
-                    console.log('Could not fetch fresh profile, using login data');
                     setUser(userData);
                 }
 
@@ -104,9 +105,9 @@ export const AuthProvider = ({ children }) => {
             if (response.success) {
                 const { user: newUser, token } = response.data;
 
-                // Store token and user data
+                // Store only token (not user data for security)
                 localStorage.setItem('token', token);
-                localStorage.setItem('user', JSON.stringify(newUser));
+                localStorage.setItem('userType', 'retailer');
 
                 setUser(newUser);
                 setIsAuthenticated(true);
@@ -142,7 +143,7 @@ export const AuthProvider = ({ children }) => {
     // Logout function
     const logout = () => {
         localStorage.removeItem('token');
-        localStorage.removeItem('user');
+        localStorage.removeItem('userType');
         setUser(null);
         setIsAuthenticated(false);
     };
@@ -156,8 +157,6 @@ export const AuthProvider = ({ children }) => {
             if (response.success) {
                 const updatedUser = response.data.user;
                 setUser(updatedUser);
-                localStorage.setItem('user', JSON.stringify(updatedUser));
-                console.log('✅ Profile updated in context and localStorage:', updatedUser);
                 return { success: true, message: response.message };
             } else {
                 return { success: false, message: response.message };
@@ -180,8 +179,6 @@ export const AuthProvider = ({ children }) => {
             if (response.success) {
                 const freshUser = response.data.user;
                 setUser(freshUser);
-                localStorage.setItem('user', JSON.stringify(freshUser));
-                console.log('✅ User data refreshed from server');
                 return { success: true };
             }
             return { success: false };

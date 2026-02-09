@@ -40,7 +40,6 @@ const ForgotPasswordModal = ({ isOpen, onClose, userType = 'retailer' }) => {
       }
     }
 
-    console.log(`📧 Requesting password reset for ${userType}:`, userType === 'retailer' ? phone : email);
     setIsLoading(true);
 
     try {

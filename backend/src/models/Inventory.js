@@ -23,6 +23,14 @@ const inventorySchema = new mongoose.Schema({
     required: [true, 'Stock quantity is required'],
     min: [0, 'Stock quantity cannot be negative'],
     default: 0
+    // Supports fractional quantities (e.g., 2.5 kg, 0.25 litre)
+  },
+  unit: {
+    type: String,
+    enum: ['kg', 'litre', 'piece'],
+    default: 'piece',
+    trim: true
+    // Base unit for the item (all quantities stored in this unit)
   },
   price_per_unit: {
     type: Number,

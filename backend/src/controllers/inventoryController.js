@@ -1,9 +1,11 @@
 const Inventory = require('../models/Inventory');
 const { validationResult } = require('express-validator');
+const { normalize, isValidQuantity, normalizeQuantity } = require('../utils/quantityHelper');
 
 /**
  * Inventory Controller - Inventory Management with CRUD Operations
  * Handles stock management, low stock alerts, and inventory analytics
+ * Supports fractional quantities for retail items (kg, litre, piece)
  * Future: Integration with AI for demand forecasting and automated reordering
  */
 
@@ -107,8 +109,31 @@ const inventoryController = {
         price_per_unit, // For backward compatibility
         min_stock_level, 
         category, 
-        description 
+        description,
+        unit // NEW: Support for kg, litre, piece
       } = req.body;
+
+      // Validate quantity
+      if (stock_qty === undefined || stock_qty === null || stock_qty === '') {
+        return res.status(400).json({
+          success: false,
+          message: 'Stock quantity is required',
+          error: 'Please provide a valid stock quantity'
+        });
+      }
+
+      const parsedQty = parseFloat(stock_qty);
+      
+      if (!isValidQuantity(parsedQty)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid stock quantity',
+          error: `Stock quantity must be a positive number greater than 0. Received: ${stock_qty} (parsed as: ${parsedQty})`
+        });
+      }
+
+      // Normalize quantity to prevent floating-point errors
+      const normalizedQty = normalize(parsedQty);
 
       // Handle backward compatibility - if only price_per_unit is provided
       let finalCostPrice = cost_price;
@@ -154,13 +179,14 @@ const inventoryController = {
       const item = new Inventory({
         user_id: userId,
         item_name,
-        stock_qty,
+        stock_qty: normalizedQty,
         cost_price: finalCostPrice,
         selling_price: finalSellingPrice,
         price_per_unit: finalSellingPrice, // For backward compatibility
         min_stock_level: min_stock_level || 5,
         category: category || 'Other',
-        description: description || ''
+        description: description || '',
+        unit: unit || 'piece' // Default to piece for backward compatibility
       });
 
       await item.save();
@@ -208,11 +234,31 @@ const inventoryController = {
         price_per_unit, // For backward compatibility
         min_stock_level, 
         category, 
-        description 
+        description,
+        unit // NEW: Support for kg, litre, piece
       } = req.body;
 
+      // Validate quantity if provided
+      if (stock_qty !== undefined && stock_qty !== null && stock_qty !== '') {
+        const parsedQty = parseFloat(stock_qty);
+        
+        if (!isValidQuantity(parsedQty)) {
+          return res.status(400).json({
+            success: false,
+            message: 'Invalid stock quantity',
+            error: 'Stock quantity must be a positive number greater than 0'
+          });
+        }
+      }
+
       // Handle backward compatibility and validation
-      let updateData = { item_name, stock_qty, min_stock_level, category, description };
+      let updateData = { item_name, min_stock_level, category, description, unit };
+      
+      // Normalize stock quantity if provided
+      if (stock_qty !== undefined && stock_qty !== null && stock_qty !== '') {
+        const parsedQty = parseFloat(stock_qty);
+        updateData.stock_qty = normalize(parsedQty);
+      }
 
       if (cost_price !== undefined || selling_price !== undefined) {
         // New pricing structure

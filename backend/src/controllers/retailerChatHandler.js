@@ -3,9 +3,12 @@ const Inventory = require('../models/Inventory');
 const Expense = require('../models/Expense');
 const User = require('../models/User');
 const CustomerRequest = require('../models/CustomerRequest');
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+const OpenAI = require('openai');
+const { normalize, isValidQuantity } = require('../utils/quantityHelper');
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY
+});
 const pendingOrders = new Map();
 
 /**
@@ -21,14 +24,19 @@ const handleRetailerChat = async (userId, message, language) => {
             return await handleConfirmation(userId);
         }
 
+        // Handle cancellations for pending operations
+        if (['no', 'cancel', 'नहीं', 'रद्द करें'].some(word => message.toLowerCase().trim() === word)) {
+            return await handleCancellation(userId);
+        }
+
         // Get comprehensive business data
         const businessData = await getBusinessData(userId);
         
         // Use enhanced AI to understand and process the request
         const aiResponse = await processRetailerRequest(message, businessData, language);
         
-        // Execute the determined action
-        return await executeAction(userId, aiResponse, businessData);
+        // Execute the determined action (pass original message for auto-confirm detection and language)
+        return await executeAction(userId, aiResponse, businessData, message, language);
 
     } catch (error) {
         console.error('Retailer chat error:', error);
@@ -265,10 +273,24 @@ const parseMessageFallback = (message) => {
  * Enhanced AI processing for retailer requests
  */
 const processRetailerRequest = async (message, businessData, language) => {
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+    // Language mapping for response instructions
+    const languageNames = {
+        'en': 'English',
+        'hi': 'Hindi (हिंदी)',
+        'te': 'Telugu (తెలుగు)'
+    };
+    
+    const languageName = languageNames[language] || 'English';
     
     const prompt = `
 You are an advanced business assistant for a retail store. Analyze this request: "${message}"
+
+CRITICAL LANGUAGE INSTRUCTION:
+- User's language preference: ${languageName}
+- You MUST respond in ${languageName} language ONLY
+- All text in the "response" field must be in ${languageName}
+- Numbers, currency symbols (₹), and JSON structure remain the same
+- Item names from inventory can stay in their original language
 
 CURRENT BUSINESS STATUS:
 📊 FINANCIAL METRICS:
@@ -306,7 +328,8 @@ ${businessData.expenses.slice(0, 3).map(expense =>
 DETERMINE THE ACTION AND RESPOND WITH JSON:
 
 FOR BILLING/SALES (creating a sale):
-{"action": "create_sale", "items": [{"item_name": "exact_name_from_inventory", "quantity": number, "price_per_unit": number}], "customer_name": "name", "payment_method": "Cash|Card|UPI"}
+{"action": "create_sale", "items": [{"item_name": "exact_name_from_inventory", "quantity": number, "price_per_unit": number}], "customer_name": "Walk-in Customer", "payment_method": "Cash"}
+NOTE: Always use "Walk-in Customer" as default customer name. Do NOT ask for customer name.
 
 FOR ADDING INVENTORY:
 {"action": "add_inventory", "item_name": "name", "quantity": number, "cost_per_unit": number, "price_per_unit": number, "category": "category", "min_stock_level": number}
@@ -337,12 +360,15 @@ Return ONLY valid JSON, no markdown or extra text.
 `;
 
     try {
-        const result = await model.generateContent(prompt);
-        let responseText = result.response.text().trim();
+        const completion = await openai.chat.completions.create({
+          model: 'gpt-4o-mini',
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0.3,
+          max_tokens: 1000,
+          response_format: { type: "json_object" }
+        });
         
-        // Clean up response
-        responseText = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-        
+        const responseText = completion.choices[0].message.content.trim();
         return JSON.parse(responseText);
     } catch (error) {
         console.error('AI processing error:', error);
@@ -363,11 +389,18 @@ Return ONLY valid JSON, no markdown or extra text.
 /**
  * Execute the determined action
  */
-const executeAction = async (userId, aiResponse, businessData) => {
+const executeAction = async (userId, aiResponse, businessData, originalMessage, language = 'en') => {
     try {
+        // Check if message contains "make bill" or similar direct commands
+        const directBillCommands = ['make bill', 'create bill', 'bill for', 'make sale', 'create sale'];
+        const isDirectBillCommand = directBillCommands.some(cmd => 
+            originalMessage.toLowerCase().includes(cmd)
+        );
+        
         switch (aiResponse.action) {
             case 'create_sale':
-                return await createSalePreview(userId, aiResponse, businessData);
+                // Auto-confirm if it's a direct "make bill" command
+                return await createSalePreview(userId, aiResponse, businessData, isDirectBillCommand, language);
             case 'add_inventory':
                 return await addInventoryItem(userId, aiResponse);
             case 'update_inventory':
@@ -430,13 +463,58 @@ const handleConfirmation = async (userId) => {
 };
 
 /**
+ * Handle cancellations for pending operations
+ */
+const handleCancellation = async (userId) => {
+    const pendingOperation = pendingOrders.get(`retailer_${userId}`);
+    if (!pendingOperation) {
+        const messages = {
+            'en': "No pending operation to cancel. What else can I help you with?",
+            'hi': "रद्द करने के लिए कोई लंबित ऑपरेशन नहीं है। मैं आपकी और कैसे मदद कर सकता हूं?",
+            'te': "రద్దు చేయడానికి పెండింగ్ ఆపరేషన్ లేదు. నేను మీకు ఇంకా ఎలా సహాయం చేయగలను?"
+        };
+        
+        const language = pendingOperation?.language || 'en';
+        
+        return {
+            success: true,
+            message: messages[language] || messages['en'],
+            data: null
+        };
+    }
+
+    const language = pendingOperation.language || 'en';
+    
+    // Clear the pending operation
+    pendingOrders.delete(`retailer_${userId}`);
+
+    const messages = {
+        'en': "✅ Order cancelled. What else can I help you with?",
+        'hi': "✅ ऑर्डर रद्द कर दिया गया। मैं आपकी और कैसे मदद कर सकता हूं?",
+        'te': "✅ ఆర్డర్ రద్దు చేయబడింది. నేను మీకు ఇంకా ఎలా సహాయం చేయగలను?"
+    };
+
+    return {
+        success: true,
+        message: messages[language] || messages['en'],
+        data: { type: 'operation_cancelled' }
+    };
+};
+
+/**
  * Create sale preview with enhanced validation
  */
-const createSalePreview = async (userId, aiResponse, businessData) => {
+const createSalePreview = async (userId, aiResponse, businessData, autoConfirm = false, language = 'en') => {
     if (!aiResponse.items || aiResponse.items.length === 0) {
+        const messages = {
+            'en': "Please specify which items you want to sell. For example: 'Sell 2 rice bags at ₹50 each'",
+            'hi': "कृपया बताएं कि आप कौन सी वस्तुएं बेचना चाहते हैं। उदाहरण: '2 चावल के बैग ₹50 प्रत्येक पर बेचें'",
+            'te': "దయచేసి మీరు ఏ వస్తువులను అమ్మాలనుకుంటున్నారో పేర్కొనండి. ఉదాహరణ: '2 బియ్యం సంచులు ₹50 చొప్పున అమ్మండి'"
+        };
+        
         return {
             success: false,
-            message: "Please specify which items you want to sell. For example: 'Sell 2 rice bags at ₹50 each'",
+            message: messages[language] || messages['en'],
             data: null
         };
     }
@@ -452,9 +530,15 @@ const createSalePreview = async (userId, aiResponse, businessData) => {
         );
 
         if (!inventoryItem) {
+            const messages = {
+                'en': `"${item.item_name}" not found in inventory.\n\nAvailable items:\n${businessData.inventory.slice(0, 10).map(i => `• ${i.item_name}`).join('\n')}${businessData.inventory.length > 10 ? '\n... and more' : ''}`,
+                'hi': `"${item.item_name}" इन्वेंटरी में नहीं मिला।\n\nउपलब्ध वस्तुएं:\n${businessData.inventory.slice(0, 10).map(i => `• ${i.item_name}`).join('\n')}${businessData.inventory.length > 10 ? '\n... और अधिक' : ''}`,
+                'te': `"${item.item_name}" ఇన్వెంటరీలో కనుగొనబడలేదు।\n\nఅందుబాటులో ఉన్న వస్తువులు:\n${businessData.inventory.slice(0, 10).map(i => `• ${i.item_name}`).join('\n')}${businessData.inventory.length > 10 ? '\n... మరియు మరిన్ని' : ''}`
+            };
+            
             return {
                 success: false,
-                message: `"${item.item_name}" not found in inventory.\n\nAvailable items:\n${businessData.inventory.slice(0, 10).map(i => `• ${i.item_name}`).join('\n')}${businessData.inventory.length > 10 ? '\n... and more' : ''}`,
+                message: messages[language] || messages['en'],
                 data: { type: 'item_not_found', available_items: businessData.inventory.map(i => i.item_name) }
             };
         }
@@ -468,13 +552,13 @@ const createSalePreview = async (userId, aiResponse, businessData) => {
         }
 
         const itemTotal = item.quantity * item.price_per_unit;
-        const itemCogs = item.quantity * (inventoryItem.cost_per_unit || 0);
+        const itemCogs = item.quantity * (inventoryItem.cost_per_unit || inventoryItem.cost_price || 0);
         
         saleItems.push({
             item_name: inventoryItem.item_name,
             quantity: item.quantity,
             price_per_unit: item.price_per_unit,
-            cost_per_unit: inventoryItem.cost_per_unit || 0,
+            cost_per_unit: inventoryItem.cost_per_unit || inventoryItem.cost_price || 0,
             total: itemTotal,
             inventory_id: inventoryItem._id,
             current_stock: inventoryItem.stock_qty,
@@ -490,14 +574,20 @@ const createSalePreview = async (userId, aiResponse, businessData) => {
             `• ${issue.item_name}: Need ${issue.requested}, only ${issue.available} available`
         ).join('\n');
         
+        const messages = {
+            'en': `Insufficient stock:\n\n${issueText}\n\nPlease adjust quantities or restock items.`,
+            'hi': `अपर्याप्त स्टॉक:\n\n${issueText}\n\nकृपया मात्रा समायोजित करें या वस्तुओं को फिर से स्टॉक करें।`,
+            'te': `తగినంత స్టాక్ లేదు:\n\n${issueText}\n\nదయచేసి పరిమాణాలను సర్దుబాటు చేయండి లేదా వస్తువులను తిరిగి స్టాక్ చేయండి.`
+        };
+        
         return {
             success: false,
-            message: `Insufficient stock:\n\n${issueText}\n\nPlease adjust quantities or restock items.`,
+            message: messages[language] || messages['en'],
             data: { type: 'insufficient_stock', issues: stockIssues }
         };
     }
 
-    // Store pending sale
+    // Store pending sale with language
     const pendingSale = {
         type: 'sale',
         userId,
@@ -507,24 +597,45 @@ const createSalePreview = async (userId, aiResponse, businessData) => {
         grossProfit: totalAmount - totalCogs,
         customer_name: aiResponse.customer_name || 'Walk-in Customer',
         payment_method: aiResponse.payment_method || 'Cash',
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        language: language  // Store language for later use
     };
+
+    // If autoConfirm is true, create the sale immediately
+    if (autoConfirm) {
+        return await confirmSale(userId, pendingSale);
+    }
 
     pendingOrders.set(`retailer_${userId}`, pendingSale);
 
-    let messageText = `📋 Sale Preview:\n\n`;
+    // Language-specific preview messages
+    const previewHeaders = {
+        'en': '📋 Sale Preview:\n\n',
+        'hi': '📋 बिक्री पूर्वावलोकन:\n\n',
+        'te': '📋 అమ్మకం ప్రివ్యూ:\n\n'
+    };
+    
+    const labels = {
+        'en': { qty: 'Qty', stockAfter: 'Stock after sale', total: 'Total', cogs: 'COGS', profit: 'Gross Profit', customer: 'Customer', payment: 'Payment', confirm: "Reply 'yes' to confirm this sale." },
+        'hi': { qty: 'मात्रा', stockAfter: 'बिक्री के बाद स्टॉक', total: 'कुल', cogs: 'लागत', profit: 'सकल लाभ', customer: 'ग्राहक', payment: 'भुगतान', confirm: "इस बिक्री की पुष्टि करने के लिए 'हाँ' का उत्तर दें।" },
+        'te': { qty: 'పరిమాణం', stockAfter: 'అమ్మకం తర్వాత స్టాక్', total: 'మొత్తం', cogs: 'ఖర్చు', profit: 'స్థూల లాభం', customer: 'కస్టమర్', payment: 'చెల్లింపు', confirm: "ఈ అమ్మకాన్ని నిర్ధారించడానికి 'అవును' అని సమాధానం ఇవ్వండి." }
+    };
+    
+    const label = labels[language] || labels['en'];
+
+    let messageText = previewHeaders[language] || previewHeaders['en'];
     saleItems.forEach((item, idx) => {
         messageText += `${idx + 1}. ${item.item_name}\n`;
-        messageText += `   Qty: ${item.quantity} × ₹${item.price_per_unit} = ₹${item.total}\n`;
-        messageText += `   Stock after sale: ${item.new_stock}\n\n`;
+        messageText += `   ${label.qty}: ${item.quantity} × ₹${item.price_per_unit} = ₹${item.total}\n`;
+        messageText += `   ${label.stockAfter}: ${item.new_stock}\n\n`;
     });
     
-    messageText += `💰 Total: ₹${totalAmount}\n`;
-    messageText += `💸 COGS: ₹${totalCogs}\n`;
-    messageText += `📈 Gross Profit: ₹${totalAmount - totalCogs}\n`;
-    messageText += `👤 Customer: ${pendingSale.customer_name}\n`;
-    messageText += `💳 Payment: ${pendingSale.payment_method}\n\n`;
-    messageText += `Reply 'yes' to confirm this sale.`;
+    messageText += `💰 ${label.total}: ₹${totalAmount}\n`;
+    messageText += `💸 ${label.cogs}: ₹${totalCogs}\n`;
+    messageText += `📈 ${label.profit}: ₹${totalAmount - totalCogs}\n`;
+    messageText += `👤 ${label.customer}: ${pendingSale.customer_name}\n`;
+    messageText += `💳 ${label.payment}: ${pendingSale.payment_method}\n\n`;
+    messageText += label.confirm;
 
     return {
         success: true,
@@ -587,9 +698,19 @@ const confirmSale = async (userId, pendingSale) => {
 
         const retailer = await User.findById(userId);
         
+        // Get language from pending sale or default to English
+        const language = pendingSale.language || 'en';
+        
+        // Language-specific success messages
+        const messages = {
+            'en': `✅ Sale completed successfully!\n\n📋 Bill #${sale._id.toString().slice(-6).toUpperCase()}\n💰 Total: ₹${pendingSale.totalAmount}\n📈 Profit: ₹${pendingSale.grossProfit}\n🏪 ${retailer?.shop_name || 'Store'}\n📅 ${new Date().toLocaleString()}`,
+            'hi': `✅ बिक्री सफलतापूर्वक पूर्ण हुई!\n\n📋 बिल #${sale._id.toString().slice(-6).toUpperCase()}\n💰 कुल: ₹${pendingSale.totalAmount}\n📈 लाभ: ₹${pendingSale.grossProfit}\n🏪 ${retailer?.shop_name || 'स्टोर'}\n📅 ${new Date().toLocaleString()}`,
+            'te': `✅ అమ్మకం విజయవంతంగా పూర్తయింది!\n\n📋 బిల్ #${sale._id.toString().slice(-6).toUpperCase()}\n💰 మొత్తం: ₹${pendingSale.totalAmount}\n📈 లాభం: ₹${pendingSale.grossProfit}\n🏪 ${retailer?.shop_name || 'స్టోర్'}\n📅 ${new Date().toLocaleString()}`
+        };
+        
         return {
             success: true,
-            message: `✅ Sale completed successfully!\n\n📋 Bill #${sale._id.toString().slice(-6).toUpperCase()}\n💰 Total: ₹${pendingSale.totalAmount}\n📈 Profit: ₹${pendingSale.grossProfit}\n🏪 ${retailer?.shop_name || 'Store'}\n📅 ${new Date().toLocaleString()}`,
+            message: messages[language] || messages['en'],
             data: {
                 type: 'sale_completed',
                 sale_id: sale._id,

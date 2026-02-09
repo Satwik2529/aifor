@@ -1,8 +1,28 @@
 import axios from 'axios';
 
+// Auto-detect API URL based on environment
+const getApiUrl = () => {
+  // If environment variable is set, use it
+  if (process.env.REACT_APP_API_URL) {
+    return process.env.REACT_APP_API_URL;
+  }
+  
+  // Auto-detect based on hostname
+  const hostname = window.location.hostname;
+  
+  // Local development
+  if (hostname === 'localhost' || hostname === '127.0.0.1') {
+    return 'http://localhost:5000';
+  }
+  
+  // Production - Update this with your actual backend URL
+  // For Render.com, it's usually: https://your-backend-service.onrender.com
+  return 'https://biznova1-bkd.onrender.com'; // Update this!
+};
+
 // Create axios instance with base configuration
 const api = axios.create({
-    baseURL: process.env.REACT_APP_API_URL || 'http://localhost:5000/api',
+    baseURL: getApiUrl() + '/api',
     headers: {
         'Content-Type': 'application/json',
     },
@@ -28,7 +48,7 @@ api.interceptors.response.use(
     (error) => {
         if (error.response?.status === 401) {
             localStorage.removeItem('token');
-            localStorage.removeItem('user');
+            localStorage.removeItem('userType');
             window.location.href = '/login';
         }
         return Promise.reject(error);
@@ -163,6 +183,32 @@ export const inventoryAPI = {
     // Delete inventory item
     deleteInventoryItem: async (id) => {
         const response = await api.delete(`/inventory/${id}`);
+        return response.data;
+    },
+
+    // Upload inventory image for AI processing (direct add)
+    uploadInventoryImage: async (formData) => {
+        const response = await api.post('/inventory/upload-image', formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data'
+            }
+        });
+        return response.data;
+    },
+
+    // Bill scanning - Parse bill image (Step 1: Extract items)
+    parseBillImage: async (formData) => {
+        const response = await api.post('/inventory/parse-bill', formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data'
+            }
+        });
+        return response.data;
+    },
+
+    // Bill scanning - Execute bill items (Step 2: Save to DB after confirmation)
+    executeBillItems: async (items) => {
+        const response = await api.post('/inventory/execute-bill', { items });
         return response.data;
     },
 };
@@ -346,8 +392,8 @@ export const aiInsightsAPI = {
 // Chatbot API calls
 export const chatbotAPI = {
     // Send message to chatbot
-    chat: async (message, language = 'en') => {
-        const response = await api.post('/chatbot/chat', { message, language });
+    chat: async (message, language = 'en', retailer_id = null) => {
+        const response = await api.post('/chatbot/chat', { message, language, retailer_id });
         return response.data;
     },
 
@@ -356,6 +402,15 @@ export const chatbotAPI = {
         const response = await api.get('/chatbot/status');
         return response.data;
     },
+
+    // Get festival demand forecast (optimized tool-based)
+    getFestivalForecast: async () => {
+        const response = await api.post('/chatbot/chat', { 
+            message: 'What should I stock for upcoming festival?',
+            language: 'en'
+        });
+        return response.data;
+    }
 };
 
 export default api;

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Send, Package, Clock, CheckCircle, XCircle, Plus, Store, ShoppingCart, AlertCircle, Settings, Bot, MessageCircle, Moon, Sun, Sparkles } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { Search, Send, Package, Clock, CheckCircle, XCircle, Plus, Store, ShoppingCart, AlertCircle, Settings, Bot, MessageCircle, Moon, Sun, Sparkles, FileText, X } from 'lucide-react';
+import toast, { Toaster } from 'react-hot-toast';
 import NotificationBell from '../components/NotificationBell';
 import FloatingAIChatbot from '../components/FloatingAIChatbot';
 
@@ -26,6 +26,13 @@ const CustomerDashboard = () => {
   const [checkingStock, setCheckingStock] = useState(false);
   const [showInventory, setShowInventory] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(localStorage.getItem('darkMode') === 'true');
+  
+  // Bill Scanner States
+  const [showBillScanModal, setShowBillScanModal] = useState(false);
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
+  const [parsedBillItems, setParsedBillItems] = useState(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   const navigate = useNavigate();
 
@@ -66,12 +73,10 @@ const CustomerDashboard = () => {
   const fetchRetailers = async (search = '') => {
     try {
       const url = `${API_URL}/api/customer-requests/retailers?search=${encodeURIComponent(search)}`;
-      console.log('Fetching retailers from:', url);
       const response = await fetch(url, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const result = await response.json();
-      console.log('Retailers response:', result);
 
       if (result.success) {
         setRetailers(result.data.retailers || []);
@@ -208,7 +213,15 @@ const CustomerDashboard = () => {
 
   const handleItemChange = async (index, field, value) => {
     const newItems = [...messageForm.items];
-    newItems[index][field] = field === 'quantity' ? parseInt(value) || 1 : value;
+    
+    if (field === 'quantity') {
+      // Allow fractional quantities
+      const qty = value === '' ? '' : parseFloat(value);
+      newItems[index][field] = isNaN(qty) ? '' : qty;
+    } else {
+      newItems[index][field] = value;
+    }
+    
     setMessageForm({ ...messageForm, items: newItems });
 
     // Check availability after change (debounced)
@@ -325,8 +338,129 @@ const CustomerDashboard = () => {
     navigate('/customer/profile-settings');
   };
 
+  // Bill Scanner Functions
+  const handleImageSelect = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setSelectedImage(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleBillScan = async () => {
+    if (!selectedImage) {
+      toast.error('Please select an image first');
+      return;
+    }
+
+    if (!selectedRetailer) {
+      toast.error('Please select a retailer first');
+      return;
+    }
+
+    try {
+      setUploadingImage(true);
+      const formData = new FormData();
+      formData.append('image', selectedImage);
+
+      const response = await fetch(`${API_URL}/api/inventory/parse-bill`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setParsedBillItems(result.data.items);
+        toast.success(result.message, { duration: 3000 });
+        
+        if (result.data.needsReview) {
+          toast.warning('Low confidence - Please review items carefully', { duration: 4000 });
+        }
+      }
+    } catch (error) {
+      console.error('Error parsing bill:', error);
+      toast.error('Failed to parse bill image');
+      setShowBillScanModal(false);
+      setSelectedImage(null);
+      setImagePreview(null);
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const handleBillConfirm = () => {
+    if (!parsedBillItems || parsedBillItems.length === 0) {
+      toast.error('No items to confirm');
+      return;
+    }
+
+    // Convert parsed items to message form format
+    const items = parsedBillItems.map(item => ({
+      item_name: item.item_name,
+      quantity: item.quantity
+    }));
+
+    setMessageForm({
+      ...messageForm,
+      items: items
+    });
+
+    // Close modal
+    setShowBillScanModal(false);
+    setSelectedImage(null);
+    setImagePreview(null);
+    setParsedBillItems(null);
+
+    // Check availability for all items
+    setTimeout(() => checkItemAvailability(items), 500);
+
+    toast.success(`${items.length} items added to your order!`);
+  };
+
+  const handleRemoveBillItem = (index) => {
+    const updatedItems = parsedBillItems.filter((_, i) => i !== index);
+    setParsedBillItems(updatedItems);
+  };
+
+  const handleEditBillItem = (index, field, value) => {
+    const updatedItems = [...parsedBillItems];
+    updatedItems[index][field] = value;
+    setParsedBillItems(updatedItems);
+  };
+
   return (
     <div className={`min-h-screen ${isDarkMode ? 'bg-gray-950' : 'bg-gray-50'}`}>
+      {/* Toast Notifications */}
+      <Toaster 
+        position="top-right"
+        toastOptions={{
+          duration: 4000,
+          style: {
+            background: isDarkMode ? '#1F2937' : '#FFFFFF',
+            color: isDarkMode ? '#F9FAFB' : '#111827',
+            border: isDarkMode ? '1px solid #374151' : '1px solid #E5E7EB',
+          },
+          success: {
+            iconTheme: {
+              primary: '#10B981',
+              secondary: '#FFFFFF',
+            },
+          },
+          error: {
+            iconTheme: {
+              primary: '#EF4444',
+              secondary: '#FFFFFF',
+            },
+          },
+        }}
+      />
+      
       {/* Floating AI Chatbot */}
       <FloatingAIChatbot />
 
@@ -505,6 +639,18 @@ const CustomerDashboard = () => {
 
               {showMessageForm && selectedRetailer ? (
                 <form onSubmit={handleSubmitRequest} className="space-y-3 sm:space-y-4">
+                  {/* Scan Bill Button */}
+                  <div className="flex justify-between items-center">
+                    <button
+                      type="button"
+                      onClick={() => setShowBillScanModal(true)}
+                      className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-green-600 to-teal-600 text-white rounded-lg hover:from-green-700 hover:to-teal-700 transition-all shadow-md text-sm font-medium"
+                    >
+                      <FileText className="h-4 w-4" />
+                      <span>Scan Shopping List</span>
+                    </button>
+                  </div>
+
                   {/* View Inventory Button */}
                   <div className="flex justify-between items-center">
                     <button
@@ -525,12 +671,21 @@ const CustomerDashboard = () => {
                     <div className={`rounded-lg p-4 max-h-48 overflow-y-auto transition-colors ${isDarkMode ? 'bg-gray-700/50 border border-gray-600' : 'bg-gray-50 border border-gray-200'}`}>
                       <h4 className={`text-sm font-medium mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Available Inventory</h4>
                       {retailerInventory.length > 0 ? (
-                        <div className="space-y-1">
+                        <div className="space-y-2">
                           {retailerInventory.map((invItem, idx) => (
-                            <div key={idx} className="flex justify-between items-center text-sm">
-                              <span className={isDarkMode ? 'text-gray-200' : 'text-gray-900'}>{invItem.item_name}</span>
+                            <div key={idx} className={`flex justify-between items-center p-2 rounded-lg ${isDarkMode ? 'bg-gray-800/50' : 'bg-white'}`}>
+                              <div className="flex-1">
+                                <span className={`font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-900'}`}>{invItem.item_name}</span>
+                                <div className="flex items-center space-x-3 mt-1">
+                                  <span className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                    {invItem.quantity} {invItem.unit || 'units'}
+                                  </span>
+                                  <span className={`text-sm font-semibold ${isDarkMode ? 'text-green-400' : 'text-green-600'}`}>
+                                    ₹{invItem.selling_price || invItem.price_per_unit || 0}/{invItem.unit || 'unit'}
+                                  </span>
+                                </div>
+                              </div>
                               <div className="flex items-center space-x-2">
-                                <span className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>{invItem.quantity} {invItem.unit || 'units'}</span>
                                 {invItem.stock_status === 'out_of_stock' && (
                                   <span className="text-xs bg-red-100 text-red-800 px-2 py-0.5 rounded-full">Out of Stock</span>
                                 )}
@@ -577,7 +732,7 @@ const CustomerDashboard = () => {
                               <datalist id={`inventory-items-${index}`}>
                                 {retailerInventory.filter(i => i.stock_status !== 'out_of_stock').map((invItem, idx) => (
                                   <option key={idx} value={invItem.item_name}>
-                                    {invItem.quantity} {invItem.unit || 'units'} available
+                                    {invItem.quantity} {invItem.unit || 'units'} @ ₹{invItem.selling_price || invItem.price_per_unit || 0}/{invItem.unit || 'unit'}
                                   </option>
                                 ))}
                               </datalist>
@@ -588,7 +743,8 @@ const CustomerDashboard = () => {
                                 placeholder="Qty"
                                 value={item.quantity}
                                 onChange={(e) => handleItemChange(index, 'quantity', e.target.value)}
-                                min="1"
+                                min="0.001"
+                                step="0.001"
                                 max={availability && availability.can_order ? availability.available_quantity : undefined}
                                 className={`w-full sm:w-24 px-3 py-2 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 transition-colors ${availability && !availability.can_order
                                   ? 'border-red-500 bg-red-50'
@@ -839,6 +995,212 @@ const CustomerDashboard = () => {
           </div>
         )}
       </div>
+
+      {/* Bill Scanner Modal */}
+      {showBillScanModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
+          <div className={`relative mx-auto p-6 border w-full max-w-4xl shadow-2xl rounded-xl max-h-[90vh] overflow-y-auto ${isDarkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-200'}`}>
+            <div className="flex justify-between items-center mb-6">
+              <div>
+                <h3 className={`text-2xl font-bold flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                  <FileText className="h-6 w-6 text-green-600" />
+                  Scan Shopping List
+                </h3>
+                <p className={`text-sm mt-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                  Upload image → AI extracts items → Review → Add to order
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowBillScanModal(false);
+                  setSelectedImage(null);
+                  setImagePreview(null);
+                  setParsedBillItems(null);
+                }}
+                className={`transition-colors ${isDarkMode ? 'text-gray-400 hover:text-gray-300' : 'text-gray-400 hover:text-gray-600'}`}
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            {!parsedBillItems ? (
+              /* Step 1: Upload Image */
+              <div className="space-y-6">
+                <div className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${isDarkMode ? 'border-gray-700 hover:border-green-600' : 'border-gray-300 hover:border-green-500'}`}>
+                  {imagePreview ? (
+                    <div className="space-y-4">
+                      <img 
+                        src={imagePreview} 
+                        alt="Shopping List Preview" 
+                        className="max-h-96 mx-auto rounded-lg shadow-md"
+                      />
+                      <button
+                        onClick={() => {
+                          setSelectedImage(null);
+                          setImagePreview(null);
+                        }}
+                        className="text-red-600 hover:text-red-700 text-sm font-medium"
+                      >
+                        Remove Image
+                      </button>
+                    </div>
+                  ) : (
+                    <div>
+                      <FileText className={`h-16 w-16 mx-auto mb-4 ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`} />
+                      <p className={`mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>Upload shopping list or handwritten note</p>
+                      <p className={`text-sm ${isDarkMode ? 'text-gray-500' : 'text-gray-500'}`}>PNG, JPG, GIF up to 10MB</p>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageSelect}
+                        className="hidden"
+                        id="bill-upload-customer"
+                      />
+                      <label
+                        htmlFor="bill-upload-customer"
+                        className="mt-4 inline-block bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 cursor-pointer transition-colors"
+                      >
+                        Select Image
+                      </label>
+                    </div>
+                  )}
+                </div>
+
+                <div className={`rounded-lg p-4 ${isDarkMode ? 'bg-green-900/20 border border-green-800' : 'bg-green-50 border border-green-200'}`}>
+                  <h4 className={`font-semibold mb-2 ${isDarkMode ? 'text-green-400' : 'text-green-900'}`}>📋 What we extract:</h4>
+                  <ul className={`text-sm space-y-1 ${isDarkMode ? 'text-green-300' : 'text-green-800'}`}>
+                    <li>• Item names from your list</li>
+                    <li>• Quantities needed</li>
+                    <li>• You can review and edit before ordering</li>
+                  </ul>
+                </div>
+
+                <div className="flex gap-3 justify-end">
+                  <button
+                    onClick={() => {
+                      setShowBillScanModal(false);
+                      setSelectedImage(null);
+                      setImagePreview(null);
+                    }}
+                    className={`px-6 py-2 rounded-lg transition-colors ${isDarkMode ? 'border border-gray-700 text-gray-300 hover:bg-gray-800' : 'border border-gray-300 text-gray-700 hover:bg-gray-50'}`}
+                    disabled={uploadingImage}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleBillScan}
+                    disabled={!selectedImage || uploadingImage}
+                    className="px-6 py-2 bg-gradient-to-r from-green-600 to-teal-600 text-white rounded-lg hover:from-green-700 hover:to-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2"
+                  >
+                    {uploadingImage ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        Scanning...
+                      </>
+                    ) : (
+                      <>
+                        <FileText className="h-4 w-4" />
+                        Scan List
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              /* Step 2: Review & Confirm Extracted Items */
+              <div className="space-y-6">
+                <div className={`rounded-lg p-4 ${isDarkMode ? 'bg-blue-900/20 border border-blue-800' : 'bg-blue-50 border border-blue-200'}`}>
+                  <h4 className={`font-semibold ${isDarkMode ? 'text-blue-300' : 'text-blue-900'}`}>
+                    ✅ Extracted {parsedBillItems.length} item(s) from your list
+                  </h4>
+                  <p className={`text-sm mt-1 ${isDarkMode ? 'text-blue-400' : 'text-blue-700'}`}>
+                    Review and edit items before adding to your order
+                  </p>
+                </div>
+
+                <div className={`border rounded-lg overflow-hidden ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+                  <table className="w-full">
+                    <thead className={isDarkMode ? 'bg-gray-800' : 'bg-gray-50'}>
+                      <tr>
+                        <th className={`px-4 py-3 text-left text-sm font-semibold ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Item Name</th>
+                        <th className={`px-4 py-3 text-left text-sm font-semibold ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Quantity</th>
+                        <th className={`px-4 py-3 text-left text-sm font-semibold ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {parsedBillItems.map((item, index) => (
+                        <tr key={index} className={`border-t ${isDarkMode ? 'border-gray-700 hover:bg-gray-800' : 'border-gray-200 hover:bg-gray-50'}`}>
+                          <td className="px-4 py-3">
+                            <input
+                              type="text"
+                              value={item.item_name}
+                              onChange={(e) => handleEditBillItem(index, 'item_name', e.target.value)}
+                              className={`w-full px-2 py-1 border rounded text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'border-gray-300'}`}
+                              placeholder="Item name"
+                            />
+                          </td>
+                          <td className="px-4 py-3">
+                            <input
+                              type="number"
+                              value={item.quantity}
+                              onChange={(e) => {
+                                const value = e.target.value;
+                                const qty = value === '' ? '' : parseFloat(value);
+                                handleEditBillItem(index, 'quantity', isNaN(qty) ? '' : qty);
+                              }}
+                              className={`w-20 px-2 py-1 border rounded text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'border-gray-300'}`}
+                              placeholder="Qty"
+                              min="0.001"
+                              step="0.001"
+                            />
+                          </td>
+                          <td className="px-4 py-3">
+                            <button
+                              onClick={() => handleRemoveBillItem(index)}
+                              className="text-red-600 hover:text-red-700 text-sm font-medium"
+                            >
+                              Remove
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="flex gap-3 justify-end">
+                  <button
+                    onClick={() => {
+                      setParsedBillItems(null);
+                    }}
+                    className={`px-6 py-2 rounded-lg transition-colors ${isDarkMode ? 'border border-gray-700 text-gray-300 hover:bg-gray-800' : 'border border-gray-300 text-gray-700 hover:bg-gray-50'}`}
+                    disabled={uploadingImage}
+                  >
+                    Back
+                  </button>
+                  <button
+                    onClick={handleBillConfirm}
+                    disabled={uploadingImage || parsedBillItems.length === 0}
+                    className="px-6 py-2 bg-gradient-to-r from-green-600 to-teal-600 text-white rounded-lg hover:from-green-700 hover:to-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2"
+                  >
+                    {uploadingImage ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        Adding...
+                      </>
+                    ) : (
+                      <>
+                        <ShoppingCart className="h-4 w-4" />
+                        Add to Order
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

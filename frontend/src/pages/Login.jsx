@@ -44,9 +44,7 @@ const Login = () => {
     setIsLoading(true);
 
     try {
-      console.log('Attempting login with:', formData);
       const result = await login(formData);
-      console.log('Login result:', result);
 
       if (result.success) {
         toast.success('Welcome back to BizNova!');

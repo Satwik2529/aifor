@@ -29,9 +29,20 @@ const customerUserSchema = new mongoose.Schema({
   },
   phone: {
     type: String,
-    required: [true, 'Phone number is required'],
+    required: function () {
+      // Phone is not required if user has google_id
+      return !this.google_id;
+    },
     trim: true,
-    match: [/^[6-9]\d{9}$/, 'Please enter a valid Indian phone number']
+    validate: {
+      validator: function (v) {
+        // If empty/undefined and has google_id, it's valid
+        if ((!v || v === '') && this.google_id) return true;
+        // Otherwise must match Indian phone pattern
+        return /^[6-9]\d{9}$/.test(v);
+      },
+      message: 'Please enter a valid Indian phone number'
+    }
   },
   address: {
     street: {
@@ -86,12 +97,27 @@ const customerUserSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+  // Google OAuth fields
+  google_id: {
+    type: String,
+    sparse: true,
+    unique: true
+  },
   // Password reset fields
   resetPasswordToken: {
     type: String,
     default: null
   },
   resetPasswordExpires: {
+    type: Date,
+    default: null
+  },
+  // Account lockout fields
+  loginAttempts: {
+    type: Number,
+    default: 0
+  },
+  lockUntil: {
     type: Date,
     default: null
   }
@@ -140,6 +166,39 @@ customerUserSchema.methods.comparePassword = async function (candidatePassword) 
   return await bcrypt.compare(candidatePassword, this.password);
 };
 
+// Check if account is locked
+customerUserSchema.methods.isLocked = function () {
+  return this.lockUntil && this.lockUntil > Date.now();
+};
+
+// Increment login attempts
+customerUserSchema.methods.incLoginAttempts = async function () {
+  // If lock has expired, reset attempts
+  if (this.lockUntil && this.lockUntil < Date.now()) {
+    return this.updateOne({
+      $set: { loginAttempts: 1 },
+      $unset: { lockUntil: 1 }
+    });
+  }
+
+  const updates = { $inc: { loginAttempts: 1 } };
+
+  // Lock account after 5 failed attempts
+  if (this.loginAttempts + 1 >= 5 && !this.isLocked()) {
+    updates.$set = { lockUntil: Date.now() + 30 * 60 * 1000 }; // 30 minutes
+  }
+
+  return this.updateOne(updates);
+};
+
+// Reset login attempts on successful login
+customerUserSchema.methods.resetLoginAttempts = async function () {
+  return this.updateOne({
+    $set: { loginAttempts: 0 },
+    $unset: { lockUntil: 1 }
+  });
+};
+
 // Virtual for customer profile (excludes password)
 customerUserSchema.virtual('profile').get(function () {
   return {
@@ -148,12 +207,14 @@ customerUserSchema.virtual('profile').get(function () {
     email: this.email,
     phone: this.phone,
     address: this.address,
+    avatar: this.avatar,
     // Location fields
     locality: this.locality,
     latitude: this.latitude,
     longitude: this.longitude,
     has_gps: !!(this.latitude && this.longitude),
-    createdAt: this.createdAt
+    createdAt: this.createdAt,
+    updatedAt: this.updatedAt
   };
 });
 

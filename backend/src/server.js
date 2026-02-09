@@ -41,8 +41,12 @@ connectDB();
 
 // CORS configuration to allow multiple origins
 const allowedOrigins = [
-  process.env.FRONTEND_URL, 'http://localhost:3000',
-  'http://localhost:3001', "https://biznova.onrender.com"
+  process.env.FRONTEND_URL, 
+  'http://localhost:3000',
+  'http://localhost:3001', 
+  'https://biznova.onrender.com',
+  'https://aiforall-8d15.onrender.com',
+  // Add your new frontend URL here
 ];
 
 app.use(cors({

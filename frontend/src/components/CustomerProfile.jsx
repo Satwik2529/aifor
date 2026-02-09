@@ -50,9 +50,6 @@ const CustomerProfile = ({ customerId, onProfileUpdate }) => {
       // Update profile (this would be an API call in production)
       const updatedProfile = { ...profile, ...editForm };
       
-      // Update localStorage
-      localStorage.setItem('user', JSON.stringify(updatedProfile));
-      
       setProfile(updatedProfile);
       setEditing(false);
       

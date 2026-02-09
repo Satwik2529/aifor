@@ -110,8 +110,6 @@ const ProfileSettings = () => {
     e.preventDefault();
     setSaving(true);
 
-    console.log('💾 Saving profile:', formData);
-
     try {
       // For retailers, use AuthContext which updates both state and localStorage
       if (userType === 'retailer') {
@@ -128,7 +126,9 @@ const ProfileSettings = () => {
       } else {
         // For customers, direct API call
         const token = localStorage.getItem('token');
-        const response = await fetch(`${API_URL}/api/customer-auth/profile`, {
+        const endpoint = `${API_URL}/api/customer-auth/profile`;
+        
+        const response = await fetch(endpoint, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -138,15 +138,13 @@ const ProfileSettings = () => {
         });
 
         const result = await response.json();
-        console.log('📥 Customer save response:', result);
 
         if (result.success) {
           toast.success('✅ Profile updated successfully!');
           setLastUpdated(new Date().toISOString());
           // Update localStorage for customer
           const userData = result.data.customer;
-          localStorage.setItem('user', JSON.stringify(userData));
-          localStorage.setItem('userType', 'customer');
+          // Profile updated successfully - no need to store in localStorage
           // Refresh profile data
           await fetchProfile();
         } else {

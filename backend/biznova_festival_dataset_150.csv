@@ -1,0 +1,44 @@
+festival_name,region,month,date_2026,type,public_holiday,top_selling_items,demand_level,estimated_demand_score
+Lohri,Punjab/North India,Jan,Jan 13,Harvest,No,"sesame seeds,jaggery,peanuts,popcorn,rewari,gur,til",High,8
+Makar Sankranti,Pan India,Jan,Jan 14,Harvest,Yes,"til,jaggery,rice,kites,sesame oil,groundnuts",High,9
+Pongal,Tamil Nadu,Jan,Jan 14-17,Harvest,Yes,"rice,jaggery,milk,sugarcane,turmeric,ginger,cashews",High,9
+Magh Bihu,Assam,Jan,Jan 16,Harvest,No,"rice,sesame,coconut,jaggery,fish,meat",Medium,7
+Vasant Panchami,Pan India,Jan,Jan 23,Religious,No,"yellow sweets,fruits,flowers,rice,turmeric",Medium,6
+Republic Day,Pan India,Jan,Jan 26,National,Yes,"flags,sweets,snacks,beverages,decorations",Medium,7
+Maha Shivratri,Pan India,Feb,Feb 15,Religious,Yes,"milk,bel leaves,fruits,flowers,dry fruits,honey",High,8
+Holi,Pan India,Mar,Mar 4,Religious,Yes,"colors,gujiya,sweets,snacks,beverages,thandai,bhang",High,9
+Ugadi,Karnataka/AP/Telangana,Mar,Mar 19,Cultural,Yes,"raw mango,jaggery,neem flowers,rice,tamarind",Medium,7
+Gudi Padwa,Maharashtra,Mar,Mar 19,Cultural,Yes,"jaggery,neem leaves,flowers,sweets,rice",Medium,7
+Cheti Chand,Sindhi Community,Mar,Mar 20,Religious,No,"sweets,fruits,rice,flour,oil",Low,5
+Ram Navami,Pan India,Mar,Mar 26-27,Religious,Yes,"fruits,sweets,milk,tulsi,flowers",High,8
+Mahavir Jayanti,Pan India,Mar,Mar 31,Religious,Yes,"fruits,sweets,dry fruits,flowers",Medium,6
+Hanuman Jayanti,Pan India,Apr,Apr 2,Religious,No,"fruits,flowers,sweets,besan laddoo,oil",Medium,7
+Good Friday,Pan India,Apr,Apr 3,Religious,Yes,"fish,meat,bread,wine,fruits",Medium,6
+Baisakhi,Punjab,Apr,Apr 14,Harvest,Yes,"wheat,sweets,lassi ingredients,milk,sugar",High,8
+Tamil New Year,Tamil Nadu,Apr,Apr 14,Cultural,Yes,"rice,jaggery,vegetables,fruits,flowers",Medium,7
+Vishu,Kerala,Apr,Apr 14,Cultural,Yes,"rice,vegetables,fruits,coconut,flowers,oil",Medium,7
+Akshaya Tritiya,Pan India,Apr,Apr 19,Religious,No,"gold,sweets,rice,grains,fruits",Medium,7
+Buddha Purnima,Pan India,May,May 1,Religious,Yes,"fruits,flowers,sweets,kheer,rice",Medium,6
+Eid al-Fitr,Pan India,May,May 2-3,Religious,Yes,"dates,sevai,sugar,flour,milk,dry fruits,meat",High,9
+Eid al-Adha,Pan India,Jun,Jun 8-9,Religious,Yes,"meat,rice,flour,sugar,dry fruits,spices",High,9
+Jagannath Rath Yatra,Odisha,Jul,Jul 16,Religious,No,"rice,sweets,coconut,fruits,flowers",High,8
+Guru Purnima,Pan India,Jul,Jul 29,Religious,No,"fruits,sweets,flowers,rice,milk",Medium,6
+Independence Day,Pan India,Aug,Aug 15,National,Yes,"flags,sweets,snacks,beverages,decorations",High,8
+Nag Panchami,Pan India,Aug,Aug 17,Religious,No,"milk,flowers,sweets,rice,turmeric",Low,5
+Onam,Kerala,Aug,Aug 26-Sep 6,Harvest,Yes,"rice,banana chips,coconut,vegetables,flowers,jaggery",High,9
+Raksha Bandhan,Pan India,Aug,Aug 28,Cultural,No,"sweets,gift packs,chocolates,dry fruits,rakhis",High,8
+Janmashtami,Pan India,Sep,Sep 6,Religious,Yes,"milk,butter,curd,sweets,fruits,flowers",High,8
+Ganesh Chaturthi,Maharashtra/Pan India,Sep,Sep 14,Religious,Yes,"modak,sweets,coconut,rice,flowers,fruits",High,9
+Navratri,Pan India,Oct,Oct 12-20,Religious,Partial,"fruits,milk,buckwheat flour,sabudana,dry fruits,sweets",High,9
+Durga Puja,West Bengal,Oct,Oct 16-20,Religious,Yes,"sweets,rice,fish,vegetables,flowers,fruits",High,9
+Dussehra,Pan India,Oct,Oct 20,Religious,Yes,"sweets,fruits,flowers,rice,vegetables",High,9
+Gandhi Jayanti,Pan India,Oct,Oct 2,National,Yes,"flowers,sweets,books,khadi products",Medium,6
+Karva Chauth,North India,Oct,Oct 24,Cultural,No,"sweets,fruits,sargi items,dry fruits,cosmetics",Medium,7
+Dhanteras,Pan India,Nov,Nov 6,Religious,No,"gold,silver,utensils,sweets,dry fruits",High,8
+Diwali,Pan India,Nov,Nov 8,Religious,Yes,"sweets,dry fruits,cooking oil,rice,crackers,diyas,candles",High,10
+Bhai Dooj,Pan India,Nov,Nov 10,Cultural,No,"sweets,gifts,dry fruits,chocolates",Medium,7
+Chhath Puja,Bihar/UP,Nov,Nov 7-10,Religious,No,"fruits,thekua,rice,jaggery,coconut,sugarcane",High,8
+Guru Nanak Jayanti,Pan India,Nov,Nov 24,Religious,Yes,"sweets,langar items,flour,rice,lentils,vegetables",High,8
+Hornbill Festival,Nagaland,Dec,Dec 1-10,Cultural,No,"local crafts,traditional items,rice beer,pork",Medium,6
+Gita Jayanti,Pan India,Dec,Dec 14,Religious,No,"books,sweets,fruits,flowers",Low,5
+Christmas,Pan India,Dec,Dec 25,Religious,Yes,"cake,wine,meat,fruits,decorations,gifts,sweets",High,9

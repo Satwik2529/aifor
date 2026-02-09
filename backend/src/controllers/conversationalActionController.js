@@ -37,10 +37,12 @@
 const Sale = require('../models/Sale');
 const Inventory = require('../models/Inventory');
 const Expense = require('../models/Expense');
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+const OpenAI = require('openai');
 
-// Initialize Gemini AI
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+// Initialize OpenAI
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY
+});
 
 // In-memory confirmation storage (use Redis in production)
 const pendingConfirmations = new Map();
@@ -164,22 +166,23 @@ QUESTIONS (NOT ACTIONS):
 Return ONLY valid JSON, no explanation.
 `;
 
-            // Use Gemini to parse intent
-            const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
-            const result = await model.generateContent(intentPrompt);
-            const response = await result.response;
-            const responseText = response.text();
+            // Use OpenAI to parse intent
+            const completion = await openai.chat.completions.create({
+              model: 'gpt-4o-mini',
+              messages: [{ role: 'user', content: intentPrompt }],
+              temperature: 0.3,
+              max_tokens: 500,
+              response_format: { type: "json_object" }
+            });
+            
+            const responseText = completion.choices[0].message.content;
 
-            // Extract JSON from response
+            // Parse JSON response
             let intentData;
             try {
-                // Try to extract JSON from markdown code blocks
-                const jsonMatch = responseText.match(/```json\n?([\s\S]*?)\n?```/) || 
-                                 responseText.match(/```\n?([\s\S]*?)\n?```/) ||
-                                 [null, responseText];
-                intentData = JSON.parse(jsonMatch[1] || responseText);
+                intentData = JSON.parse(responseText);
             } catch (parseError) {
-                console.error('Failed to parse Gemini response:', responseText);
+                console.error('Failed to parse OpenAI response:', responseText);
                 return res.status(200).json({
                     success: true,
                     data: {

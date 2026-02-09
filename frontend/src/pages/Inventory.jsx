@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, Filter, Download, Edit, Trash2, Package, AlertTriangle, X } from 'lucide-react';
+import { Plus, Search, Filter, Download, Edit, Trash2, Package, AlertTriangle, X, Image, FileText } from 'lucide-react';
 import { inventoryAPI } from '../services/api';
 import html2pdf from 'html2pdf.js';
 import toast, { Toaster } from 'react-hot-toast';
@@ -10,6 +10,13 @@ const Inventory = () => {
     const [inventory, setInventory] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
+    const [showImageUploadModal, setShowImageUploadModal] = useState(false);
+    const [showBillScanModal, setShowBillScanModal] = useState(false);
+    const [uploadingImage, setUploadingImage] = useState(false);
+    const [selectedImage, setSelectedImage] = useState(null);
+    const [imagePreview, setImagePreview] = useState(null);
+    const [parsedBillItems, setParsedBillItems] = useState(null);
+    const [billConfidence, setBillConfidence] = useState(0);
     const [editingItem, setEditingItem] = useState(null);
     const [showFilterModal, setShowFilterModal] = useState(false);
     const [itemsToShow, setItemsToShow] = useState(15); // Show 15 items initially
@@ -25,7 +32,8 @@ const Inventory = () => {
         price_per_unit: 0, // Keep for backward compatibility
         description: '',
         category: 'Other',
-        min_stock_level: 5
+        min_stock_level: 5,
+        unit: 'piece' // NEW: Default to piece for backward compatibility
     });
 
     useEffect(() => {
@@ -48,15 +56,44 @@ const Inventory = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        
+        // Validate stock quantity
+        if (formData.stock_qty === '' || formData.stock_qty === null || formData.stock_qty === undefined) {
+            toast.error('Please enter a valid stock quantity', {
+                position: 'top-right',
+                duration: 4000,
+            });
+            return;
+        }
+        
+        const qty = typeof formData.stock_qty === 'string' ? parseFloat(formData.stock_qty) : formData.stock_qty;
+        
+        if (isNaN(qty) || qty <= 0) {
+            toast.error('Stock quantity must be greater than 0', {
+                position: 'top-right',
+                duration: 4000,
+            });
+            return;
+        }
+        
+        // Normalize the data before sending
+        const sanitizedData = {
+            ...formData,
+            stock_qty: Number(qty.toFixed(3)), // Normalize to 3 decimals
+            cost_price: Number(parseFloat(formData.cost_price).toFixed(2)),
+            selling_price: Number(parseFloat(formData.selling_price).toFixed(2)),
+            price_per_unit: Number(parseFloat(formData.selling_price).toFixed(2)) // For backward compatibility
+        };
+        
         try {
             if (editingItem) {
-                await inventoryAPI.updateInventoryItem(editingItem._id, formData);
+                await inventoryAPI.updateInventoryItem(editingItem._id, sanitizedData);
                 toast.success(t('inventory.toast.updated'), {
                     position: 'top-right',
                     duration: 3000,
                 });
             } else {
-                await inventoryAPI.createInventoryItem(formData);
+                await inventoryAPI.createInventoryItem(sanitizedData);
                 toast.success(t('inventory.toast.created'), {
                     position: 'top-right',
                     duration: 3000,
@@ -72,7 +109,8 @@ const Inventory = () => {
                 price_per_unit: 0,
                 description: '',
                 category: 'Other',
-                min_stock_level: 5
+                min_stock_level: 5,
+                unit: 'piece'
             });
             fetchInventory();
         } catch (error) {
@@ -102,6 +140,161 @@ const Inventory = () => {
                 });
             }
         }
+    };
+
+    // Handle image selection
+    const handleImageSelect = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            setSelectedImage(file);
+            // Create preview
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setImagePreview(reader.result);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    // Upload and process image
+    const handleImageUpload = async () => {
+        if (!selectedImage) {
+            toast.error('Please select an image first');
+            return;
+        }
+
+        try {
+            setUploadingImage(true);
+            const formData = new FormData();
+            formData.append('image', selectedImage);
+
+            const response = await inventoryAPI.uploadInventoryImage(formData);
+
+            if (response.success) {
+                toast.success(
+                    `Successfully added ${response.data.summary.successful} item(s) from image!`,
+                    { duration: 5000 }
+                );
+                
+                // Show details of added items
+                if (response.data.items && response.data.items.length > 0) {
+                    const itemsList = response.data.items.map(item => 
+                        `${item.item_name}: ${item.stock_qty} units @ ₹${item.selling_price}`
+                    ).join('\n');
+                    console.log('Added items:\n', itemsList);
+                }
+
+                // Show errors if any
+                if (response.data.errors && response.data.errors.length > 0) {
+                    toast.error(
+                        `${response.data.errors.length} item(s) failed to process`,
+                        { duration: 4000 }
+                    );
+                }
+
+                // Close modal and refresh
+                setShowImageUploadModal(false);
+                setSelectedImage(null);
+                setImagePreview(null);
+                fetchInventory();
+            }
+        } catch (error) {
+            console.error('Error uploading image:', error);
+            toast.error(error.response?.data?.message || 'Failed to process image');
+        } finally {
+            setUploadingImage(false);
+        }
+    };
+
+    // BILL SCANNING - Step 1: Parse bill image
+    const handleBillScan = async () => {
+        if (!selectedImage) {
+            toast.error('Please select a bill image first');
+            return;
+        }
+
+        try {
+            setUploadingImage(true);
+            const formData = new FormData();
+            formData.append('image', selectedImage);
+
+            const response = await inventoryAPI.parseBillImage(formData);
+
+            if (response.success) {
+                // Store parsed items for confirmation
+                setParsedBillItems(response.data.items);
+                setBillConfidence(response.data.confidence);
+                
+                toast.success(response.message, { duration: 3000 });
+                
+                // Show low confidence warning
+                if (response.data.needsReview) {
+                    toast.warning('Low confidence - Please review items carefully', { duration: 4000 });
+                }
+            }
+        } catch (error) {
+            console.error('Error parsing bill:', error);
+            toast.error(error.response?.data?.message || 'Failed to parse bill image');
+            setShowBillScanModal(false);
+            setSelectedImage(null);
+            setImagePreview(null);
+        } finally {
+            setUploadingImage(false);
+        }
+    };
+
+    // BILL SCANNING - Step 2: Execute confirmed items
+    const handleBillConfirm = async () => {
+        if (!parsedBillItems || parsedBillItems.length === 0) {
+            toast.error('No items to confirm');
+            return;
+        }
+
+        try {
+            setUploadingImage(true);
+            const response = await inventoryAPI.executeBillItems(parsedBillItems);
+
+            if (response.success) {
+                toast.success(
+                    `${response.data.summary.created + response.data.summary.updated} item(s) added to inventory!`,
+                    { duration: 5000 }
+                );
+
+                // Show details
+                if (response.data.created.length > 0) {
+                    console.log('Created items:', response.data.created);
+                }
+                if (response.data.updated.length > 0) {
+                    console.log('Updated items:', response.data.updated);
+                }
+
+                // Close modal and refresh
+                setShowBillScanModal(false);
+                setSelectedImage(null);
+                setImagePreview(null);
+                setParsedBillItems(null);
+                setBillConfidence(0);
+                fetchInventory();
+            }
+        } catch (error) {
+            console.error('Error executing bill items:', error);
+            toast.error(error.response?.data?.message || 'Failed to add items to inventory');
+        } finally {
+            setUploadingImage(false);
+        }
+    };
+
+    // Remove item from parsed bill
+    const handleRemoveBillItem = (index) => {
+        const updatedItems = parsedBillItems.filter((_, i) => i !== index);
+        setParsedBillItems(updatedItems);
+    };
+
+    // Edit bill item
+    const handleEditBillItem = (index, field, value) => {
+        const updatedItems = [...parsedBillItems];
+        updatedItems[index][field] = value;
+        setParsedBillItems(updatedItems);
     };
 
     const categories = [
@@ -247,13 +440,22 @@ const Inventory = () => {
                     <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('inventory.title')}</h1>
                     <p className="text-gray-600 dark:text-gray-400">{t('inventory.subtitle')}</p>
                 </div>
-                <button
-                    onClick={() => setShowModal(true)}
-                    className="btn-primary flex items-center gap-2"
-                >
-                    <Plus className="h-4 w-4" />
-                    {t('inventory.addItem')}
-                </button>
+                <div className="flex gap-3">
+                    <button
+                        onClick={() => setShowBillScanModal(true)}
+                        className="bg-gradient-to-r from-green-600 to-teal-600 text-white px-4 py-2 rounded-lg hover:from-green-700 hover:to-teal-700 transition-all flex items-center gap-2 shadow-md"
+                    >
+                        <FileText className="h-4 w-4" />
+                        Scan Bill
+                    </button>
+                    <button
+                        onClick={() => setShowModal(true)}
+                        className="btn-primary flex items-center gap-2"
+                    >
+                        <Plus className="h-4 w-4" />
+                        {t('inventory.addItem')}
+                    </button>
+                </div>
             </div>
 
             {/* Stats Cards */}
@@ -311,13 +513,26 @@ const Inventory = () => {
             {/* Low Stock Alert */}
             {lowStockItems.length > 0 && (
                 <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                    <div className="flex items-center">
-                        <AlertTriangle className="h-5 w-5 text-red-600 mr-2" />
-                        <div>
-                            <h3 className="text-sm font-medium text-red-800">{t('inventory.lowStockAlert')}</h3>
-                            <p className="text-sm text-red-700">
-                                {t('inventory.lowStockMessage', { count: lowStockItems.length })}
-                            </p>
+                    <div className="flex items-start">
+                        <AlertTriangle className="h-5 w-5 text-red-600 mr-3 mt-0.5 flex-shrink-0" />
+                        <div className="flex-1">
+                            <h3 className="text-sm font-medium text-red-800 mb-2">{t('inventory.lowStockAlert')}</h3>
+                            <div className="space-y-1">
+                                {lowStockItems.slice(0, 5).map((item) => (
+                                    <div key={item._id} className="flex justify-between text-sm text-red-700">
+                                        <span className="font-medium">{item.item_name}</span>
+                                        <span className="text-red-600">
+                                            {item.stock_qty} {item.unit || 'pieces'} left
+                                            {item.stock_qty <= 0 && ' (OUT OF STOCK)'}
+                                        </span>
+                                    </div>
+                                ))}
+                                {lowStockItems.length > 5 && (
+                                    <p className="text-xs text-red-600 mt-2">
+                                        + {lowStockItems.length - 5} more items need restocking
+                                    </p>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -394,7 +609,7 @@ const Inventory = () => {
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            {item.stock_qty}
+                                            {item.stock_qty} {item.unit || 'pieces'}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                             ₹{item.cost_price || (item.price_per_unit * 0.8).toFixed(2)}
@@ -432,7 +647,8 @@ const Inventory = () => {
                                                             price_per_unit: item.price_per_unit,
                                                             description: item.description || '',
                                                             category: item.category || '',
-                                                            min_stock_level: item.min_stock_level || 0
+                                                            min_stock_level: item.min_stock_level || 0,
+                                                            unit: item.unit || 'piece'
                                                         });
                                                         setShowModal(true);
                                                     }}
@@ -484,6 +700,395 @@ const Inventory = () => {
             )}
             </div>
 
+            {/* Bill Scanner Modal */}
+            {showBillScanModal && (
+                <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
+                    <div className="relative mx-auto p-6 border w-full max-w-4xl shadow-2xl rounded-xl bg-white max-h-[90vh] overflow-y-auto">
+                        <div className="flex justify-between items-center mb-6">
+                            <div>
+                                <h3 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                                    <FileText className="h-6 w-6 text-green-600" />
+                                    Scan Wholesale Bill
+                                </h3>
+                                <p className="text-sm text-gray-600 mt-1">
+                                    Upload bill image → AI extracts items → Review → Confirm to add
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => {
+                                    setShowBillScanModal(false);
+                                    setSelectedImage(null);
+                                    setImagePreview(null);
+                                    setParsedBillItems(null);
+                                    setBillConfidence(0);
+                                }}
+                                className="text-gray-400 hover:text-gray-600 transition-colors"
+                            >
+                                <X className="h-6 w-6" />
+                            </button>
+                        </div>
+
+                        {!parsedBillItems ? (
+                            /* Step 1: Upload Bill Image */
+                            <div className="space-y-6">
+                                <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-green-500 transition-colors">
+                                    {imagePreview ? (
+                                        <div className="space-y-4">
+                                            <img 
+                                                src={imagePreview} 
+                                                alt="Bill Preview" 
+                                                className="max-h-96 mx-auto rounded-lg shadow-md"
+                                            />
+                                            <button
+                                                onClick={() => {
+                                                    setSelectedImage(null);
+                                                    setImagePreview(null);
+                                                }}
+                                                className="text-red-600 hover:text-red-700 text-sm font-medium"
+                                            >
+                                                Remove Image
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div>
+                                            <FileText className="h-16 w-16 mx-auto text-gray-400 mb-4" />
+                                            <p className="text-gray-600 mb-2">Upload wholesale purchase bill</p>
+                                            <p className="text-sm text-gray-500">PNG, JPG, GIF up to 10MB</p>
+                                            <input
+                                                type="file"
+                                                accept="image/*"
+                                                onChange={handleImageSelect}
+                                                className="hidden"
+                                                id="bill-upload"
+                                            />
+                                            <label
+                                                htmlFor="bill-upload"
+                                                className="mt-4 inline-block bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 cursor-pointer transition-colors"
+                                            >
+                                                Select Bill Image
+                                            </label>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                                    <h4 className="font-semibold text-green-900 mb-2">📋 What we extract:</h4>
+                                    <ul className="text-sm text-green-800 space-y-1">
+                                        <li>• Item names from the bill</li>
+                                        <li>• Quantities purchased</li>
+                                        <li>• Purchase prices (cost per unit)</li>
+                                        <li>• You can review and edit before adding</li>
+                                    </ul>
+                                </div>
+
+                                <div className="flex gap-3 justify-end">
+                                    <button
+                                        onClick={() => {
+                                            setShowBillScanModal(false);
+                                            setSelectedImage(null);
+                                            setImagePreview(null);
+                                        }}
+                                        className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                                        disabled={uploadingImage}
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={handleBillScan}
+                                        disabled={!selectedImage || uploadingImage}
+                                        className="px-6 py-2 bg-gradient-to-r from-green-600 to-teal-600 text-white rounded-lg hover:from-green-700 hover:to-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2"
+                                    >
+                                        {uploadingImage ? (
+                                            <>
+                                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                                                Scanning...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <FileText className="h-4 w-4" />
+                                                Scan Bill
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
+                            </div>
+                        ) : (
+                            /* Step 2: Review & Confirm Extracted Items */
+                            <div className="space-y-6">
+                                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <h4 className="font-semibold text-blue-900">✅ Extracted {parsedBillItems.length} item(s) from bill</h4>
+                                            <p className="text-sm text-blue-700 mt-1">
+                                                Confidence: {(billConfidence * 100).toFixed(0)}% 
+                                                {billConfidence < 0.7 && ' - Please review carefully'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="border border-gray-200 rounded-lg overflow-hidden">
+                                    <table className="w-full">
+                                        <thead className="bg-gray-50">
+                                            <tr>
+                                                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Item Name</th>
+                                                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Quantity</th>
+                                                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Cost Price (CP)</th>
+                                                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Selling Price (SP)</th>
+                                                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Category</th>
+                                                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {parsedBillItems.map((item, index) => (
+                                                <tr key={index} className="border-t border-gray-200 hover:bg-gray-50">
+                                                    <td className="px-4 py-3">
+                                                        <input
+                                                            type="text"
+                                                            value={item.item_name}
+                                                            onChange={(e) => handleEditBillItem(index, 'item_name', e.target.value)}
+                                                            className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                                            placeholder="Item name"
+                                                        />
+                                                    </td>
+                                                    <td className="px-4 py-3">
+                                                        <input
+                                                            type="number"
+                                                            value={item.quantity}
+                                                            onChange={(e) => handleEditBillItem(index, 'quantity', parseInt(e.target.value) || 0)}
+                                                            className="w-20 px-2 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                                            placeholder="Qty"
+                                                            min="1"
+                                                        />
+                                                    </td>
+                                                    <td className="px-4 py-3">
+                                                        <div className="flex items-center">
+                                                            <span className="text-gray-500 mr-1">₹</span>
+                                                            <input
+                                                                type="number"
+                                                                value={item.cost_price}
+                                                                onChange={(e) => handleEditBillItem(index, 'cost_price', parseInt(e.target.value) || 0)}
+                                                                className="w-24 px-2 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                                                placeholder="Cost"
+                                                                min="1"
+                                                            />
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-4 py-3">
+                                                        <div className="flex items-center">
+                                                            <span className="text-gray-500 mr-1">₹</span>
+                                                            <input
+                                                                type="number"
+                                                                value={item.selling_price}
+                                                                onChange={(e) => handleEditBillItem(index, 'selling_price', parseInt(e.target.value) || 0)}
+                                                                className="w-24 px-2 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                                                placeholder="Selling"
+                                                                min="1"
+                                                            />
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-4 py-3">
+                                                        <select
+                                                            value={item.category || 'Other'}
+                                                            onChange={(e) => handleEditBillItem(index, 'category', e.target.value)}
+                                                            className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                                        >
+                                                            <option value="Food & Beverages">Food & Beverages</option>
+                                                            <option value="Electronics">Electronics</option>
+                                                            <option value="Clothing">Clothing</option>
+                                                            <option value="Books">Books</option>
+                                                            <option value="Home & Garden">Home & Garden</option>
+                                                            <option value="Sports">Sports</option>
+                                                            <option value="Beauty & Health">Beauty & Health</option>
+                                                            <option value="Automotive">Automotive</option>
+                                                            <option value="Office Supplies">Office Supplies</option>
+                                                            <option value="Other">Other</option>
+                                                        </select>
+                                                    </td>
+                                                    <td className="px-4 py-3">
+                                                        <button
+                                                            onClick={() => handleRemoveBillItem(index)}
+                                                            className="text-red-600 hover:text-red-700 text-sm font-medium"
+                                                        >
+                                                            Remove
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                {/* Profit Preview */}
+                                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                                    <h4 className="font-semibold text-green-900 mb-2">💰 Profit Preview:</h4>
+                                    <div className="space-y-1 text-sm">
+                                        {parsedBillItems.map((item, index) => {
+                                            const profit = (item.selling_price || 0) - (item.cost_price || 0);
+                                            const margin = item.selling_price > 0 ? ((profit / item.selling_price) * 100).toFixed(1) : 0;
+                                            return (
+                                                <div key={index} className="flex justify-between text-green-800">
+                                                    <span>{item.item_name}</span>
+                                                    <span className="font-semibold">
+                                                        ₹{profit} profit/unit ({margin}% margin)
+                                                    </span>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                <div className="flex gap-3 justify-end">
+                                    <button
+                                        onClick={() => {
+                                            setParsedBillItems(null);
+                                            setBillConfidence(0);
+                                        }}
+                                        className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                                        disabled={uploadingImage}
+                                    >
+                                        Back
+                                    </button>
+                                    <button
+                                        onClick={handleBillConfirm}
+                                        disabled={uploadingImage || parsedBillItems.length === 0}
+                                        className="px-6 py-2 bg-gradient-to-r from-green-600 to-teal-600 text-white rounded-lg hover:from-green-700 hover:to-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2"
+                                    >
+                                        {uploadingImage ? (
+                                            <>
+                                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                                                Adding...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Package className="h-4 w-4" />
+                                                Confirm & Add to Inventory
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {/* Image Upload Modal */}
+            {showImageUploadModal && (
+                <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center">
+                    <div className="relative mx-auto p-6 border w-11/12 md:w-2/3 lg:w-1/2 shadow-2xl rounded-xl bg-white">
+                        <div className="flex justify-between items-center mb-6">
+                            <div>
+                                <h3 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                                    <Image className="h-6 w-6 text-purple-600" />
+                                    Upload Inventory Image
+                                </h3>
+                                <p className="text-sm text-gray-600 mt-1">
+                                    Upload an image with product details (name, quantity, cost price, selling price, category)
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => {
+                                    setShowImageUploadModal(false);
+                                    setSelectedImage(null);
+                                    setImagePreview(null);
+                                }}
+                                className="text-gray-400 hover:text-gray-600 transition-colors"
+                            >
+                                <X className="h-6 w-6" />
+                            </button>
+                        </div>
+
+                        <div className="space-y-6">
+                            {/* Image Upload Area */}
+                            <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-purple-500 transition-colors">
+                                {imagePreview ? (
+                                    <div className="space-y-4">
+                                        <img 
+                                            src={imagePreview} 
+                                            alt="Preview" 
+                                            className="max-h-96 mx-auto rounded-lg shadow-md"
+                                        />
+                                        <button
+                                            onClick={() => {
+                                                setSelectedImage(null);
+                                                setImagePreview(null);
+                                            }}
+                                            className="text-red-600 hover:text-red-700 text-sm font-medium"
+                                        >
+                                            Remove Image
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div>
+                                        <Image className="h-16 w-16 mx-auto text-gray-400 mb-4" />
+                                        <p className="text-gray-600 mb-2">Click to upload or drag and drop</p>
+                                        <p className="text-sm text-gray-500">PNG, JPG, GIF up to 10MB</p>
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            onChange={handleImageSelect}
+                                            className="hidden"
+                                            id="image-upload"
+                                        />
+                                        <label
+                                            htmlFor="image-upload"
+                                            className="mt-4 inline-block bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700 cursor-pointer transition-colors"
+                                        >
+                                            Select Image
+                                        </label>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Info Box */}
+                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                <h4 className="font-semibold text-blue-900 mb-2">📋 Image Requirements:</h4>
+                                <ul className="text-sm text-blue-800 space-y-1">
+                                    <li>• Product name clearly visible</li>
+                                    <li>• Quantity/Stock information</li>
+                                    <li>• Cost Price (CP) - what you paid</li>
+                                    <li>• Selling Price (SP) - what customers pay</li>
+                                    <li>• Category (optional but helpful)</li>
+                                </ul>
+                            </div>
+
+                            {/* Action Buttons */}
+                            <div className="flex gap-3 justify-end">
+                                <button
+                                    onClick={() => {
+                                        setShowImageUploadModal(false);
+                                        setSelectedImage(null);
+                                        setImagePreview(null);
+                                    }}
+                                    className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                                    disabled={uploadingImage}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleImageUpload}
+                                    disabled={!selectedImage || uploadingImage}
+                                    className="px-6 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2"
+                                >
+                                    {uploadingImage ? (
+                                        <>
+                                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                                            Processing...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Image className="h-4 w-4" />
+                                            Process Image
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Inventory Modal */}
             {showModal && (
                 <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
@@ -505,7 +1110,8 @@ const Inventory = () => {
                                             price_per_unit: 0,
                                             description: '',
                                             category: '',
-                                            min_stock_level: 0
+                                            min_stock_level: 0,
+                                            unit: 'piece'
                                         });
                                     }}
                                     className="text-gray-400 hover:text-gray-600"
@@ -543,16 +1149,81 @@ const Inventory = () => {
                                         </select>
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700">Stock Quantity</label>
+                                        <label className="block text-sm font-medium text-gray-700">Unit</label>
+                                        <select
+                                            value={formData.unit}
+                                            onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
+                                            className="input-field"
+                                            required
+                                        >
+                                            <option value="piece">Piece</option>
+                                            <option value="kg">Kilogram (kg)</option>
+                                            <option value="litre">Litre</option>
+                                        </select>
+                                        <p className="text-xs text-gray-500 mt-1">
+                                            Rice, Dal → kg | Oil, Milk → litre | Eggs → piece
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">Stock Quantity</label>
+                                    <div className="flex gap-2">
                                         <input
                                             type="number"
                                             value={formData.stock_qty}
-                                            onChange={(e) => setFormData({ ...formData, stock_qty: parseInt(e.target.value) || 0 })}
-                                            className="input-field"
+                                            onChange={(e) => {
+                                                const value = e.target.value;
+                                                // Allow empty string during typing, otherwise parse as number
+                                                if (value === '') {
+                                                    setFormData({ ...formData, stock_qty: '' });
+                                                } else {
+                                                    const qty = parseFloat(value);
+                                                    setFormData({ ...formData, stock_qty: isNaN(qty) ? '' : qty });
+                                                }
+                                            }}
+                                            className="input-field flex-1"
                                             min="0"
+                                            step={formData.unit === 'piece' ? '1' : '0.001'}
+                                            placeholder={formData.unit === 'piece' ? 'e.g., 10' : 'e.g., 2.5'}
                                             required
                                         />
+                                        {formData.unit === 'kg' && (
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    const grams = prompt('Enter grams to convert:');
+                                                    if (grams && !isNaN(grams)) {
+                                                        setFormData({ ...formData, stock_qty: parseFloat((grams / 1000).toFixed(3)) });
+                                                        toast.success(`${grams}g = ${(grams / 1000).toFixed(3)}kg`);
+                                                    }
+                                                }}
+                                                className="px-3 py-2 text-xs bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors whitespace-nowrap"
+                                                title="Convert grams to kg"
+                                            >
+                                                g→kg
+                                            </button>
+                                        )}
+                                        {formData.unit === 'litre' && (
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    const ml = prompt('Enter milliliters to convert:');
+                                                    if (ml && !isNaN(ml)) {
+                                                        setFormData({ ...formData, stock_qty: parseFloat((ml / 1000).toFixed(3)) });
+                                                        toast.success(`${ml}ml = ${(ml / 1000).toFixed(3)}L`);
+                                                    }
+                                                }}
+                                                className="px-3 py-2 text-xs bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors whitespace-nowrap"
+                                                title="Convert ml to litres"
+                                            >
+                                                ml→L
+                                            </button>
+                                        )}
                                     </div>
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        {formData.unit === 'piece' ? 'Enter whole numbers for pieces' : 'Supports fractional quantities (e.g., 0.5, 2.25)'}
+                                    </p>
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-4">
