@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, Mail, Phone, MapPin, Building2, FileText, Briefcase, Hash, Save } from 'lucide-react';
+import { User, Mail, Phone, MapPin, Building2, FileText, Briefcase, Hash, Save, Navigation, ExternalLink } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -32,6 +32,8 @@ const ProfileSettings = () => {
     upi_id: ''
   });
   const [lastUpdated, setLastUpdated] = useState(null);
+  const [locationData, setLocationData] = useState(null);
+  const [updatingLocation, setUpdatingLocation] = useState(false);
 
   let API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
   API_URL = API_URL.replace(/\/api$/, '');
@@ -75,6 +77,16 @@ const ProfileSettings = () => {
           upi_id: profileData.upi_id || ''
         });
         setLastUpdated(profileData.updatedAt);
+        
+        // Set location data if available
+        if (profileData.latitude && profileData.longitude) {
+          setLocationData({
+            latitude: profileData.latitude,
+            longitude: profileData.longitude,
+            locality: profileData.locality,
+            updatedAt: profileData.updatedAt
+          });
+        }
       } else {
         toast.error('Failed to load profile');
       }
@@ -157,6 +169,77 @@ const ProfileSettings = () => {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleUpdateLocation = async () => {
+    if (!navigator.geolocation) {
+      toast.error('Geolocation is not supported by your browser');
+      return;
+    }
+
+    setUpdatingLocation(true);
+    toast.loading('Capturing location...', { id: 'location-update' });
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          const token = localStorage.getItem('token');
+          const endpoint = userType === 'customer'
+            ? `${API_URL}/api/customer-auth/update-location`
+            : `${API_URL}/api/auth/update-location`;
+
+          const response = await fetch(endpoint, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              latitude: position.coords.latitude,
+              longitude: position.coords.longitude,
+              accuracy: position.coords.accuracy
+            })
+          });
+
+          const result = await response.json();
+
+          if (result.success) {
+            setLocationData({
+              latitude: position.coords.latitude,
+              longitude: position.coords.longitude,
+              locality: result.data.locality || locationData?.locality,
+              updatedAt: new Date().toISOString()
+            });
+            toast.success('📍 Location updated successfully!', { id: 'location-update' });
+          } else {
+            toast.error(result.message || 'Failed to update location', { id: 'location-update' });
+          }
+        } catch (error) {
+          console.error('Location update error:', error);
+          toast.error('Network error updating location', { id: 'location-update' });
+        } finally {
+          setUpdatingLocation(false);
+        }
+      },
+      (error) => {
+        console.error('Geolocation error:', error);
+        let errorMessage = 'Could not get location';
+        if (error.code === 1) {
+          errorMessage = 'Location permission denied';
+        } else if (error.code === 2) {
+          errorMessage = 'Location unavailable';
+        } else if (error.code === 3) {
+          errorMessage = 'Location request timeout';
+        }
+        toast.error(errorMessage, { id: 'location-update' });
+        setUpdatingLocation(false);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0
+      }
+    );
   };
 
   if (loading) {
@@ -341,6 +424,120 @@ const ProfileSettings = () => {
               />
             </div>
           </div>
+        </div>
+
+        {/* Location Information Card */}
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <Navigation className="h-5 w-5 text-primary-600" />
+            Location Information
+          </h2>
+
+          {locationData && locationData.latitude && locationData.longitude ? (
+            <div className="space-y-4">
+              {/* Location Display */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <p className="text-xs text-gray-600 mb-1">Latitude</p>
+                    <p className="text-sm font-mono font-semibold text-gray-900">
+                      {locationData.latitude.toFixed(6)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-600 mb-1">Longitude</p>
+                    <p className="text-sm font-mono font-semibold text-gray-900">
+                      {locationData.longitude.toFixed(6)}
+                    </p>
+                  </div>
+                  {locationData.locality && (
+                    <div className="md:col-span-2">
+                      <p className="text-xs text-gray-600 mb-1">Locality</p>
+                      <p className="text-sm font-semibold text-gray-900">
+                        {locationData.locality}
+                      </p>
+                    </div>
+                  )}
+                  <div className="md:col-span-2">
+                    <p className="text-xs text-gray-600 mb-1">Last Updated</p>
+                    <p className="text-sm text-gray-900">
+                      {new Date(locationData.updatedAt).toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={handleUpdateLocation}
+                  disabled={updatingLocation}
+                  className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {updatingLocation ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      <span>Updating...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Navigation className="h-4 w-4" />
+                      <span>Update Location</span>
+                    </>
+                  )}
+                </button>
+
+                <a
+                  href={`https://www.google.com/maps?q=${locationData.latitude},${locationData.longitude}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  <span>Open in Google Maps</span>
+                </a>
+              </div>
+
+              {/* Info Message */}
+              <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                <p className="text-sm text-green-800">
+                  ✅ {userType === 'retailer' 
+                    ? 'Your store is discoverable by nearby customers!' 
+                    : 'You can find nearby stores in your area!'}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {/* No Location Set */}
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <p className="text-sm text-yellow-800 mb-3">
+                  ⚠️ Location not set. {userType === 'retailer'
+                    ? 'Set your location to be discovered by nearby customers.'
+                    : 'Set your location to find nearby stores.'}
+                </p>
+                <button
+                  type="button"
+                  onClick={handleUpdateLocation}
+                  disabled={updatingLocation}
+                  className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {updatingLocation ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      <span>Capturing...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Navigation className="h-4 w-4" />
+                      <span>Capture Location</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Business Information Card (Retailer Only) */}

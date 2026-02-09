@@ -233,28 +233,32 @@ const validateCustomerRegistration = [
     .withMessage('Password must be at least 6 characters long'),
   
   body('phone')
+    .optional({ checkFalsy: true })
     .trim()
-    .notEmpty()
-    .withMessage('Phone number is required')
     .matches(/^[6-9]\d{9}$/)
     .withMessage('Please enter a valid Indian phone number'),
   
   body('address.street')
-    .optional()
+    .optional({ checkFalsy: true })
     .trim(),
   
   body('address.city')
-    .optional()
+    .optional({ checkFalsy: true })
     .trim(),
   
   body('address.state')
-    .optional()
+    .optional({ checkFalsy: true })
     .trim(),
   
   body('address.pincode')
-    .optional()
-    .matches(/^\d{6}$/)
-    .withMessage('Please enter a valid 6-digit pincode')
+    .optional({ checkFalsy: true })
+    .trim()
+    .custom((value) => {
+      if (value && !/^\d{6}$/.test(value)) {
+        throw new Error('Please enter a valid 6-digit pincode');
+      }
+      return true;
+    })
 ];
 
 // Customer user login validation

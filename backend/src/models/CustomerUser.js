@@ -29,15 +29,13 @@ const customerUserSchema = new mongoose.Schema({
   },
   phone: {
     type: String,
-    required: function () {
-      // Phone is not required if user has google_id
-      return !this.google_id;
-    },
+    required: false, // Phone is optional
     trim: true,
+    sparse: true, // Allows multiple empty values
     validate: {
       validator: function (v) {
-        // If empty/undefined and has google_id, it's valid
-        if ((!v || v === '') && this.google_id) return true;
+        // If empty/undefined, it's valid
+        if (!v || v === '') return true;
         // Otherwise must match Indian phone pattern
         return /^[6-9]\d{9}$/.test(v);
       },

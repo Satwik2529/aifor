@@ -21,6 +21,7 @@ import ProfileSettings from './pages/ProfileSettings';
 import CustomerDashboard from './pages/CustomerDashboard';
 import CustomerRequestsPage from './pages/CustomerRequestsPage';
 import CustomerChatbotPage from './pages/CustomerChatbotPage';
+import NearbyShops from './pages/NearbyShops';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -118,6 +119,7 @@ function App() {
             <Route path="/customer-dashboard" element={<CustomerDashboard />} />
             <Route path="/customer/chatbot" element={<CustomerChatbotPage />} />
             <Route path="/customer/profile-settings" element={<ProfileSettings />} />
+            <Route path="/customer/nearby-shops" element={<NearbyShops />} />
 
             {/* Protected retailer routes with layout */}
             <Route path="/dashboard" element={

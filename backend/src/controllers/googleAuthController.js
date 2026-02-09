@@ -15,9 +15,9 @@ const generateToken = (userId, userType = 'retailer') => {
 // Google Login/Register
 const googleLogin = async (req, res) => {
   try {
-    const { email, name, google_id, avatar_url, intended_user_type } = req.body;
+    const { email, name, google_id, avatar_url, intended_user_type, location } = req.body;
 
-    console.log('🔐 Google login attempt:', { email, name, google_id, intended_user_type });
+    console.log('🔐 Google login attempt:', { email, name, google_id, intended_user_type, hasLocation: !!location });
 
     if (!email || !google_id) {
       return res.status(400).json({
@@ -41,8 +41,29 @@ const googleLogin = async (req, res) => {
       if (!user.google_id) {
         user.google_id = google_id;
         user.avatar_url = avatar_url || user.avatar_url;
+        
+        // Update location if provided
+        if (location && location.latitude && location.longitude) {
+          user.location = {
+            latitude: location.latitude,
+            longitude: location.longitude,
+            accuracy: location.accuracy,
+            timestamp: location.timestamp || new Date()
+          };
+        }
+        
         await user.save();
-        console.log('✅ Updated existing user with Google info');
+        console.log('✅ Updated existing user with Google info and location');
+      } else if (location && location.latitude && location.longitude) {
+        // Update location even if Google info already exists
+        user.location = {
+          latitude: location.latitude,
+          longitude: location.longitude,
+          accuracy: location.accuracy,
+          timestamp: location.timestamp || new Date()
+        };
+        await user.save();
+        console.log('✅ Updated user location');
       }
 
       // Generate token
@@ -108,12 +129,22 @@ const googleLogin = async (req, res) => {
           avatar: avatar_url || ''
         });
 
+        // Add location if provided
+        if (location && location.latitude && location.longitude) {
+          newCustomer.location = {
+            latitude: location.latitude,
+            longitude: location.longitude,
+            accuracy: location.accuracy,
+            timestamp: location.timestamp || new Date()
+          };
+        }
+
         await newCustomer.save();
 
         // Generate token
         const token = generateToken(newCustomer._id, 'customer');
 
-        console.log('✅ New customer created via Google:', newCustomer.email);
+        console.log('✅ New customer created via Google:', newCustomer.email, 'with location:', !!newCustomer.location);
 
         return res.status(201).json({
           success: true,
@@ -125,7 +156,8 @@ const googleLogin = async (req, res) => {
               email: newCustomer.email,
               phone: newCustomer.phone,
               avatar_url: newCustomer.avatar,
-              userType: 'customer'
+              userType: 'customer',
+              location: newCustomer.location
             },
             token
           }
@@ -143,12 +175,22 @@ const googleLogin = async (req, res) => {
           language: 'English'
         });
 
+        // Add location if provided
+        if (location && location.latitude && location.longitude) {
+          newUser.location = {
+            latitude: location.latitude,
+            longitude: location.longitude,
+            accuracy: location.accuracy,
+            timestamp: location.timestamp || new Date()
+          };
+        }
+
         await newUser.save();
 
         // Generate token
         const token = generateToken(newUser._id, 'retailer');
 
-        console.log('✅ New retailer created via Google:', newUser.email);
+        console.log('✅ New retailer created via Google:', newUser.email, 'with location:', !!newUser.location);
 
         return res.status(201).json({
           success: true,
@@ -161,7 +203,8 @@ const googleLogin = async (req, res) => {
               phone: newUser.phone,
               shop_name: newUser.shop_name,
               avatar_url: newUser.avatar_url,
-              userType: 'retailer'
+              userType: 'retailer',
+              location: newUser.location
             },
             token
           }

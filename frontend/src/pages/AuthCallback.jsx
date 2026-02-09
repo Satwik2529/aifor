@@ -38,7 +38,11 @@ const AuthCallback = () => {
           // Extract user info from Google
           const { user } = session;
           const pendingUserType = localStorage.getItem('pendingGoogleUserType') || 'retailer';
-          localStorage.removeItem('pendingGoogleUserType'); // Clean up
+          const pendingLocation = localStorage.getItem('pendingGoogleLocation');
+          
+          // Clean up temporary storage
+          localStorage.removeItem('pendingGoogleUserType');
+          localStorage.removeItem('pendingGoogleLocation');
           
           const googleData = {
             email: user.email,
@@ -46,7 +50,8 @@ const AuthCallback = () => {
             google_id: user.id,
             avatar_url: user.user_metadata?.avatar_url,
             provider: 'google',
-            intended_user_type: pendingUserType // Tell backend if user wants to be customer or retailer
+            intended_user_type: pendingUserType, // Tell backend if user wants to be customer or retailer
+            location: pendingLocation ? JSON.parse(pendingLocation) : null // Include location if available
           };
 
           // Send to backend to create/login user

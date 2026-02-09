@@ -22,5 +22,6 @@ router.post('/reset-password/:token', passwordResetLimiter, passwordController.r
 // Protected routes
 router.get('/profile', authenticateToken, customerAuthController.getProfile);
 router.put('/profile', authenticateToken, customerAuthController.updateProfile);
+router.put('/update-location', authenticateToken, customerAuthController.updateLocation);
 
 module.exports = router;

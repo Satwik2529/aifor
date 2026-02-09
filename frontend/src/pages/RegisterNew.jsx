@@ -39,6 +39,8 @@ const RegisterNew = () => {
   });
   const [isLoading, setIsLoading] = useState(false);
   const [gpsStatus, setGpsStatus] = useState('not_set'); // 'not_set', 'loading', 'success', 'error'
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
 
   const { register } = useAuth();
   const navigate = useNavigate();
@@ -190,6 +192,12 @@ const RegisterNew = () => {
       }
     }
 
+    // Terms and conditions validation
+    if (!agreedToTerms) {
+      toast.error('Please agree to the Terms and Conditions to continue');
+      return;
+    }
+
     setIsLoading(true);
 
     try {
@@ -197,6 +205,12 @@ const RegisterNew = () => {
         const { confirmPassword, email, address, ...registrationData } = formData;
         const result = await register(registrationData);
         if (result.success) {
+          // Remember me functionality
+          if (rememberMe) {
+            localStorage.setItem('rememberMe', 'true');
+            localStorage.setItem('savedPhone', formData.phone);
+          }
+          
           toast.success(t('auth.register.success'));
           if (registrationData.latitude && registrationData.longitude) {
             toast.success('📍 Your store is now discoverable by nearby customers!');
@@ -211,26 +225,41 @@ const RegisterNew = () => {
         let API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
         // Remove /api suffix if present to avoid double /api/api/
         API_BASE_URL = API_BASE_URL.replace(/\/api$/, '');
+        
+        const registrationData = {
+          name: formData.name,
+          email: formData.email,
+          password: formData.password,
+          phone: formData.phone,
+          address: formData.address,
+          locality: formData.locality,
+          latitude: formData.latitude,
+          longitude: formData.longitude
+        };
+        
+        console.log('Sending registration data:', registrationData);
+        
         const response = await fetch(`${API_BASE_URL}/api/customer-auth/register`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: formData.name,
-            email: formData.email,
-            password: formData.password,
-            phone: formData.phone,
-            address: formData.address,
-            locality: formData.locality,
-            latitude: formData.latitude,
-            longitude: formData.longitude
-          })
+          body: JSON.stringify(registrationData)
         });
 
         const result = await response.json();
 
+        console.log('Registration response:', result);
+        console.log('Response status:', response.status);
+
         if (result.success) {
           localStorage.setItem('token', result.data.token);
           localStorage.setItem('userType', 'customer');
+          
+          // Remember me functionality
+          if (rememberMe) {
+            localStorage.setItem('rememberMe', 'true');
+            localStorage.setItem('savedEmail', formData.email);
+          }
+          
           toast.success(t('auth.register.success'));
           if (formData.latitude && formData.longitude) {
             toast.success('📍 You can now find nearby stores!');
@@ -638,9 +667,11 @@ const RegisterNew = () => {
               id="terms"
               name="terms"
               type="checkbox"
+              checked={agreedToTerms}
+              onChange={(e) => setAgreedToTerms(e.target.checked)}
               className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
             />
-            <label htmlFor="terms" className="ml-2 block text-xs sm:text-sm text-gray-900">
+            <label htmlFor="terms" className="ml-2 block text-xs sm:text-sm text-gray-900 dark:text-gray-300">
               I agree to the{' '}
               <button type="button" className="text-primary-600 hover:text-primary-500">
                 Terms and Conditions
@@ -649,6 +680,21 @@ const RegisterNew = () => {
               <button type="button" className="text-primary-600 hover:text-primary-500">
                 Privacy Policy
               </button>
+            </label>
+          </div>
+
+          {/* Remember Me */}
+          <div className="flex items-center">
+            <input
+              id="remember-me"
+              name="remember-me"
+              type="checkbox"
+              checked={rememberMe}
+              onChange={(e) => setRememberMe(e.target.checked)}
+              className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+            />
+            <label htmlFor="remember-me" className="ml-2 block text-xs sm:text-sm text-gray-900 dark:text-gray-300">
+              Remember me
             </label>
           </div>
 

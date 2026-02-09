@@ -282,6 +282,68 @@ const authController = {
         error: error.message
       });
     }
+  },
+
+  // Update user location
+  updateLocation: async (req, res) => {
+    try {
+      const userId = req.user._id;
+      const { latitude, longitude, accuracy, locality } = req.body;
+
+      if (!latitude || !longitude) {
+        return res.status(400).json({
+          success: false,
+          message: 'Latitude and longitude are required'
+        });
+      }
+
+      // Validate coordinates
+      if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid coordinates'
+        });
+      }
+
+      const updateData = {
+        latitude,
+        longitude,
+        locality: locality || null
+      };
+
+      const user = await User.findByIdAndUpdate(
+        userId,
+        updateData,
+        { new: true, runValidators: true }
+      );
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: 'User not found'
+        });
+      }
+
+      console.log('📍 Location updated for user:', user.email || user.phone);
+
+      res.status(200).json({
+        success: true,
+        message: 'Location updated successfully',
+        data: {
+          latitude: user.latitude,
+          longitude: user.longitude,
+          locality: user.locality,
+          updatedAt: user.updatedAt
+        }
+      });
+    } catch (error) {
+      console.error('❌ Location update error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Location update failed',
+        error: error.message
+      });
+    }
   }
 };
 

@@ -32,6 +32,7 @@ const profitAnalyticsRoutes = require('./routes/profitAnalyticsRoutes');
 const customerAuthRoutes = require('./routes/customerAuthRoutes');
 const customerRequestRoutes = require('./routes/customerRequestRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
+const nearbyShopsRoutes = require('./routes/nearbyShopsRoutes');
 
 // Initialize Express app
 const app = express();
@@ -103,6 +104,7 @@ app.use('/api/profit-analytics', profitAnalyticsRoutes);
 app.use('/api/customer-auth', customerAuthRoutes); // Customer user authentication
 app.use('/api/customer-requests', customerRequestRoutes); // Customer-to-retailer messaging
 app.use('/api/notifications', notificationRoutes); // User notifications
+app.use('/api/nearby-shops', nearbyShopsRoutes); // Find nearby shops by location
 
 // Root endpoint
 app.get('/', (req, res) => {

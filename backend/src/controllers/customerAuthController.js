@@ -1,4 +1,5 @@
 const CustomerUser = require('../models/CustomerUser');
+const User = require('../models/User');
 const { generateToken } = require('../middleware/auth');
 const { validationResult } = require('express-validator');
 
@@ -299,6 +300,68 @@ const customerAuthController = {
       res.status(500).json({
         success: false,
         message: 'Profile update failed',
+        error: error.message
+      });
+    }
+  },
+
+  // Update customer location
+  updateLocation: async (req, res) => {
+    try {
+      const customerId = req.user._id;
+      const { latitude, longitude, accuracy, locality } = req.body;
+
+      if (!latitude || !longitude) {
+        return res.status(400).json({
+          success: false,
+          message: 'Latitude and longitude are required'
+        });
+      }
+
+      // Validate coordinates
+      if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid coordinates'
+        });
+      }
+
+      const updateData = {
+        latitude,
+        longitude,
+        locality: locality || null
+      };
+
+      const customer = await CustomerUser.findByIdAndUpdate(
+        customerId,
+        updateData,
+        { new: true, runValidators: true }
+      );
+
+      if (!customer) {
+        return res.status(404).json({
+          success: false,
+          message: 'Customer not found'
+        });
+      }
+
+      console.log('📍 Location updated for customer:', customer.email);
+
+      res.status(200).json({
+        success: true,
+        message: 'Location updated successfully',
+        data: {
+          latitude: customer.latitude,
+          longitude: customer.longitude,
+          locality: customer.locality,
+          updatedAt: customer.updatedAt
+        }
+      });
+    } catch (error) {
+      console.error('❌ Location update error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Location update failed',
         error: error.message
       });
     }

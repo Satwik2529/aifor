@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Send, Package, Clock, CheckCircle, XCircle, Plus, Store, ShoppingCart, AlertCircle, Settings, Bot, MessageCircle, Moon, Sun, Sparkles, FileText, X } from 'lucide-react';
+import { Search, Send, Package, Clock, CheckCircle, XCircle, Plus, Store, ShoppingCart, AlertCircle, Settings, Bot, MessageCircle, Moon, Sun, Sparkles, FileText, X, MapPin } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import NotificationBell from '../components/NotificationBell';
 import FloatingAIChatbot from '../components/FloatingAIChatbot';
@@ -338,6 +338,10 @@ const CustomerDashboard = () => {
     navigate('/customer/profile-settings');
   };
 
+  const handleNearbyShops = () => {
+    navigate('/customer/nearby-shops');
+  };
+
   // Bill Scanner Functions
   const handleImageSelect = (e) => {
     const file = e.target.files[0];
@@ -499,6 +503,17 @@ const CustomerDashboard = () => {
               </button>
 
               <NotificationBell isDarkMode={isDarkMode} />
+
+              <button
+                onClick={handleNearbyShops}
+                className={`hidden sm:flex p-2 rounded-lg transition-colors ${isDarkMode
+                  ? 'hover:bg-gray-800 text-gray-400 hover:text-white'
+                  : 'hover:bg-gray-100 text-gray-600 hover:text-gray-900'
+                  }`}
+                title="Find Nearby Shops"
+              >
+                <MapPin className="h-5 w-5" />
+              </button>
 
               <button
                 onClick={handleProfileSettings}

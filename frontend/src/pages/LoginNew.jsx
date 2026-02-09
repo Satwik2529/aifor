@@ -55,7 +55,60 @@ const LoginNew = () => {
     }
 
     setIsGoogleLoading(true);
+    
     try {
+      // Request location permission and WAIT for response before redirecting
+      const getLocation = () => {
+        return new Promise((resolve) => {
+          if (!navigator.geolocation) {
+            console.log('Geolocation not supported');
+            resolve(null);
+            return;
+          }
+
+          console.log('📍 Requesting location permission...');
+          toast.loading('Requesting location permission...', { id: 'location-request' });
+
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              // Store location temporarily
+              const locationData = {
+                latitude: position.coords.latitude,
+                longitude: position.coords.longitude,
+                accuracy: position.coords.accuracy,
+                timestamp: new Date().toISOString()
+              };
+              localStorage.setItem('pendingGoogleLocation', JSON.stringify(locationData));
+              console.log('✅ Location captured:', locationData);
+              toast.success('Location captured!', { id: 'location-request' });
+              resolve(locationData);
+            },
+            (error) => {
+              console.warn('⚠️ Location permission denied or unavailable:', error.message);
+              toast.dismiss('location-request');
+              if (error.code === 1) {
+                toast('Location permission denied - continuing without location', { icon: 'ℹ️' });
+              } else if (error.code === 2) {
+                toast('Location unavailable - continuing without location', { icon: 'ℹ️' });
+              } else if (error.code === 3) {
+                toast('Location request timeout - continuing without location', { icon: 'ℹ️' });
+              }
+              resolve(null); // Continue without location
+            },
+            {
+              enableHighAccuracy: true,
+              timeout: 10000, // 10 seconds timeout
+              maximumAge: 0
+            }
+          );
+        });
+      };
+
+      // Wait for location (or timeout/denial) before proceeding
+      await getLocation();
+
+      console.log('🔵 Proceeding to Google OAuth...');
+      
       // Store the intended userType before redirecting to Google
       localStorage.setItem('pendingGoogleUserType', userType);
       

@@ -20,7 +20,7 @@ const apiLimiter = rateLimit({
 // Strict rate limiter for login endpoints
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // 5 login attempts per window
+  max: process.env.NODE_ENV === 'production' ? 5 : 50, // 50 for dev, 5 for production
   skipSuccessfulRequests: true, // Don't count successful logins
   message: {
     success: false,
@@ -45,7 +45,7 @@ const passwordResetLimiter = rateLimit({
 // Rate limiter for registration
 const registrationLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
-  max: 5, // 5 registrations per hour per IP
+  max: process.env.NODE_ENV === 'production' ? 5 : 100, // 100 for dev, 5 for production
   message: {
     success: false,
     message: 'Too many accounts created from this IP. Please try again later.'
