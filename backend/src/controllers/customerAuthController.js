@@ -22,7 +22,7 @@ const customerAuthController = {
         });
       }
 
-      const { name, email, password, phone, address } = req.body;
+      const { name, email, password, phone, address, locality, latitude, longitude } = req.body;
 
       // Check if customer already exists with email
       const existingCustomer = await CustomerUser.findOne({ email });
@@ -34,13 +34,16 @@ const customerAuthController = {
         });
       }
 
-      // Create new customer
+      // Create new customer with location data
       const customer = new CustomerUser({
         name,
         email,
         password,
         phone,
-        address: address || {}
+        address: address || {},
+        locality: locality || null,
+        latitude: latitude || null,
+        longitude: longitude || null
       });
 
       await customer.save();
@@ -128,7 +131,7 @@ const customerAuthController = {
   getProfile: async (req, res) => {
     try {
       const customer = await CustomerUser.findById(req.user._id);
-      
+
       if (!customer) {
         return res.status(404).json({
           success: false,
@@ -168,6 +171,11 @@ const customerAuthController = {
       if (req.body.name) updateData.name = req.body.name;
       if (req.body.phone) updateData.phone = req.body.phone;
       if (req.body.avatar !== undefined) updateData.avatar = req.body.avatar;
+
+      // Location fields (GPS)
+      if (req.body.locality !== undefined) updateData.locality = req.body.locality;
+      if (req.body.latitude !== undefined) updateData.latitude = req.body.latitude;
+      if (req.body.longitude !== undefined) updateData.longitude = req.body.longitude;
 
       // Address fields
       if (req.body.address) {
@@ -209,6 +217,11 @@ const customerAuthController = {
             phone: customer.phone,
             address: customer.address,
             avatar: customer.avatar,
+            // Location fields
+            locality: customer.locality,
+            latitude: customer.latitude,
+            longitude: customer.longitude,
+            has_gps: !!(customer.latitude && customer.longitude),
             updatedAt: customer.updatedAt
           }
         }

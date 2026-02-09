@@ -23,7 +23,7 @@ const authController = {
         });
       }
 
-      const { name, phone, password, shop_name, language, upi_id } = req.body;
+      const { name, phone, password, shop_name, language, upi_id, locality, latitude, longitude, address } = req.body;
 
       // Check if user already exists
       const existingUser = await User.findOne({ phone });
@@ -35,14 +35,18 @@ const authController = {
         });
       }
 
-      // Create new user
+      // Create new user with location data
       const user = new User({
         name,
         phone,
         password,
         shop_name,
         language,
-        upi_id
+        upi_id,
+        locality: locality || null,
+        latitude: latitude || null,
+        longitude: longitude || null,
+        address: address || {}
       });
 
       await user.save();
@@ -162,6 +166,11 @@ const authController = {
       if (req.body.upi_id !== undefined) updateData.upi_id = req.body.upi_id;
       if (req.body.avatar !== undefined) updateData.avatar = req.body.avatar;
 
+      // Location fields (GPS)
+      if (req.body.locality !== undefined) updateData.locality = req.body.locality;
+      if (req.body.latitude !== undefined) updateData.latitude = req.body.latitude;
+      if (req.body.longitude !== undefined) updateData.longitude = req.body.longitude;
+
       // Address fields
       if (req.body.address) {
         updateData.address = {
@@ -214,6 +223,11 @@ const authController = {
             avatar: user.avatar,
             language: user.language,
             upi_id: user.upi_id,
+            // Location fields
+            locality: user.locality,
+            latitude: user.latitude,
+            longitude: user.longitude,
+            has_gps: !!(user.latitude && user.longitude),
             updatedAt: user.updatedAt
           }
         }

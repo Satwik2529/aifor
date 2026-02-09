@@ -8,14 +8,8 @@ const mongoose = require('mongoose');
 
 const connectDB = async () => {
   try {
-    // MongoDB connection options
-    const options = {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    };
-
-    // Connect to MongoDB
-    const conn = await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/biznova', options);
+    // Connect to MongoDB (deprecated options removed - they're now defaults)
+    const conn = await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/biznova');
 
     console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
     console.log(`📊 Database: ${conn.connection.name}`);

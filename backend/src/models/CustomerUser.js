@@ -56,6 +56,32 @@ const customerUserSchema = new mongoose.Schema({
       default: ''
     }
   },
+  // Locality-based discovery fields (optional, backward-compatible)
+  locality: {
+    type: String,
+    trim: true,
+    default: null
+  },
+  latitude: {
+    type: Number,
+    default: null
+  },
+  longitude: {
+    type: Number,
+    default: null
+  },
+  // GeoJSON location for distance-based queries
+  location: {
+    type: {
+      type: String,
+      enum: ['Point'],
+      default: 'Point'
+    },
+    coordinates: {
+      type: [Number], // [longitude, latitude]
+      default: [0, 0]
+    }
+  },
   avatar: {
     type: String,
     default: ''
@@ -76,14 +102,33 @@ const customerUserSchema = new mongoose.Schema({
 });
 
 // Hash password before saving
-customerUserSchema.pre('save', async function(next) {
+customerUserSchema.pre('save', async function (next) {
   if (!this.isModified('password')) {
+    // Update GeoJSON location if latitude/longitude changed
+    if (this.isModified('latitude') || this.isModified('longitude')) {
+      if (this.latitude && this.longitude) {
+        this.location = {
+          type: 'Point',
+          coordinates: [this.longitude, this.latitude] // [lng, lat] order for GeoJSON
+        };
+        console.log(`📍 Updated customer location: [${this.longitude}, ${this.latitude}]`);
+      }
+    }
     return next();
   }
-  
+
   try {
     const salt = await bcrypt.genSalt(10);
     this.password = await bcrypt.hash(this.password, salt);
+
+    // Update GeoJSON location if latitude/longitude exists
+    if (this.latitude && this.longitude) {
+      this.location = {
+        type: 'Point',
+        coordinates: [this.longitude, this.latitude]
+      };
+    }
+
     next();
   } catch (error) {
     next(error);
@@ -91,24 +136,34 @@ customerUserSchema.pre('save', async function(next) {
 });
 
 // Method to compare passwords
-customerUserSchema.methods.comparePassword = async function(candidatePassword) {
+customerUserSchema.methods.comparePassword = async function (candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password);
 };
 
 // Virtual for customer profile (excludes password)
-customerUserSchema.virtual('profile').get(function() {
+customerUserSchema.virtual('profile').get(function () {
   return {
     id: this._id,
     name: this.name,
     email: this.email,
     phone: this.phone,
     address: this.address,
+    // Location fields
+    locality: this.locality,
+    latitude: this.latitude,
+    longitude: this.longitude,
+    has_gps: !!(this.latitude && this.longitude),
     createdAt: this.createdAt
   };
 });
 
-// Index for efficient queries
-customerUserSchema.index({ email: 1 }, { unique: true });
+// Index for efficient queries (email already has unique: true in schema)
 customerUserSchema.index({ phone: 1 });
+// Locality-based discovery indexes
+customerUserSchema.index({ locality: 1 });
+customerUserSchema.index({ pincode: 1 });
+customerUserSchema.index({ 'address.city': 1 });
+// Geospatial index for distance-based queries
+customerUserSchema.index({ location: '2dsphere' });
 
 module.exports = mongoose.model('CustomerUser', customerUserSchema);

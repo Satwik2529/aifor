@@ -31,16 +31,54 @@ const RegisterNew = () => {
       city: '',
       state: '',
       pincode: ''
-    }
+    },
+    // Location fields (for both)
+    locality: '',
+    latitude: null,
+    longitude: null
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [gpsStatus, setGpsStatus] = useState('not_set'); // 'not_set', 'loading', 'success', 'error'
 
   const { register } = useAuth();
   const navigate = useNavigate();
 
+  const requestGPSLocation = () => {
+    if (!navigator.geolocation) {
+      toast.error('GPS not supported by your browser');
+      setGpsStatus('error');
+      return;
+    }
+
+    setGpsStatus('loading');
+    toast.loading('Capturing location...', { id: 'gps-loading' });
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setFormData({
+          ...formData,
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude
+        });
+        setGpsStatus('success');
+        toast.success('Location captured successfully!', { id: 'gps-loading' });
+      },
+      (error) => {
+        console.error('GPS error:', error);
+        setGpsStatus('error');
+        toast.error('Could not get location. Please enter manually.', { id: 'gps-loading' });
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0
+      }
+    );
+  };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
-    
+
     if (name.startsWith('address.')) {
       const addressField = name.split('.')[1];
       setFormData({
@@ -60,12 +98,15 @@ const RegisterNew = () => {
 
   const handleTabChange = (type) => {
     setUserType(type);
-    // Keep common fields, reset specific fields
+    // Keep common fields and location fields, reset specific fields
     setFormData({
       name: formData.name,
       phone: formData.phone,
       password: formData.password,
       confirmPassword: formData.confirmPassword,
+      locality: formData.locality,
+      latitude: formData.latitude,
+      longitude: formData.longitude,
       shop_name: '',
       language: 'Hindi',
       upi_id: '',
@@ -157,6 +198,9 @@ const RegisterNew = () => {
         const result = await register(registrationData);
         if (result.success) {
           toast.success(t('auth.register.success'));
+          if (registrationData.latitude && registrationData.longitude) {
+            toast.success('📍 Your store is now discoverable by nearby customers!');
+          }
           // Delay navigation to show toast
           setTimeout(() => navigate('/'), 1000);
         } else {
@@ -175,7 +219,10 @@ const RegisterNew = () => {
             email: formData.email,
             password: formData.password,
             phone: formData.phone,
-            address: formData.address
+            address: formData.address,
+            locality: formData.locality,
+            latitude: formData.latitude,
+            longitude: formData.longitude
           })
         });
 
@@ -186,6 +233,9 @@ const RegisterNew = () => {
           localStorage.setItem('userType', 'customer');
           localStorage.setItem('user', JSON.stringify(result.data.customer));
           toast.success(t('auth.register.success'));
+          if (formData.latitude && formData.longitude) {
+            toast.success('📍 You can now find nearby stores!');
+          }
           // Delay navigation to show toast
           setTimeout(() => navigate('/customer-dashboard'), 1000);
         } else {
@@ -223,11 +273,10 @@ const RegisterNew = () => {
           <button
             type="button"
             onClick={() => handleTabChange('retailer')}
-            className={`flex-1 flex items-center justify-center space-x-1 sm:space-x-2 py-2 sm:py-3 px-2 sm:px-4 rounded-md text-xs sm:text-sm font-medium transition-all duration-200 ${
-              userType === 'retailer'
-                ? 'bg-primary-600 text-white shadow-md'
-                : 'text-gray-600 dark:text-white hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-800'
-            }`}
+            className={`flex-1 flex items-center justify-center space-x-1 sm:space-x-2 py-2 sm:py-3 px-2 sm:px-4 rounded-md text-xs sm:text-sm font-medium transition-all duration-200 ${userType === 'retailer'
+              ? 'bg-primary-600 text-white shadow-md'
+              : 'text-gray-600 dark:text-white hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-800'
+              }`}
           >
             <Store className="h-4 w-4 sm:h-5 sm:w-5" />
             <span>{t('auth.login.retailer')}</span>
@@ -235,11 +284,10 @@ const RegisterNew = () => {
           <button
             type="button"
             onClick={() => handleTabChange('customer')}
-            className={`flex-1 flex items-center justify-center space-x-1 sm:space-x-2 py-2 sm:py-3 px-2 sm:px-4 rounded-md text-xs sm:text-sm font-medium transition-all duration-200 ${
-              userType === 'customer'
-                ? 'bg-primary-600 text-white shadow-md'
-                : 'text-gray-600 dark:text-white hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-800'
-            }`}
+            className={`flex-1 flex items-center justify-center space-x-1 sm:space-x-2 py-2 sm:py-3 px-2 sm:px-4 rounded-md text-xs sm:text-sm font-medium transition-all duration-200 ${userType === 'customer'
+              ? 'bg-primary-600 text-white shadow-md'
+              : 'text-gray-600 dark:text-white hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-800'
+              }`}
           >
             <UserIcon className="h-4 w-4 sm:h-5 sm:w-5" />
             <span>{t('auth.login.customer')}</span>
@@ -288,6 +336,80 @@ const RegisterNew = () => {
                   className="input-field pl-10 text-sm"
                   placeholder="Enter your phone number"
                 />
+              </div>
+            </div>
+
+            {/* GPS Location Section - Common for both */}
+            <div className="md:col-span-2 bg-blue-50 dark:bg-gray-800 p-4 rounded-lg border border-blue-200 dark:border-gray-700">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <h3 className="text-sm font-medium text-gray-900 dark:text-white flex items-center">
+                    <MapPin className="h-4 w-4 mr-2 text-blue-600" />
+                    {userType === 'retailer' ? 'Store Location' : 'Your Location'}
+                  </h3>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                    {userType === 'retailer'
+                      ? 'Help customers find your store easily!'
+                      : 'Find nearby stores within your area!'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={requestGPSLocation}
+                  disabled={gpsStatus === 'loading'}
+                  className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${gpsStatus === 'success'
+                      ? 'bg-green-100 text-green-700 border border-green-300'
+                      : gpsStatus === 'loading'
+                        ? 'bg-gray-100 text-gray-500 cursor-wait'
+                        : 'bg-blue-600 text-white hover:bg-blue-700'
+                    }`}
+                >
+                  {gpsStatus === 'loading' ? '📍 Capturing...' : gpsStatus === 'success' ? '✅ GPS Set' : '📍 Capture GPS'}
+                </button>
+              </div>
+
+              {gpsStatus === 'success' && formData.latitude && formData.longitude && (
+                <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded p-3 mb-3">
+                  <p className="text-xs text-green-800 dark:text-green-200 font-medium">
+                    ✅ GPS Location Captured Successfully!
+                  </p>
+                  <p className="text-xs text-green-700 dark:text-green-300 mt-1">
+                    Lat: {formData.latitude.toFixed(6)}, Lng: {formData.longitude.toFixed(6)}
+                  </p>
+                </div>
+              )}
+
+              {gpsStatus === 'error' && (
+                <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded p-3 mb-3">
+                  <p className="text-xs text-yellow-800 dark:text-yellow-200">
+                    ⚠️ Could not capture GPS. Please enter your locality manually below.
+                  </p>
+                </div>
+              )}
+
+              {!formData.latitude && !formData.longitude && gpsStatus === 'not_set' && (
+                <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded p-3 mb-3">
+                  <p className="text-xs text-yellow-800 dark:text-yellow-200">
+                    ⚠️ GPS not set. {userType === 'retailer' ? 'Set location to be discovered by nearby customers.' : 'Set location to find nearby stores.'}
+                  </p>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="md:col-span-2">
+                  <label htmlFor="locality" className="block text-xs font-medium text-gray-700 dark:text-gray-300">
+                    Locality / Area Name
+                  </label>
+                  <input
+                    id="locality"
+                    name="locality"
+                    type="text"
+                    value={formData.locality}
+                    onChange={handleChange}
+                    className="input-field text-sm mt-1"
+                    placeholder="e.g., Banjara Hills, Jubilee Hills"
+                  />
+                </div>
               </div>
             </div>
 

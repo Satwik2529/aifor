@@ -12,6 +12,28 @@ const { validationResult } = require('express-validator');
  * Includes bill generation and status updates
  */
 
+/**
+ * Calculate distance between two GPS coordinates using Haversine formula
+ * @param {number} lat1 - Latitude of point 1
+ * @param {number} lon1 - Longitude of point 1
+ * @param {number} lat2 - Latitude of point 2
+ * @param {number} lon2 - Longitude of point 2
+ * @returns {number} Distance in kilometers
+ */
+function calculateDistance(lat1, lon1, lat2, lon2) {
+  if (!lat1 || !lon1 || !lat2 || !lon2) return null;
+
+  const R = 6371; // Radius of Earth in kilometers
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
 const customerRequestController = {
   // Create new customer request
   createRequest: async (req, res) => {
@@ -41,7 +63,7 @@ const customerRequestController = {
       // Check inventory stock for each item
       const outOfStockItems = [];
       const lowStockItems = [];
-      
+
       for (const item of items) {
         const inventoryItem = await Inventory.findOne({
           user_id: retailer_id,
@@ -342,7 +364,7 @@ const customerRequestController = {
         console.log('✅ Processing completion...');
         console.log('Current status:', request.status);
         console.log('Bill details:', request.bill_details);
-        
+
         if (request.status !== 'billed') {
           console.error('❌ Request not billed yet. Current status:', request.status);
           return res.status(400).json({
@@ -397,7 +419,7 @@ const customerRequestController = {
           // Deduct from inventory
           const deductAmount = Number(item.quantity) || 0;
           inventoryItem.stock_qty = availableStock - deductAmount;
-          
+
           await inventoryItem.save();
           console.log(`📦 Deducted ${deductAmount} ${inventoryItem.unit || 'units'} of ${item.item_name}. New stock: ${inventoryItem.stock_qty}`);
 
@@ -429,7 +451,7 @@ const customerRequestController = {
           customer_name: request.customer_id.name || 'Customer',
           customer_phone: request.customer_id.phone || ''
         });
-        
+
         console.log('💰 Creating sale with COGS:', total_cogs, 'Gross Profit:', request.bill_details.total - total_cogs, 'Payment:', finalPaymentMethod);
 
         await sale.save();
@@ -453,7 +475,7 @@ const customerRequestController = {
 
       await request.save();
       console.log('✅ Request saved with new status:', status);
-      
+
       await request.populate({
         path: 'customer_id',
         select: 'name email phone address'
@@ -500,11 +522,11 @@ const customerRequestController = {
 
       const responseData = {
         success: true,
-        message: status === 'completed' 
-          ? 'Request completed! Sales entry created and inventory updated' 
+        message: status === 'completed'
+          ? 'Request completed! Sales entry created and inventory updated'
           : status === 'cancelled'
-          ? 'Request cancelled successfully'
-          : 'Status updated successfully',
+            ? 'Request cancelled successfully'
+            : 'Status updated successfully',
         data: {
           request,
           sales_created: status === 'completed',
@@ -520,7 +542,7 @@ const customerRequestController = {
       console.error('Error name:', error.name);
       console.error('Error message:', error.message);
       console.error('Error stack:', error.stack);
-      
+
       res.status(500).json({
         success: false,
         message: 'Failed to update request status',
@@ -574,7 +596,7 @@ const customerRequestController = {
       console.log('📊 Calculating bill...');
       request.calculateBill(taxRate);
       console.log('Bill calculated:', request.bill_details);
-      
+
       request.status = 'billed';
       request.processed_at = new Date();
 
@@ -604,7 +626,7 @@ const customerRequestController = {
       console.error('Error name:', error.name);
       console.error('Error message:', error.message);
       console.error('Error stack:', error.stack);
-      
+
       res.status(500).json({
         success: false,
         message: 'Failed to generate bill',
@@ -614,32 +636,189 @@ const customerRequestController = {
     }
   },
 
-  // Get all retailers (for customer to search/select)
+  // Get all retailers (for customer to search/select) - WITH LOCALITY FILTERING
+  // Get all retailers (for customer to search/select) - WITH GPS DISTANCE FILTERING
   getAllRetailers: async (req, res) => {
     try {
-      const { search, page = 1, limit = 20 } = req.query;
+      const { search, page = 1, limit = 20, range = 10 } = req.query; // range in km (default 10km)
 
-      console.log('Getting retailers - Search:', search, 'User type:', req.userType);
+      console.log('Getting retailers - Search:', search, 'Range:', range, 'km, User type:', req.userType);
 
-      const query = {};
-      if (search) {
-        query.$or = [
-          { name: { $regex: search, $options: 'i' } },
-          { shop_name: { $regex: search, $options: 'i' } }
-        ];
+      // Get customer profile if logged in
+      let customer = null;
+      if (req.user && req.userType === 'customer') {
+        customer = await CustomerUser.findById(req.user._id);
+        console.log('Customer location:', {
+          locality: customer?.locality,
+          pincode: customer?.address?.pincode,
+          gps: customer?.latitude && customer?.longitude ?
+            `[${customer.longitude}, ${customer.latitude}]` : 'Not set'
+        });
       }
 
-      const skip = (parseInt(page) - 1) * parseInt(limit);
+      let retailers = [];
+      let total = 0;
+      let filterMethod = 'none';
 
-      const retailers = await User.find(query)
-        .select('name shop_name phone language')
-        .sort({ shop_name: 1 })
-        .skip(skip)
-        .limit(parseInt(limit));
+      // Priority 1: GPS-based distance filtering (most accurate)
+      if (customer && customer.latitude && customer.longitude) {
+        console.log('✅ Using GPS distance filtering');
+        filterMethod = 'gps';
 
-      const total = await User.countDocuments(query);
+        const rangeInMeters = parseInt(range) * 1000; // Convert km to meters
+        const query = {
+          role: 'retailer',
+          // CRITICAL: Only show retailers that have GPS coordinates set
+          latitude: { $exists: true, $ne: null },
+          longitude: { $exists: true, $ne: null },
+          location: {
+            $near: {
+              $geometry: {
+                type: 'Point',
+                coordinates: [customer.longitude, customer.latitude]
+              },
+              $maxDistance: rangeInMeters
+            }
+          }
+        };
 
-      console.log(`Found ${retailers.length} retailers out of ${total} total`);
+        // Add search filter
+        if (search) {
+          query.$and = [
+            {
+              $or: [
+                { name: { $regex: search, $options: 'i' } },
+                { shop_name: { $regex: search, $options: 'i' } }
+              ]
+            }
+          ];
+        }
+
+        retailers = await User.find(query)
+          .select('name shop_name phone language locality address latitude longitude')
+          .limit(parseInt(limit));
+
+        total = retailers.length;
+
+        // Calculate distance for each retailer
+        retailers = retailers.map(retailer => {
+          const distance = calculateDistance(
+            customer.latitude, customer.longitude,
+            retailer.latitude, retailer.longitude
+          );
+          return {
+            ...retailer.toObject(),
+            distance_km: distance ? parseFloat(distance.toFixed(2)) : null
+          };
+        });
+
+        console.log(`📍 Found ${retailers.length} retailers with GPS within ${range}km`);
+
+        // If no GPS-enabled retailers found, inform user
+        if (retailers.length === 0) {
+          console.log('⚠️ No retailers with GPS found in range - will try locality fallback');
+        }
+      }
+      // Priority 2: Locality-based filtering
+      else if (customer && (customer.locality || customer.address?.pincode)) {
+        console.log('✅ Using locality-based filtering');
+        filterMethod = 'locality';
+
+        const query = { role: 'retailer' };
+        const localityFilters = [];
+
+        if (customer.locality) {
+          localityFilters.push({ locality: customer.locality });
+        }
+        if (customer.address?.pincode) {
+          localityFilters.push({ 'address.pincode': customer.address.pincode });
+        }
+        if (customer.address?.city) {
+          localityFilters.push({ 'address.city': customer.address.city });
+        }
+
+        if (localityFilters.length > 0) {
+          query.$or = localityFilters;
+        }
+
+        // Add search filter
+        if (search) {
+          const searchFilter = [
+            { name: { $regex: search, $options: 'i' } },
+            { shop_name: { $regex: search, $options: 'i' } }
+          ];
+
+          if (query.$or) {
+            query.$and = [
+              { $or: query.$or },
+              { $or: searchFilter }
+            ];
+            delete query.$or;
+          } else {
+            query.$or = searchFilter;
+          }
+        }
+
+        const skip = (parseInt(page) - 1) * parseInt(limit);
+
+        retailers = await User.find(query)
+          .select('name shop_name phone language locality address latitude longitude')
+          .sort({ shop_name: 1 })
+          .skip(skip)
+          .limit(parseInt(limit));
+
+        total = await User.countDocuments(query);
+
+        console.log(`📍 Found ${retailers.length} retailers in locality`);
+      }
+      // Priority 3: Default list (limited)
+      else {
+        console.log('⚠️ No customer location - showing limited default list');
+        filterMethod = 'default';
+
+        const query = { role: 'retailer' };
+
+        if (search) {
+          query.$or = [
+            { name: { $regex: search, $options: 'i' } },
+            { shop_name: { $regex: search, $options: 'i' } }
+          ];
+        }
+
+        const defaultLimit = Math.min(parseInt(limit), 10);
+
+        retailers = await User.find(query)
+          .select('name shop_name phone language locality address latitude longitude')
+          .sort({ shop_name: 1 })
+          .limit(defaultLimit);
+
+        total = await User.countDocuments(query);
+      }
+
+      // Fallback: If no retailers found with GPS/locality, expand search
+      if (retailers.length === 0 && customer && filterMethod !== 'default') {
+        console.log('⚠️ No retailers found - expanding search to city');
+
+        const fallbackQuery = { role: 'retailer' };
+        if (customer.address?.city) {
+          fallbackQuery['address.city'] = customer.address.city;
+        }
+
+        if (search) {
+          fallbackQuery.$or = [
+            { name: { $regex: search, $options: 'i' } },
+            { shop_name: { $regex: search, $options: 'i' } }
+          ];
+        }
+
+        retailers = await User.find(fallbackQuery)
+          .select('name shop_name phone language locality address latitude longitude')
+          .sort({ shop_name: 1 })
+          .limit(parseInt(limit));
+
+        filterMethod = 'city_fallback';
+        console.log(`📍 Fallback: Found ${retailers.length} retailers in city`);
+      }
 
       res.status(200).json({
         success: true,
@@ -651,6 +830,37 @@ const customerRequestController = {
             page: parseInt(page),
             limit: parseInt(limit),
             pages: Math.ceil(total / parseInt(limit))
+          },
+          filter_method: filterMethod,
+          range_km: filterMethod === 'gps' ? parseInt(range) : null,
+          customer_location: customer ? {
+            locality: customer.locality,
+            city: customer.address?.city,
+            pincode: customer.address?.pincode,
+            has_gps: !!(customer.latitude && customer.longitude),
+            coordinates: customer.latitude && customer.longitude ?
+              [customer.longitude, customer.latitude] : null
+          } : null,
+          // Enhanced suggestions based on GPS status
+          suggestion: (() => {
+            if (!customer || (!customer.latitude && !customer.longitude)) {
+              return 'Set your GPS location to find nearby stores within your preferred range (5-20km)';
+            }
+            if (filterMethod === 'gps' && retailers.length === 0) {
+              return `No stores with GPS found within ${range}km. Try increasing the range or check stores in your locality.`;
+            }
+            if (filterMethod === 'gps' && retailers.length > 0) {
+              return `Showing ${retailers.length} stores within ${range}km with GPS enabled`;
+            }
+            return null;
+          })(),
+          // GPS requirement info
+          gps_info: {
+            customer_has_gps: !!(customer && customer.latitude && customer.longitude),
+            retailers_require_gps: filterMethod === 'gps',
+            message: filterMethod === 'gps'
+              ? 'Only showing retailers with GPS location set'
+              : 'GPS filtering not active - using locality/default filter'
           }
         }
       });
@@ -691,8 +901,8 @@ const customerRequestController = {
       const itemsWithStatus = items.map(item => ({
         ...item.toObject(),
         quantity: item.stock_qty, // For frontend compatibility
-        stock_status: item.stock_qty === 0 ? 'out_of_stock' : 
-                      item.stock_qty < 10 ? 'low_stock' : 'in_stock'
+        stock_status: item.stock_qty === 0 ? 'out_of_stock' :
+          item.stock_qty < 10 ? 'low_stock' : 'in_stock'
       }));
 
       res.status(200).json({
