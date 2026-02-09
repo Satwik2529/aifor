@@ -1,4 +1,5 @@
 const User = require('../models/User');
+const CustomerUser = require('../models/CustomerUser');
 const { generateToken } = require('../middleware/auth');
 const { validationResult } = require('express-validator');
 
