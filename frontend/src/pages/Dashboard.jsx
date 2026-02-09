@@ -280,13 +280,13 @@ const Dashboard = () => {
             placeholder={t('dashboard.searchPlaceholder')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            className="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
           />
           <Search className="absolute left-3 top-2.5 h-5 w-5 text-gray-400 dark:text-white" />
           {searchQuery && searchResults.length > 0 && (
-            <div className="absolute top-12 left-0 right-0 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg shadow-lg max-h-64 overflow-y-auto z-10 w-full md:w-auto">
+            <div className="absolute top-12 left-0 right-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-64 overflow-y-auto z-10 w-full md:w-auto">
               {searchResults.map((result, idx) => (
-                <div key={idx} className="px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer border-b dark:border-gray-800">
+                <div key={idx} className="px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer border-b dark:border-gray-700">
                   <div className="flex justify-between items-center">
                     <div>
                       <span className="text-xs font-medium text-indigo-600 dark:text-indigo-400">{result.type}</span>
@@ -301,7 +301,7 @@ const Dashboard = () => {
             </div>
           )}
           {searchQuery && searchResults.length === 0 && (
-            <div className="absolute top-12 left-0 right-0 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg shadow-lg px-4 py-3 z-10">
+            <div className="absolute top-12 left-0 right-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg px-4 py-3 z-10">
               <p className="text-sm text-gray-500 dark:text-gray-400 text-center">No results found for "{searchQuery}"</p>
             </div>
           )}
@@ -311,7 +311,7 @@ const Dashboard = () => {
       {/* Stats Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat) => (
-          <div key={stat.name} className="bg-white dark:bg-black overflow-hidden shadow rounded-lg border border-transparent dark:border-gray-800 p-4 sm:p-5">
+          <div key={stat.name} className="bg-white dark:bg-gray-800 overflow-hidden shadow rounded-lg border border-transparent dark:border-gray-700 p-4 sm:p-5">
             <div className="flex items-center">
               <div className="flex-shrink-0">
                 <stat.icon className="h-6 w-6 sm:h-8 sm:w-8 text-indigo-600 dark:text-indigo-400" />
@@ -335,7 +335,7 @@ const Dashboard = () => {
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* AI Daily Digest */}
-        <div className="bg-white dark:bg-black border border-transparent dark:border-gray-800 p-4 sm:p-6 rounded-lg shadow">
+        <div className="bg-white dark:bg-gray-800 border border-transparent dark:border-gray-700 p-4 sm:p-6 rounded-lg shadow">
           <h3 className="text-base sm:text-lg font-medium text-gray-900 dark:text-white flex items-center mb-4">
             <Brain className="h-5 w-5 mr-2 text-indigo-600 dark:text-indigo-400" />
             {t('dashboard.digest.title')}
@@ -376,26 +376,26 @@ const Dashboard = () => {
         </div>
         
         {/* Quick Actions */}
-        <div className="bg-white dark:bg-black border border-transparent dark:border-gray-800 p-4 sm:p-6 rounded-lg shadow">
+        <div className="bg-white dark:bg-gray-800 border border-transparent dark:border-gray-700 p-4 sm:p-6 rounded-lg shadow">
           <h3 className="text-base sm:text-lg font-medium text-gray-900 dark:text-white mb-4 sm:mb-6">{t('dashboard.quickActions.title')}</h3>
           <div className="grid grid-cols-2 gap-3 sm:gap-4">
              <button 
                onClick={() => handleQuickAction('/sales')} 
-               className="flex flex-col items-center justify-center gap-2 sm:gap-3 w-full text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-900 hover:bg-gray-200 dark:hover:bg-gray-800 focus:ring-4 focus:ring-gray-300 dark:focus:ring-gray-700 font-medium rounded-lg px-4 py-4 sm:px-8 sm:py-8 text-center transition-all shadow-sm hover:shadow-md"
+               className="flex flex-col items-center justify-center gap-2 sm:gap-3 w-full text-gray-900 dark:text-gray-100 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 focus:ring-4 focus:ring-gray-300 dark:focus:ring-gray-600 font-medium rounded-lg px-4 py-4 sm:px-8 sm:py-8 text-center transition-all shadow-sm hover:shadow-md"
              >
                <ShoppingCart className="h-6 w-6 sm:h-10 sm:w-10" />
                <span className="text-xs sm:text-base font-semibold">{t('dashboard.quickActions.recordSale')}</span>
              </button>
              <button 
                onClick={() => handleQuickAction('/expenses')} 
-               className="flex flex-col items-center justify-center gap-2 sm:gap-3 w-full text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-900 hover:bg-gray-200 dark:hover:bg-gray-800 focus:ring-4 focus:ring-gray-300 dark:focus:ring-gray-700 font-medium rounded-lg px-4 py-4 sm:px-8 sm:py-8 text-center transition-all shadow-sm hover:shadow-md"
+               className="flex flex-col items-center justify-center gap-2 sm:gap-3 w-full text-gray-900 dark:text-gray-100 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 focus:ring-4 focus:ring-gray-300 dark:focus:ring-gray-600 font-medium rounded-lg px-4 py-4 sm:px-8 sm:py-8 text-center transition-all shadow-sm hover:shadow-md"
              >
                <CreditCard className="h-6 w-6 sm:h-10 sm:w-10" />
                <span className="text-xs sm:text-base font-semibold">{t('dashboard.quickActions.addExpense')}</span>
              </button>
              <button 
                onClick={() => handleQuickAction('/inventory')} 
-               className="flex flex-col items-center justify-center gap-2 sm:gap-3 w-full text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-900 hover:bg-gray-200 dark:hover:bg-gray-800 focus:ring-4 focus:ring-gray-300 dark:focus:ring-gray-700 font-medium rounded-lg px-4 py-4 sm:px-8 sm:py-8 text-center transition-all shadow-sm hover:shadow-md"
+               className="flex flex-col items-center justify-center gap-2 sm:gap-3 w-full text-gray-900 dark:text-gray-100 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 focus:ring-4 focus:ring-gray-300 dark:focus:ring-gray-600 font-medium rounded-lg px-4 py-4 sm:px-8 sm:py-8 text-center transition-all shadow-sm hover:shadow-md"
              >
                <Package className="h-6 w-6 sm:h-10 sm:w-10" />
                <span className="text-xs sm:text-base font-semibold">{t('dashboard.quickActions.updateInventory')}</span>

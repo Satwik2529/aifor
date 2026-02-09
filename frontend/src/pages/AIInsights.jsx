@@ -15,6 +15,7 @@ import {
     Package,
     TrendingDown
 } from 'lucide-react';
+import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { aiInsightsAPI, chatbotAPI } from '../services/api';
 import ReactMarkdown from 'react-markdown';
 import html2pdf from 'html2pdf.js';
@@ -22,6 +23,17 @@ import { useTranslation } from 'react-i18next';
 
 const AIInsights = () => {
     const { t } = useTranslation();
+    
+    // Chart colors
+    const CHART_COLORS = {
+        blue: ['#3b82f6', '#60a5fa', '#93c5fd', '#bfdbfe', '#dbeafe', '#eff6ff'],
+        green: ['#10b981', '#34d399', '#6ee7b7', '#a7f3d0', '#d1fae5', '#ecfdf5'],
+        purple: ['#8b5cf6', '#a78bfa', '#c4b5fd', '#ddd6fe', '#ede9fe', '#f5f3ff'],
+        orange: ['#f59e0b', '#fbbf24', '#fcd34d', '#fde68a', '#fef3c7', '#fffbeb'],
+        red: ['#ef4444', '#f87171', '#fca5a5', '#fecaca', '#fee2e2', '#fef2f2'],
+        pink: ['#ec4899', '#f472b6', '#f9a8d4', '#fbcfe8', '#fce7f3', '#fdf2f8']
+    };
+    
     const [activeTab, setActiveTab] = useState('demand');
     const [loading, setLoading] = useState({
         demand: false,
@@ -42,6 +54,16 @@ const AIInsights = () => {
         festival: null
     });
     const [exportingPDF, setExportingPDF] = useState(false);
+    
+    // Chart data state
+    const [chartData, setChartData] = useState({
+        salesTrend: [],
+        topProducts: [],
+        revenueTrend: [],
+        revenueByCategory: [],
+        expenseTrend: [],
+        expenseByCategory: []
+    });
     
     // Refs for PDF export
     const demandRef = useRef(null);
@@ -195,6 +217,105 @@ const AIInsights = () => {
             setExportingPDF(false);
         }
     };
+
+    // Fetch chart data for visualizations
+    const fetchChartData = async () => {
+        try {
+            // Import api from services
+            const { salesAPI, inventoryAPI, expensesAPI } = await import('../services/api');
+            
+            // Fetch sales data for demand charts
+            const salesResponse = await salesAPI.getSales({ limit: 100 });
+            if (salesResponse.success && salesResponse.data) {
+                processSalesChartData(salesResponse.data);
+            }
+            
+            // Fetch expenses data for expense charts
+            const expensesResponse = await expensesAPI.getExpenses({ limit: 100 });
+            if (expensesResponse.success && expensesResponse.data) {
+                processExpenseChartData(expensesResponse.data);
+            }
+        } catch (error) {
+            console.error('Error fetching chart data:', error);
+        }
+    };
+
+    // Process sales data for charts
+    const processSalesChartData = (sales) => {
+        // Sales trend - group by date
+        const salesByDate = {};
+        const productSales = {};
+        const categoryRevenue = {};
+        
+        sales.forEach(sale => {
+            const date = new Date(sale.createdAt).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' });
+            salesByDate[date] = (salesByDate[date] || 0) + sale.total_amount;
+            
+            // Track product sales
+            if (sale.items && Array.isArray(sale.items)) {
+                sale.items.forEach(item => {
+                    productSales[item.item_name] = (productSales[item.item_name] || 0) + item.quantity;
+                    
+                    // Track category revenue
+                    const category = item.category || 'Other';
+                    categoryRevenue[category] = (categoryRevenue[category] || 0) + (item.price_per_unit * item.quantity);
+                });
+            }
+        });
+        
+        // Convert to chart format
+        const salesTrend = Object.entries(salesByDate)
+            .slice(-30)
+            .map(([date, amount]) => ({ date, revenue: Math.round(amount) }));
+        
+        const topProducts = Object.entries(productSales)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 10)
+            .map(([name, quantity]) => ({ name: name.length > 15 ? name.substring(0, 15) + '...' : name, quantity }));
+        
+        const revenueByCategory = Object.entries(categoryRevenue)
+            .map(([name, value]) => ({ name, value: Math.round(value) }));
+        
+        setChartData(prev => ({
+            ...prev,
+            salesTrend,
+            topProducts,
+            revenueTrend: salesTrend,
+            revenueByCategory
+        }));
+    };
+
+    // Process expense data for charts
+    const processExpenseChartData = (expenses) => {
+        const expensesByDate = {};
+        const expensesByCategory = {};
+        
+        expenses.forEach(expense => {
+            const date = new Date(expense.createdAt).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' });
+            expensesByDate[date] = (expensesByDate[date] || 0) + expense.amount;
+            
+            const category = expense.category || 'Other';
+            expensesByCategory[category] = (expensesByCategory[category] || 0) + expense.amount;
+        });
+        
+        const expenseTrend = Object.entries(expensesByDate)
+            .slice(-30)
+            .map(([date, amount]) => ({ date, amount: Math.round(amount) }));
+        
+        const expenseByCategory = Object.entries(expensesByCategory)
+            .map(([name, value]) => ({ name, value: Math.round(value) }));
+        
+        setChartData(prev => ({
+            ...prev,
+            expenseTrend,
+            expenseByCategory
+        }));
+    };
+
+    // Fetch chart data on mount
+    React.useEffect(() => {
+        fetchChartData();
+    }, []);
 
     const renderMetadata = (metadata) => {
         if (!metadata) return null;
@@ -573,6 +694,153 @@ const AIInsights = () => {
                 </div>
 
                 {renderMetadata(insight.metadata)}
+
+                {/* Charts Section */}
+                {type === 'demand' && chartData.salesTrend.length > 0 && (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                        {/* Sales Trend Chart */}
+                        <div className="bg-white border border-gray-200 rounded-lg p-4">
+                            <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
+                                <TrendingUp className="h-4 w-4 mr-2 text-blue-600" />
+                                Sales Trend (Last 30 Days)
+                            </h4>
+                            <ResponsiveContainer width="100%" height={250}>
+                                <LineChart data={chartData.salesTrend}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                                    <XAxis dataKey="date" tick={{ fontSize: 11 }} stroke="#6b7280" />
+                                    <YAxis tick={{ fontSize: 11 }} stroke="#6b7280" />
+                                    <Tooltip 
+                                        contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px' }}
+                                        formatter={(value) => [`₹${value}`, 'Revenue']}
+                                    />
+                                    <Line type="monotone" dataKey="revenue" stroke="#3b82f6" strokeWidth={2} dot={{ fill: '#3b82f6', r: 3 }} />
+                                </LineChart>
+                            </ResponsiveContainer>
+                        </div>
+
+                        {/* Top Products Chart */}
+                        <div className="bg-white border border-gray-200 rounded-lg p-4">
+                            <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
+                                <Package className="h-4 w-4 mr-2 text-blue-600" />
+                                Top 10 Selling Products
+                            </h4>
+                            <ResponsiveContainer width="100%" height={250}>
+                                <BarChart data={chartData.topProducts} layout="horizontal">
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                                    <XAxis type="number" tick={{ fontSize: 11 }} stroke="#6b7280" />
+                                    <YAxis dataKey="name" type="category" width={100} tick={{ fontSize: 10 }} stroke="#6b7280" />
+                                    <Tooltip 
+                                        contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px' }}
+                                        formatter={(value) => [value, 'Quantity']}
+                                    />
+                                    <Bar dataKey="quantity" fill="#3b82f6" radius={[0, 4, 4, 0]} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </div>
+                )}
+
+                {type === 'revenue' && chartData.revenueTrend.length > 0 && (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                        {/* Revenue Trend Chart */}
+                        <div className="bg-white border border-gray-200 rounded-lg p-4">
+                            <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
+                                <TrendingUp className="h-4 w-4 mr-2 text-green-600" />
+                                Revenue Trend (Last 60 Days)
+                            </h4>
+                            <ResponsiveContainer width="100%" height={250}>
+                                <LineChart data={chartData.revenueTrend}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                                    <XAxis dataKey="date" tick={{ fontSize: 11 }} stroke="#6b7280" />
+                                    <YAxis tick={{ fontSize: 11 }} stroke="#6b7280" />
+                                    <Tooltip 
+                                        contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px' }}
+                                        formatter={(value) => [`₹${value}`, 'Revenue']}
+                                    />
+                                    <Line type="monotone" dataKey="revenue" stroke="#10b981" strokeWidth={2} dot={{ fill: '#10b981', r: 3 }} />
+                                </LineChart>
+                            </ResponsiveContainer>
+                        </div>
+
+                        {/* Revenue by Category Chart */}
+                        <div className="bg-white border border-gray-200 rounded-lg p-4">
+                            <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
+                                <DollarSign className="h-4 w-4 mr-2 text-green-600" />
+                                Revenue by Category
+                            </h4>
+                            <ResponsiveContainer width="100%" height={250}>
+                                <PieChart>
+                                    <Pie
+                                        data={chartData.revenueByCategory}
+                                        cx="50%"
+                                        cy="50%"
+                                        labelLine={false}
+                                        label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                                        outerRadius={80}
+                                        fill="#8884d8"
+                                        dataKey="value"
+                                    >
+                                        {chartData.revenueByCategory.map((entry, index) => (
+                                            <Cell key={`cell-${index}`} fill={['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'][index % 6]} />
+                                        ))}
+                                    </Pie>
+                                    <Tooltip formatter={(value) => `₹${value}`} />
+                                </PieChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </div>
+                )}
+
+                {type === 'expense' && chartData.expenseTrend.length > 0 && (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                        {/* Expense Trend Chart */}
+                        <div className="bg-white border border-gray-200 rounded-lg p-4">
+                            <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
+                                <TrendingDown className="h-4 w-4 mr-2 text-purple-600" />
+                                Expense Trend (Last 90 Days)
+                            </h4>
+                            <ResponsiveContainer width="100%" height={250}>
+                                <LineChart data={chartData.expenseTrend}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                                    <XAxis dataKey="date" tick={{ fontSize: 11 }} stroke="#6b7280" />
+                                    <YAxis tick={{ fontSize: 11 }} stroke="#6b7280" />
+                                    <Tooltip 
+                                        contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px' }}
+                                        formatter={(value) => [`₹${value}`, 'Expense']}
+                                    />
+                                    <Line type="monotone" dataKey="amount" stroke="#8b5cf6" strokeWidth={2} dot={{ fill: '#8b5cf6', r: 3 }} />
+                                </LineChart>
+                            </ResponsiveContainer>
+                        </div>
+
+                        {/* Expense by Category Chart */}
+                        <div className="bg-white border border-gray-200 rounded-lg p-4">
+                            <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
+                                <Calendar className="h-4 w-4 mr-2 text-purple-600" />
+                                Expense by Category
+                            </h4>
+                            <ResponsiveContainer width="100%" height={250}>
+                                <PieChart>
+                                    <Pie
+                                        data={chartData.expenseByCategory}
+                                        cx="50%"
+                                        cy="50%"
+                                        labelLine={false}
+                                        label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                                        outerRadius={80}
+                                        fill="#8884d8"
+                                        dataKey="value"
+                                    >
+                                        {chartData.expenseByCategory.map((entry, index) => (
+                                            <Cell key={`cell-${index}`} fill={['#8b5cf6', '#ec4899', '#f59e0b', '#ef4444', '#3b82f6', '#10b981'][index % 6]} />
+                                        ))}
+                                    </Pie>
+                                    <Tooltip formatter={(value) => `₹${value}`} />
+                                </PieChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </div>
+                )}
 
                 <div className="bg-white border border-gray-200 rounded-lg p-6">
                     <div className="flex items-center justify-between mb-4">

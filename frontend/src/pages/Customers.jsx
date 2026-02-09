@@ -336,26 +336,26 @@ const Customers = () => {
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                                     </tr>
                                 </thead>
-                                <tbody className="bg-white divide-y divide-gray-200">
+                                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                                     {filteredCustomers.slice(0, itemsToShow).map((customer) => (
                                     <tr key={customer._id}>
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="flex items-center">
                                                 <div className="flex-shrink-0 h-10 w-10">
-                                                    <div className="h-10 w-10 rounded-full bg-gray-300 flex items-center justify-center">
-                                                        <span className="text-sm font-medium text-gray-700">
+                                                    <div className="h-10 w-10 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center">
+                                                        <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                                             {customer.name.charAt(0).toUpperCase()}
                                                         </span>
                                                     </div>
                                                 </div>
                                                 <div className="ml-4">
-                                                    <div className="text-sm font-medium text-gray-900">{customer.name}</div>
-                                                    <div className="text-sm text-gray-500">{customer.notes || 'No notes'}</div>
+                                                    <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{customer.name}</div>
+                                                    <div className="text-sm text-gray-500 dark:text-gray-400">{customer.notes || 'No notes'}</div>
                                                 </div>
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="text-sm text-gray-900">
+                                            <div className="text-sm text-gray-900 dark:text-gray-100">
                                                 <div className="flex items-center">
                                                     <Phone className="h-4 w-4 text-gray-400 mr-2" />
                                                     {customer.phone}

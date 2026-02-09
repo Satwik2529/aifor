@@ -343,7 +343,7 @@ const CustomerRequests = () => {
               className={`px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
                 filter === filterOption.value
                   ? 'bg-primary-600 text-white shadow-md scale-105'
-                  : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 hover:shadow'
+                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 hover:shadow'
               }`}
             >
               {filterOption.label}
@@ -355,16 +355,16 @@ const CustomerRequests = () => {
       {/* Requests List */}
       <div className="space-y-3 sm:space-y-4">
         {requests.map((request) => (
-          <div key={request._id} className="bg-white rounded-lg shadow-md p-4 sm:p-6 hover:shadow-lg transition-shadow">
+          <div key={request._id} className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6 hover:shadow-lg transition-shadow border border-transparent dark:border-gray-700">
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 sm:gap-0 mb-4">
               <div className="flex items-start gap-3">
-                <div className="bg-primary-100 p-2 rounded-full flex-shrink-0">
-                  <User className="h-4 w-4 sm:h-5 sm:w-5 text-primary-600" />
+                <div className="bg-primary-100 dark:bg-primary-900/30 p-2 rounded-full flex-shrink-0">
+                  <User className="h-4 w-4 sm:h-5 sm:w-5 text-primary-600 dark:text-primary-400" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-sm sm:text-base text-gray-900 truncate">{request.customer_id?.name || 'Customer'}</h3>
-                  <div className="flex flex-col xs:flex-row xs:items-center gap-1 xs:gap-3 text-xs sm:text-sm text-gray-600 mt-1">
+                  <h3 className="font-semibold text-sm sm:text-base text-gray-900 dark:text-gray-100 truncate">{request.customer_id?.name || 'Customer'}</h3>
+                  <div className="flex flex-col xs:flex-row xs:items-center gap-1 xs:gap-3 text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-1">
                     {request.customer_id?.phone && (
                       <div className="flex items-center gap-1">
                         <Phone className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
@@ -377,11 +377,11 @@ const CustomerRequests = () => {
                       </div>
                     )}
                     {!request.customer_id?.phone && !request.customer_id?.email && (
-                      <span className="text-gray-500 italic text-xs">No contact info</span>
+                      <span className="text-gray-500 dark:text-gray-500 italic text-xs">No contact info</span>
                     )}
                   </div>
                   {request.customer_id?.address && Object.values(request.customer_id.address).some(val => val && val.trim()) && (
-                    <div className="flex items-start gap-1 text-xs sm:text-sm text-gray-600 mt-1">
+                    <div className="flex items-start gap-1 text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-1">
                       <MapPin className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0 mt-0.5" />
                       <span className="line-clamp-2">
                         {[
@@ -394,7 +394,7 @@ const CustomerRequests = () => {
                     </div>
                   )}
                   {(!request.customer_id?.address || !Object.values(request.customer_id.address).some(val => val && val.trim())) && (
-                    <div className="flex items-start gap-1 text-xs text-gray-500 italic mt-1">
+                    <div className="flex items-start gap-1 text-xs text-gray-500 dark:text-gray-500 italic mt-1">
                       <MapPin className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0 mt-0.5" />
                       <span>No address provided</span>
                     </div>
@@ -539,9 +539,9 @@ const CustomerRequests = () => {
         ))}
 
         {requests.length === 0 && (
-          <div className="bg-white rounded-lg shadow-md p-8 sm:p-12 text-center">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-8 sm:p-12 text-center border border-transparent dark:border-gray-700">
             <Package className="h-12 w-12 sm:h-16 sm:w-16 mx-auto text-gray-400 mb-4" />
-            <h3 className="text-base sm:text-lg font-medium text-gray-900 mb-2">No customer requests yet</h3>
+            <h3 className="text-base sm:text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No customer requests yet</h3>
             <p className="text-sm sm:text-base text-gray-600">Customer requests will appear here when they message you</p>
           </div>
         )}
@@ -550,9 +550,9 @@ const CustomerRequests = () => {
       {/* Bill Modal */}
       {showBillModal && selectedRequest && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-transparent dark:border-gray-700">
             <div className="p-4 sm:p-6">
-              <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4">
+              <h3 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">
                 Generate Bill for {selectedRequest.customer_id?.name}
               </h3>
 
@@ -656,7 +656,7 @@ const CustomerRequests = () => {
       {/* Cancellation Modal */}
       {showCancelModal && selectedRequest && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full border border-transparent dark:border-gray-700">
             <div className="p-4 sm:p-6">
               <div className="flex items-start gap-3 mb-4">
                 <div className="flex-shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-red-100 flex items-center justify-center">
@@ -717,7 +717,7 @@ const CustomerRequests = () => {
       {/* Completion Modal with Payment Method */}
       {showCompleteModal && selectedRequest && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full border border-transparent dark:border-gray-700">
             <div className="p-4 sm:p-6">
               <div className="flex items-start gap-3 mb-4">
                 <div className="flex-shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-green-100 flex items-center justify-center">

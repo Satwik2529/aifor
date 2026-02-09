@@ -5,7 +5,7 @@
 /* Custom styles for BizNova */
 @layer base {
   body {
-    @apply bg-gray-50 text-gray-900 dark:bg-black dark:text-white;
+    @apply bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100;
   }
   
   /* Smooth scrolling */
@@ -25,15 +25,15 @@
   }
   
   .btn-secondary {
-    @apply bg-gray-200 hover:bg-gray-300 text-gray-800 dark:bg-gray-900 dark:hover:bg-gray-800 dark:text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200;
+    @apply bg-gray-200 hover:bg-gray-300 text-gray-800 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-100 font-medium py-2 px-4 rounded-lg transition-colors duration-200;
   }
   
   .card {
-    @apply bg-white dark:bg-black rounded-lg shadow-sm border border-gray-200 dark:border-gray-800 p-6;
+    @apply bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6;
   }
   
   .input-field {
-    @apply w-full px-3 py-2 border border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent;
+    @apply w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent;
   }
   
   /* Mobile-responsive table wrapper */

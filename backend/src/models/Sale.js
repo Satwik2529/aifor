@@ -82,6 +82,7 @@ const saleSchema = new mongoose.Schema({
 // Index for efficient queries
 saleSchema.index({ user_id: 1, date: -1 });
 saleSchema.index({ user_id: 1, payment_method: 1 });
+saleSchema.index({ user_id: 1, createdAt: -1 }); // For queries using createdAt
 
 // Virtual for sale summary
 saleSchema.virtual('summary').get(function() {
@@ -115,3 +116,7 @@ saleSchema.pre('save', function(next) {
 });
 
 module.exports = mongoose.model('Sale', saleSchema);
+
+
+
+

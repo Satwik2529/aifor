@@ -160,7 +160,7 @@ const LoginNew = () => {
         </div>
 
         {/* Tab Selection */}
-        <div className="bg-white dark:bg-gray-900 rounded-lg shadow-sm p-1 flex space-x-1">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-1 flex space-x-1">
           <button
             type="button"
             onClick={() => handleTabChange('retailer')}
