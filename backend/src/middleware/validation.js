@@ -15,35 +15,87 @@ const validateRegistration = [
     .withMessage('Name is required')
     .isLength({ min: 2, max: 100 })
     .withMessage('Name must be between 2 and 100 characters'),
-  
+
   body('phone')
     .trim()
     .notEmpty()
     .withMessage('Phone number is required')
     .matches(/^[6-9]\d{9}$/)
     .withMessage('Please enter a valid Indian phone number'),
-  
+
   body('password')
     .isLength({ min: 6 })
     .withMessage('Password must be at least 6 characters long'),
-  
+
+  body('role')
+    .optional()
+    .isIn(['retailer', 'wholesaler'])
+    .withMessage('Role must be either retailer or wholesaler'),
+
+  // Retailer-specific fields
   body('shop_name')
     .optional()
     .trim()
     .isLength({ max: 100 })
     .withMessage('Shop name cannot exceed 100 characters'),
-  
+
   body('language')
     .optional()
     .isIn(['Hindi', 'English', 'Tamil', 'Telugu', 'Bengali', 'Gujarati', 'Marathi', 'Kannada', 'Malayalam', 'Punjabi'])
     .withMessage('Invalid language selection'),
-  
+
   body('upi_id')
+    .optional({ checkFalsy: true })
     .trim()
-    .notEmpty()
-    .withMessage('UPI ID is required')
     .matches(/^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+$/)
-    .withMessage('Please enter a valid UPI ID (e.g., yourname@paytm)')
+    .withMessage('Please enter a valid UPI ID (e.g., yourname@paytm)'),
+
+  // Wholesaler-specific fields
+  body('wholesalerProfile.businessName')
+    .optional()
+    .trim()
+    .isLength({ min: 2, max: 100 })
+    .withMessage('Business name must be between 2 and 100 characters'),
+
+  body('wholesalerProfile.minOrderValue')
+    .optional()
+    .isNumeric()
+    .withMessage('Minimum order value must be a number')
+    .isFloat({ min: 0 })
+    .withMessage('Minimum order value cannot be negative'),
+
+  body('wholesalerProfile.deliveryRadiusKm')
+    .optional()
+    .isNumeric()
+    .withMessage('Delivery radius must be a number')
+    .isFloat({ min: 0 })
+    .withMessage('Delivery radius cannot be negative'),
+
+  body('wholesalerProfile.avgDeliveryTime')
+    .optional()
+    .trim()
+    .isLength({ max: 50 })
+    .withMessage('Average delivery time cannot exceed 50 characters'),
+
+  body('wholesalerProfile.paymentModes')
+    .optional()
+    .isArray()
+    .withMessage('Payment modes must be an array'),
+
+  // Location fields (optional for all)
+  body('locality')
+    .optional()
+    .trim(),
+
+  body('latitude')
+    .optional()
+    .isNumeric()
+    .withMessage('Latitude must be a number'),
+
+  body('longitude')
+    .optional()
+    .isNumeric()
+    .withMessage('Longitude must be a number')
 ];
 
 // User login validation
@@ -54,7 +106,7 @@ const validateLogin = [
     .withMessage('Phone number is required')
     .matches(/^[6-9]\d{9}$/)
     .withMessage('Please enter a valid Indian phone number'),
-  
+
   body('password')
     .notEmpty()
     .withMessage('Password is required')
@@ -67,18 +119,18 @@ const validateProfileUpdate = [
     .trim()
     .isLength({ min: 2, max: 100 })
     .withMessage('Name must be between 2 and 100 characters'),
-  
+
   body('shop_name')
     .optional()
     .trim()
     .isLength({ max: 100 })
     .withMessage('Shop name cannot exceed 100 characters'),
-  
+
   body('language')
     .optional()
     .isIn(['Hindi', 'English', 'Tamil', 'Telugu', 'Bengali', 'Gujarati', 'Marathi', 'Kannada', 'Malayalam', 'Punjabi'])
     .withMessage('Invalid language selection'),
-  
+
   body('upi_id')
     .optional({ checkFalsy: true })
     .matches(/^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+$/)
@@ -93,14 +145,14 @@ const validateCustomer = [
     .withMessage('Customer name is required')
     .isLength({ min: 2, max: 100 })
     .withMessage('Customer name must be between 2 and 100 characters'),
-  
+
   body('phone')
     .trim()
     .notEmpty()
     .withMessage('Customer phone number is required')
     .matches(/^[6-9]\d{9}$/)
     .withMessage('Please enter a valid Indian phone number'),
-  
+
   body('credit_balance')
     .optional()
     .isNumeric()
@@ -114,26 +166,26 @@ const validateSale = [
   body('items')
     .isArray({ min: 1 })
     .withMessage('At least one item is required'),
-  
+
   body('items.*.item_name')
     .trim()
     .notEmpty()
     .withMessage('Item name is required')
     .isLength({ max: 100 })
     .withMessage('Item name cannot exceed 100 characters'),
-  
+
   body('items.*.quantity')
     .isNumeric()
     .withMessage('Quantity must be a number')
     .isFloat({ min: 0.001 })
     .withMessage('Quantity must be at least 0.001'),
-  
+
   body('items.*.price_per_unit')
     .isNumeric()
     .withMessage('Price per unit must be a number')
     .isFloat({ min: 0 })
     .withMessage('Price per unit cannot be negative'),
-  
+
   body('payment_method')
     .isIn(['Cash', 'UPI', 'Credit'])
     .withMessage('Payment method must be Cash, UPI, or Credit')
@@ -146,14 +198,14 @@ const validateExpense = [
     .withMessage('Amount must be a number')
     .isFloat({ min: 0 })
     .withMessage('Amount cannot be negative'),
-  
+
   body('description')
     .trim()
     .notEmpty()
     .withMessage('Description is required')
     .isLength({ max: 200 })
     .withMessage('Description cannot exceed 200 characters'),
-  
+
   body('category')
     .trim()
     .notEmpty()
@@ -170,13 +222,13 @@ const validateInventory = [
     .withMessage('Item name is required')
     .isLength({ max: 100 })
     .withMessage('Item name cannot exceed 100 characters'),
-  
+
   body('stock_qty')
     .isNumeric()
     .withMessage('Stock quantity must be a number')
     .isFloat({ min: 0.001 })
     .withMessage('Stock quantity must be at least 0.001'),
-  
+
   body('price_per_unit')
     .isNumeric()
     .withMessage('Price per unit must be a number')
@@ -192,7 +244,7 @@ const validateAiInsight = [
     .withMessage('Summary text is required')
     .isLength({ max: 1000 })
     .withMessage('Summary text cannot exceed 1000 characters'),
-  
+
   body('insights_data')
     .notEmpty()
     .withMessage('Insights data is required')
@@ -203,7 +255,7 @@ const validateMessage = [
   body('direction')
     .isIn(['in', 'out'])
     .withMessage('Direction must be either "in" or "out"'),
-  
+
   body('content')
     .trim()
     .notEmpty()
@@ -220,36 +272,36 @@ const validateCustomerRegistration = [
     .withMessage('Name is required')
     .isLength({ min: 2, max: 100 })
     .withMessage('Name must be between 2 and 100 characters'),
-  
+
   body('email')
     .trim()
     .notEmpty()
     .withMessage('Email is required')
     .isEmail()
     .withMessage('Please enter a valid email'),
-  
+
   body('password')
     .isLength({ min: 6 })
     .withMessage('Password must be at least 6 characters long'),
-  
+
   body('phone')
     .optional({ checkFalsy: true })
     .trim()
     .matches(/^[6-9]\d{9}$/)
     .withMessage('Please enter a valid Indian phone number'),
-  
+
   body('address.street')
     .optional({ checkFalsy: true })
     .trim(),
-  
+
   body('address.city')
     .optional({ checkFalsy: true })
     .trim(),
-  
+
   body('address.state')
     .optional({ checkFalsy: true })
     .trim(),
-  
+
   body('address.pincode')
     .optional({ checkFalsy: true })
     .trim()
@@ -269,7 +321,7 @@ const validateCustomerLogin = [
     .withMessage('Email is required')
     .isEmail()
     .withMessage('Please enter a valid email'),
-  
+
   body('password')
     .notEmpty()
     .withMessage('Password is required')
@@ -282,24 +334,24 @@ const validateCustomerRequest = [
     .withMessage('Retailer ID is required')
     .isMongoId()
     .withMessage('Invalid retailer ID'),
-  
+
   body('items')
     .isArray({ min: 1 })
     .withMessage('At least one item is required'),
-  
+
   body('items.*.item_name')
     .trim()
     .notEmpty()
     .withMessage('Item name is required')
     .isLength({ max: 100 })
     .withMessage('Item name cannot exceed 100 characters'),
-  
+
   body('items.*.quantity')
     .isNumeric()
     .withMessage('Quantity must be a number')
     .isFloat({ min: 0.001 })
     .withMessage('Quantity must be at least 0.001'),
-  
+
   body('notes')
     .optional()
     .trim()

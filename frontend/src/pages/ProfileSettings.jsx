@@ -29,7 +29,17 @@ const ProfileSettings = () => {
     business_type: 'Retail',
     gst_number: '',
     language: 'Hindi',
-    upi_id: ''
+    upi_id: '',
+    // Wholesaler-specific
+    wholesalerProfile: {
+      businessName: '',
+      businessType: '',
+      gstNumber: '',
+      minOrderValue: '',
+      deliveryRadius: '',
+      paymentModes: [],
+      description: ''
+    }
   });
   const [lastUpdated, setLastUpdated] = useState(null);
   const [locationData, setLocationData] = useState(null);
@@ -49,7 +59,7 @@ const ProfileSettings = () => {
       const storedUserType = localStorage.getItem('userType') || 'retailer';
       setUserType(storedUserType);
 
-      const endpoint = storedUserType === 'customer' 
+      const endpoint = storedUserType === 'customer'
         ? `${API_URL}/api/customer-auth/profile`
         : `${API_URL}/api/auth/profile`;
 
@@ -74,7 +84,16 @@ const ProfileSettings = () => {
           business_type: profileData.business_type || 'Retail',
           gst_number: profileData.gst_number || '',
           language: profileData.language || 'Hindi',
-          upi_id: profileData.upi_id || ''
+          upi_id: profileData.upi_id || '',
+          wholesalerProfile: profileData.wholesalerProfile || {
+            businessName: '',
+            businessType: '',
+            gstNumber: '',
+            minOrderValue: '',
+            deliveryRadius: '',
+            paymentModes: [],
+            description: ''
+          }
         });
         setLastUpdated(profileData.updatedAt);
         
@@ -99,8 +118,8 @@ const ProfileSettings = () => {
   };
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
-    
+    const { name, value, type, checked } = e.target;
+
     if (name.startsWith('address.')) {
       const addressField = name.split('.')[1];
       setFormData(prev => ({
@@ -110,6 +129,30 @@ const ProfileSettings = () => {
           [addressField]: value
         }
       }));
+    } else if (name.startsWith('wholesalerProfile.')) {
+      const field = name.split('.')[1];
+
+      // Handle payment modes checkboxes
+      if (field === 'paymentModes') {
+        const mode = value;
+        setFormData(prev => ({
+          ...prev,
+          wholesalerProfile: {
+            ...prev.wholesalerProfile,
+            paymentModes: checked
+              ? [...prev.wholesalerProfile.paymentModes, mode]
+              : prev.wholesalerProfile.paymentModes.filter(m => m !== mode)
+          }
+        }));
+      } else {
+        setFormData(prev => ({
+          ...prev,
+          wholesalerProfile: {
+            ...prev.wholesalerProfile,
+            [field]: value
+          }
+        }));
+      }
     } else {
       setFormData(prev => ({
         ...prev,
@@ -126,7 +169,7 @@ const ProfileSettings = () => {
       // For retailers, use AuthContext which updates both state and localStorage
       if (userType === 'retailer') {
         const result = await updateAuthProfile(formData);
-        
+
         if (result.success) {
           toast.success('✅ Profile updated successfully!');
           setLastUpdated(new Date().toISOString());
@@ -139,7 +182,7 @@ const ProfileSettings = () => {
         // For customers, direct API call
         const token = localStorage.getItem('token');
         const endpoint = `${API_URL}/api/customer-auth/profile`;
-        
+
         const response = await fetch(endpoint, {
           method: 'PUT',
           headers: {
@@ -541,7 +584,7 @@ const ProfileSettings = () => {
         </div>
 
         {/* Business Information Card (Retailer Only) */}
-        {userType === 'retailer' && (
+        {userType === 'retailer' && authUser?.role !== 'wholesaler' && (
           <div className="bg-white rounded-lg shadow-md p-6">
             <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
               <Building2 className="h-5 w-5 text-primary-600" />
@@ -633,6 +676,146 @@ const ProfileSettings = () => {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
                   placeholder="yourname@upi"
                 />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Wholesaler Business Information Card */}
+        {userType === 'retailer' && authUser?.role === 'wholesaler' && (
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <Building2 className="h-5 w-5 text-primary-600" />
+              Wholesaler Business Information
+            </h2>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Business Name */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Business Name *
+                </label>
+                <input
+                  type="text"
+                  name="wholesalerProfile.businessName"
+                  value={formData.wholesalerProfile.businessName}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  placeholder="Enter business name"
+                  required
+                />
+              </div>
+
+              {/* Business Type */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <Briefcase className="inline h-4 w-4 mr-1" />
+                  Business Type
+                </label>
+                <select
+                  name="wholesalerProfile.businessType"
+                  value={formData.wholesalerProfile.businessType}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                >
+                  <option value="">Select type</option>
+                  <option value="Distributor">Distributor</option>
+                  <option value="Manufacturer">Manufacturer</option>
+                  <option value="Importer">Importer</option>
+                  <option value="Wholesaler">Wholesaler</option>
+                  <option value="Supplier">Supplier</option>
+                </select>
+              </div>
+
+              {/* GST Number */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <Hash className="inline h-4 w-4 mr-1" />
+                  GST Number
+                </label>
+                <input
+                  type="text"
+                  name="wholesalerProfile.gstNumber"
+                  value={formData.wholesalerProfile.gstNumber}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 uppercase"
+                  placeholder="22AAAAA0000A1Z5"
+                  maxLength={15}
+                />
+              </div>
+
+              {/* Min Order Value */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Minimum Order Value (₹)
+                </label>
+                <input
+                  type="number"
+                  name="wholesalerProfile.minOrderValue"
+                  value={formData.wholesalerProfile.minOrderValue}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  placeholder="e.g., 5000"
+                  min="0"
+                />
+              </div>
+
+              {/* Delivery Radius */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Delivery Radius (km)
+                </label>
+                <input
+                  type="number"
+                  name="wholesalerProfile.deliveryRadius"
+                  value={formData.wholesalerProfile.deliveryRadius}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  placeholder="e.g., 50"
+                  min="0"
+                />
+              </div>
+
+              {/* Payment Modes */}
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Accepted Payment Modes
+                </label>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {['Cash', 'UPI', 'Card', 'Net Banking', 'Cheque', 'Credit'].map(mode => (
+                    <label key={mode} className="flex items-center space-x-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        name="wholesalerProfile.paymentModes"
+                        value={mode}
+                        checked={formData.wholesalerProfile.paymentModes.includes(mode)}
+                        onChange={handleChange}
+                        className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
+                      />
+                      <span className="text-sm text-gray-700">{mode}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Description */}
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <FileText className="inline h-4 w-4 mr-1" />
+                  Business Description
+                </label>
+                <textarea
+                  name="wholesalerProfile.description"
+                  value={formData.wholesalerProfile.description}
+                  onChange={handleChange}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  placeholder="Describe your wholesale business, products, and services..."
+                  maxLength={500}
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  {formData.wholesalerProfile.description.length}/500 characters
+                </p>
               </div>
             </div>
           </div>

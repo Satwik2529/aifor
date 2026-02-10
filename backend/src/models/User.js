@@ -16,14 +16,14 @@ const userSchema = new mongoose.Schema({
   },
   phone: {
     type: String,
-    required: function() {
+    required: function () {
       // Phone is not required if user has google_id
       return !this.google_id;
     },
     sparse: true, // Allows multiple empty values
     trim: true,
     validate: {
-      validator: function(v) {
+      validator: function (v) {
         // If empty and has google_id, it's valid
         if (!v && this.google_id) return true;
         // Otherwise must match Indian phone pattern
@@ -46,7 +46,7 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['retailer', 'customer'],
+    enum: ['retailer', 'customer', 'wholesaler'],
     default: 'retailer',
     required: [true, 'Role is required']
   },
@@ -123,6 +123,45 @@ const userSchema = new mongoose.Schema({
       default: [0, 0]
     }
   },
+  // Wholesaler-specific fields
+  wholesalerProfile: {
+    businessName: {
+      type: String,
+      trim: true
+    },
+    contactPerson: {
+      type: String,
+      trim: true
+    },
+    minOrderValue: {
+      type: Number,
+      default: 0
+    },
+    deliveryRadiusKm: {
+      type: Number,
+      default: 10
+    },
+    avgDeliveryTime: {
+      type: String,
+      default: '2-3 days'
+    },
+    paymentModes: {
+      type: [String],
+      enum: ['Cash', 'UPI', 'Credit', 'Bank Transfer'],
+      default: ['Cash', 'UPI']
+    },
+    isActive: {
+      type: Boolean,
+      default: true
+    },
+    // Wholesaler scoring for retailer discovery
+    score: {
+      priceScore: { type: Number, default: 0 },
+      deliveryScore: { type: Number, default: 0 },
+      reliabilityScore: { type: Number, default: 0 },
+      rating: { type: Number, default: 0 }
+    }
+  },
   avatar: {
     type: String,
     default: ''
@@ -179,6 +218,7 @@ userSchema.virtual('profile').get(function () {
     name: this.name,
     phone: this.phone,
     email: this.email,
+    role: this.role,
     shop_name: this.shop_name,
     shop_description: this.shop_description,
     business_type: this.business_type,
@@ -192,6 +232,8 @@ userSchema.virtual('profile').get(function () {
     latitude: this.latitude,
     longitude: this.longitude,
     has_gps: !!(this.latitude && this.longitude),
+    // Wholesaler profile (if applicable)
+    wholesalerProfile: this.role === 'wholesaler' ? this.wholesalerProfile : undefined,
     createdAt: this.createdAt,
     updatedAt: this.updatedAt
   };
@@ -228,12 +270,12 @@ userSchema.methods.comparePassword = async function (candidatePassword) {
 };
 
 // Check if account is locked
-userSchema.methods.isLocked = function() {
+userSchema.methods.isLocked = function () {
   return this.lockUntil && this.lockUntil > Date.now();
 };
 
 // Increment login attempts
-userSchema.methods.incLoginAttempts = async function() {
+userSchema.methods.incLoginAttempts = async function () {
   // If lock has expired, reset attempts
   if (this.lockUntil && this.lockUntil < Date.now()) {
     return this.updateOne({
@@ -241,19 +283,19 @@ userSchema.methods.incLoginAttempts = async function() {
       $unset: { lockUntil: 1 }
     });
   }
-  
+
   const updates = { $inc: { loginAttempts: 1 } };
-  
+
   // Lock account after 5 failed attempts
   if (this.loginAttempts + 1 >= 5 && !this.isLocked()) {
     updates.$set = { lockUntil: Date.now() + 30 * 60 * 1000 }; // 30 minutes
   }
-  
+
   return this.updateOne(updates);
 };
 
 // Reset login attempts on successful login
-userSchema.methods.resetLoginAttempts = async function() {
+userSchema.methods.resetLoginAttempts = async function () {
   return this.updateOne({
     $set: { loginAttempts: 0 },
     $unset: { lockUntil: 1 }

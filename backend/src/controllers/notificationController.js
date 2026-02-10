@@ -17,7 +17,7 @@ const notificationController = {
         message,
         request_id: requestId
       });
-      
+
       await notification.save();
       console.log(`🔔 Notification created for ${userType}:`, title);
       return notification;
@@ -32,26 +32,34 @@ const notificationController = {
     try {
       const userId = req.user._id;
       const { page = 1, limit = 20, unread_only = 'false' } = req.query;
-      
-      const query = { user_id: userId };
+
+      // Support both user_id and user fields
+      const query = {
+        $or: [
+          { user_id: userId },
+          { user: userId }
+        ]
+      };
       if (unread_only === 'true') {
         query.is_read = false;
       }
-      
+
       const skip = (parseInt(page) - 1) * parseInt(limit);
-      
+
       const notifications = await Notification.find(query)
         .populate('request_id', 'items status customer_id retailer_id')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(parseInt(limit));
-      
+
       const total = await Notification.countDocuments(query);
-      const unreadCount = await Notification.countDocuments({ 
-        user_id: userId, 
-        is_read: false 
+      const unreadCount = await Notification.countDocuments({
+        $or: [
+          { user_id: userId, is_read: false },
+          { user: userId, is_read: false }
+        ]
       });
-      
+
       res.status(200).json({
         success: true,
         message: 'Notifications retrieved successfully',
@@ -80,12 +88,14 @@ const notificationController = {
   getUnreadCount: async (req, res) => {
     try {
       const userId = req.user._id;
-      
+
       const count = await Notification.countDocuments({
-        user_id: userId,
-        is_read: false
+        $or: [
+          { user_id: userId, is_read: false },
+          { user: userId, is_read: false }
+        ]
       });
-      
+
       res.status(200).json({
         success: true,
         data: { unread_count: count }
@@ -105,23 +115,26 @@ const notificationController = {
     try {
       const { id } = req.params;
       const userId = req.user._id;
-      
+
       const notification = await Notification.findOne({
         _id: id,
-        user_id: userId
+        $or: [
+          { user_id: userId },
+          { user: userId }
+        ]
       });
-      
+
       if (!notification) {
         return res.status(404).json({
           success: false,
           message: 'Notification not found'
         });
       }
-      
+
       if (!notification.is_read) {
         await notification.markAsRead();
       }
-      
+
       res.status(200).json({
         success: true,
         message: 'Notification marked as read',
@@ -141,12 +154,17 @@ const notificationController = {
   markAllAsRead: async (req, res) => {
     try {
       const userId = req.user._id;
-      
+
       const result = await Notification.updateMany(
-        { user_id: userId, is_read: false },
+        {
+          $or: [
+            { user_id: userId, is_read: false },
+            { user: userId, is_read: false }
+          ]
+        },
         { $set: { is_read: true, read_at: new Date() } }
       );
-      
+
       res.status(200).json({
         success: true,
         message: 'All notifications marked as read',
@@ -167,19 +185,22 @@ const notificationController = {
     try {
       const { id } = req.params;
       const userId = req.user._id;
-      
+
       const notification = await Notification.findOneAndDelete({
         _id: id,
-        user_id: userId
+        $or: [
+          { user_id: userId },
+          { user: userId }
+        ]
       });
-      
+
       if (!notification) {
         return res.status(404).json({
           success: false,
           message: 'Notification not found'
         });
       }
-      
+
       res.status(200).json({
         success: true,
         message: 'Notification deleted successfully'

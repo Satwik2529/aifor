@@ -21,7 +21,7 @@ export const AuthProvider = ({ children }) => {
         const checkAuth = async () => {
             const token = localStorage.getItem('token');
             const userType = localStorage.getItem('userType');
-            
+
             // Only check auth for retailers (customers manage their own auth)
             if (token && userType !== 'customer') {
                 try {
@@ -49,29 +49,48 @@ export const AuthProvider = ({ children }) => {
             const response = await authAPI.login(credentials);
 
             if (response.success) {
-                const { user: userData, token } = response.data;
+                const { user: userData, token, userType } = response.data;
 
-                // Store only token (not user data for security)
+                console.log('🔐 Frontend Login Response:', {
+                    success: response.success,
+                    userType: userType,
+                    userRole: userData?.role,
+                    userName: userData?.name,
+                    hasToken: !!token,
+                    fullResponse: response.data
+                });
+
+                // Store token and userType
                 localStorage.setItem('token', token);
-                localStorage.setItem('userType', 'retailer');
+                localStorage.setItem('userType', userType || 'retailer');
+
+                console.log('💾 Stored in localStorage:', {
+                    token: token ? 'SET' : 'NOT SET',
+                    userType: localStorage.getItem('userType')
+                });
 
                 // Fetch fresh profile data after login to ensure we have the latest
                 try {
                     const profileResponse = await authAPI.getProfile();
                     if (profileResponse.success) {
                         const freshUserData = profileResponse.data.user;
+                        console.log('👤 Fresh profile data:', {
+                            role: freshUserData.role,
+                            name: freshUserData.name
+                        });
                         setUser(freshUserData);
                     } else {
                         // Fallback to login response data
                         setUser(userData);
                     }
                 } catch (profileError) {
+                    console.error('Profile fetch error:', profileError);
                     setUser(userData);
                 }
 
                 setIsAuthenticated(true);
 
-                return { success: true, message: response.message };
+                return { success: true, message: response.message, data: { user: userData, userType } };
             } else {
                 return { success: false, message: response.message };
             }
@@ -103,11 +122,11 @@ export const AuthProvider = ({ children }) => {
             const response = await authAPI.register(userData);
 
             if (response.success) {
-                const { user: newUser, token } = response.data;
+                const { user: newUser, token, userType } = response.data;
 
-                // Store only token (not user data for security)
+                // Store token and userType
                 localStorage.setItem('token', token);
-                localStorage.setItem('userType', 'retailer');
+                localStorage.setItem('userType', userType || 'retailer');
 
                 setUser(newUser);
                 setIsAuthenticated(true);

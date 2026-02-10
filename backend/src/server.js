@@ -33,6 +33,8 @@ const customerAuthRoutes = require('./routes/customerAuthRoutes');
 const customerRequestRoutes = require('./routes/customerRequestRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const nearbyShopsRoutes = require('./routes/nearbyShopsRoutes');
+const wholesalerRoutes = require('./routes/wholesalerRoutes');
+const seedRoutes = require('./routes/seedRoutes');
 
 // Initialize Express app
 const app = express();
@@ -42,9 +44,9 @@ connectDB();
 
 // CORS configuration to allow multiple origins
 const allowedOrigins = [
-  process.env.FRONTEND_URL, 
+  process.env.FRONTEND_URL,
   'http://localhost:3000',
-  'http://localhost:3001', 
+  'http://localhost:3001',
   'https://biznova.onrender.com',
   'https://aiforall-8d15.onrender.com',
   // Add your new frontend URL here
@@ -105,6 +107,8 @@ app.use('/api/customer-auth', customerAuthRoutes); // Customer user authenticati
 app.use('/api/customer-requests', customerRequestRoutes); // Customer-to-retailer messaging
 app.use('/api/notifications', notificationRoutes); // User notifications
 app.use('/api/nearby-shops', nearbyShopsRoutes); // Find nearby shops by location
+app.use('/api/wholesalers', wholesalerRoutes); // Wholesaler discovery and ordering
+app.use('/api/seed', seedRoutes); // Development seed data
 
 // Root endpoint
 app.get('/', (req, res) => {

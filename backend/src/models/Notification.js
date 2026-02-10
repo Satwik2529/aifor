@@ -1,27 +1,29 @@
 const mongoose = require('mongoose');
 
 /**
- * Notification Model - User notifications for requests and completions
+ * Notification Model - User notifications for requests, orders, and completions
  */
 const notificationSchema = new mongoose.Schema({
+  // Support both old field names and new field names
   user_id: {
     type: mongoose.Schema.Types.ObjectId,
-    refPath: 'user_type_ref',
-    required: [true, 'User ID is required']
+    refPath: 'user_type_ref'
+  },
+  user: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
   },
   user_type_ref: {
     type: String,
-    enum: ['User', 'CustomerUser'],
-    required: true
+    enum: ['User', 'CustomerUser']
   },
   user_type: {
     type: String,
-    enum: ['retailer', 'customer'],
-    required: true
+    enum: ['retailer', 'customer', 'wholesaler']
   },
   type: {
     type: String,
-    enum: ['new_request', 'request_completed', 'request_cancelled', 'bill_generated'],
+    enum: ['new_request', 'request_completed', 'request_cancelled', 'bill_generated', 'order', 'promotion', 'alert', 'system'],
     required: true
   },
   title: {
@@ -38,6 +40,9 @@ const notificationSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'CustomerRequest'
   },
+  relatedId: {
+    type: mongoose.Schema.Types.ObjectId
+  },
   is_read: {
     type: Boolean,
     default: false
@@ -49,12 +54,19 @@ const notificationSchema = new mongoose.Schema({
   timestamps: true
 });
 
+// Virtual to get the actual user ID (supports both field names)
+notificationSchema.virtual('userId').get(function () {
+  return this.user || this.user_id;
+});
+
 // Index for efficient queries
 notificationSchema.index({ user_id: 1, is_read: 1, createdAt: -1 });
+notificationSchema.index({ user: 1, is_read: 1, createdAt: -1 });
 notificationSchema.index({ user_id: 1, createdAt: -1 });
+notificationSchema.index({ user: 1, createdAt: -1 });
 
 // Mark as read
-notificationSchema.methods.markAsRead = function() {
+notificationSchema.methods.markAsRead = function () {
   this.is_read = true;
   this.read_at = new Date();
   return this.save();

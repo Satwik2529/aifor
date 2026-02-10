@@ -17,6 +17,7 @@ const authController = {
       // Check for validation errors
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
+        console.log('❌ VALIDATION ERRORS:', errors.array());
         return res.status(400).json({
           success: false,
           message: 'Validation failed',
@@ -24,7 +25,16 @@ const authController = {
         });
       }
 
-      const { name, phone, password, shop_name, language, upi_id, email, locality, latitude, longitude, address } = req.body;
+      const { name, phone, password, shop_name, language, upi_id, email, locality, latitude, longitude, address, role, wholesalerProfile } = req.body;
+
+      console.log('📝 REGISTRATION REQUEST:', {
+        name,
+        phone,
+        role: role || 'retailer',
+        hasWholesalerProfile: !!wholesalerProfile,
+        hasShopName: !!shop_name,
+        hasUpiId: !!upi_id
+      });
 
       // Check if user already exists (phone in both collections)
       const existingUser = await User.findOne({ phone });
@@ -52,25 +62,52 @@ const authController = {
         }
       }
 
+      // Determine user role (default to retailer if not specified)
+      const userRole = role || 'retailer';
+
       // Create new user with location data
-      const user = new User({
+      const userData = {
         name,
         phone,
         password,
         email: email ? email.toLowerCase() : undefined,
-        shop_name,
-        language,
-        upi_id,
+        role: userRole,
         locality: locality || null,
         latitude: latitude || null,
         longitude: longitude || null,
         address: address || {}
-      });
+      };
 
+      // Add role-specific fields
+      if (userRole === 'retailer') {
+        userData.shop_name = shop_name;
+        userData.language = language;
+        userData.upi_id = upi_id;
+      } else if (userRole === 'wholesaler') {
+        userData.wholesalerProfile = wholesalerProfile;
+        // Set location in GeoJSON format for geospatial queries
+        if (latitude && longitude) {
+          userData.location = {
+            type: 'Point',
+            coordinates: [longitude, latitude]
+          };
+        }
+      }
+
+      const user = new User(userData);
       await user.save();
 
-      // Generate JWT token with userType
-      const token = generateToken(user._id, 'retailer');
+      console.log('✅ USER REGISTERED:', {
+        userId: user._id,
+        role: user.role,
+        userRole: userRole,
+        name: user.name,
+        hasWholesalerProfile: !!user.wholesalerProfile
+      });
+
+      // Generate JWT token with correct userType
+      const userType = userRole === 'wholesaler' ? 'wholesaler' : 'retailer';
+      const token = generateToken(user._id, userType);
 
       res.status(201).json({
         success: true,
@@ -78,7 +115,7 @@ const authController = {
         data: {
           user: user.profile,
           token,
-          userType: 'retailer'
+          userType
         }
       });
     } catch (error) {
@@ -116,6 +153,12 @@ const authController = {
         });
       }
 
+      // Ensure user has a role (migration for old users)
+      if (!user.role) {
+        user.role = 'retailer';
+        await user.save();
+      }
+
       // Check if account is locked
       if (user.isLocked()) {
         const lockTimeRemaining = Math.ceil((user.lockUntil - Date.now()) / 60000);
@@ -148,18 +191,34 @@ const authController = {
         await user.resetLoginAttempts();
       }
 
-      // Generate JWT token with userType
-      const token = generateToken(user._id, 'retailer');
+      // Determine userType based on role
+      const userType = user.role === 'wholesaler' ? 'wholesaler' : 'retailer';
 
-      res.status(200).json({
+      console.log('🔐 LOGIN SUCCESS:', {
+        userId: user._id,
+        phone: user.phone,
+        name: user.name,
+        role: user.role,
+        userType: userType,
+        hasWholesalerProfile: !!user.wholesalerProfile
+      });
+
+      // Generate JWT token with correct userType
+      const token = generateToken(user._id, userType);
+
+      const responseData = {
         success: true,
         message: 'Login successful',
         data: {
           user: user.profile,
           token,
-          userType: 'retailer'
+          userType
         }
-      });
+      };
+
+      console.log('📤 Sending response with userType:', userType);
+
+      res.status(200).json(responseData);
     } catch (error) {
       console.error('Login error:', error);
       res.status(500).json({

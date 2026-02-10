@@ -117,9 +117,29 @@ const NotificationBell = ({ isDarkMode }) => {
         return <XCircle className="h-5 w-5 text-red-600" />;
       case 'bill_generated':
         return <FileText className="h-5 w-5 text-purple-600" />;
+      case 'order':
+        return <Package className="h-5 w-5 text-indigo-600" />;
+      case 'promotion':
+        return <span className="text-2xl">🎁</span>;
+      case 'alert':
+        return <span className="text-2xl">⚠️</span>;
       default:
         return <Package className="h-5 w-5 text-gray-600" />;
     }
+  };
+
+  // Get background color for notification type
+  const getNotificationBg = (notification, isDarkMode) => {
+    if (!notification.is_read) {
+      if (notification.type === 'promotion') {
+        return isDarkMode ? 'bg-gradient-to-r from-pink-900/40 to-purple-900/40 border-l-4 border-pink-500' : 'bg-gradient-to-r from-pink-50 to-purple-50 border-l-4 border-pink-500';
+      }
+      if (notification.type === 'alert') {
+        return isDarkMode ? 'bg-orange-900/30 border-l-4 border-orange-500' : 'bg-orange-50 border-l-4 border-orange-500';
+      }
+      return isDarkMode ? 'bg-blue-900/30' : 'bg-blue-50';
+    }
+    return '';
   };
 
   // Auto-fetch unread count every 30 seconds
@@ -214,10 +234,7 @@ const NotificationBell = ({ isDarkMode }) => {
                   <div
                     key={notification._id}
                     onClick={() => !notification.is_read && markAsRead(notification._id)}
-                    className={`p-4 cursor-pointer transition-all ${!notification.is_read
-                      ? isDarkMode ? 'bg-blue-900/30' : 'bg-blue-50'
-                      : ''
-                      } ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50'}`}
+                    className={`p-4 cursor-pointer transition-all ${getNotificationBg(notification, isDarkMode)} ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50'}`}
                   >
                     <div className="flex items-start space-x-3">
                       {/* Icon */}
@@ -233,10 +250,10 @@ const NotificationBell = ({ isDarkMode }) => {
                             {notification.title}
                           </p>
                           {!notification.is_read && (
-                            <span className="inline-block w-2 h-2 bg-blue-600 rounded-full ml-2 mt-1"></span>
+                            <span className="inline-block w-2 h-2 bg-blue-600 rounded-full ml-2 mt-1 animate-pulse"></span>
                           )}
                         </div>
-                        <p className={`text-sm mt-1 line-clamp-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                        <p className={`text-sm mt-1 ${notification.type === 'promotion' ? 'font-medium' : ''} ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                           {notification.message}
                         </p>
                         <p className={`text-xs mt-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>

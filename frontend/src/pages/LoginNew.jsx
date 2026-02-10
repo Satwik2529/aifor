@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, Phone, Lock, Brain, Mail, Store, User as UserIcon } from 'lucide-react';
+import { Eye, EyeOff, Phone, Lock, Brain, Mail, Store, User as UserIcon, Package } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
@@ -8,12 +8,12 @@ import ForgotPasswordModal from '../components/ForgotPasswordModal';
 import { signInWithGoogle, isConfigured } from '../config/supabase';
 
 /**
- * Unified Login Page with Retailer/Customer Tabs
- * Handles authentication for both user types
+ * Unified Login Page with Retailer/Customer/Wholesaler Tabs
+ * Handles authentication for all user types
  */
 const LoginNew = () => {
   const { t } = useTranslation();
-  const [userType, setUserType] = useState('retailer'); // 'retailer' or 'customer'
+  const [userType, setUserType] = useState('retailer'); // 'retailer', 'customer', or 'wholesaler'
   const [showPassword, setShowPassword] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [formData, setFormData] = useState({
@@ -55,7 +55,7 @@ const LoginNew = () => {
     }
 
     setIsGoogleLoading(true);
-    
+
     try {
       // Request location permission and WAIT for response before redirecting
       const getLocation = () => {
@@ -102,10 +102,10 @@ const LoginNew = () => {
 
       // Wait for location (or timeout/denial) before proceeding
       await getLocation();
-      
+
       // Store the intended userType before redirecting to Google
       localStorage.setItem('pendingGoogleUserType', userType);
-      
+
       const result = await signInWithGoogle();
       if (!result.success) {
         toast.error(result.error || 'Google sign in failed');
@@ -123,8 +123,8 @@ const LoginNew = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (userType === 'retailer') {
-      // Validate retailer fields
+    if (userType === 'retailer' || userType === 'wholesaler') {
+      // Validate retailer/wholesaler fields
       if (!formData.phone.trim()) {
         toast.error(t('auth.login.errors.phoneRequired'));
         return;
@@ -148,12 +148,29 @@ const LoginNew = () => {
     setIsLoading(true);
 
     try {
-      if (userType === 'retailer') {
+      if (userType === 'retailer' || userType === 'wholesaler') {
         const result = await login({ phone: formData.phone, password: formData.password });
         if (result.success) {
           toast.success(t('auth.login.success'));
-          // Delay navigation to show toast
-          setTimeout(() => navigate('/dashboard'), 1000);
+
+          // Get userType from multiple sources for reliability
+          const loggedInUserType = result.data?.userType || localStorage.getItem('userType') || 'retailer';
+
+          console.log('🔍 Login Navigation Check:', {
+            resultUserType: result.data?.userType,
+            localStorageUserType: localStorage.getItem('userType'),
+            finalUserType: loggedInUserType,
+            willNavigateTo: loggedInUserType === 'wholesaler' ? '/wholesaler-dashboard' : '/dashboard'
+          });
+
+          // Navigate based on userType
+          if (loggedInUserType === 'wholesaler') {
+            console.log('✅ Navigating to wholesaler dashboard');
+            setTimeout(() => navigate('/wholesaler-dashboard'), 1000);
+          } else {
+            console.log('✅ Navigating to retailer dashboard');
+            setTimeout(() => navigate('/dashboard'), 1000);
+          }
         } else {
           toast.error(result.message || t('auth.login.errors.loginFailed'));
         }
@@ -207,37 +224,46 @@ const LoginNew = () => {
         </div>
 
         {/* Tab Selection */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-1 flex space-x-1">
+        <div className="bg-white dark:bg-gray-900 rounded-lg shadow-sm p-1 grid grid-cols-3 gap-1">
           <button
             type="button"
             onClick={() => handleTabChange('retailer')}
-            className={`flex-1 flex items-center justify-center space-x-1 sm:space-x-2 py-2 sm:py-3 px-2 sm:px-4 rounded-md text-xs sm:text-sm font-medium transition-all duration-200 ${
-              userType === 'retailer'
-                ? 'bg-primary-600 text-white shadow-md'
-                : 'text-gray-600 dark:text-white hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-800'
-            }`}
+            className={`flex flex-col items-center justify-center space-y-1 py-2 px-2 rounded-md text-xs font-medium transition-all duration-200 ${userType === 'retailer'
+              ? 'bg-primary-600 text-white shadow-md'
+              : 'text-gray-600 dark:text-white hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-800'
+              }`}
           >
-            <Store className="h-4 w-4 sm:h-5 sm:w-5" />
-            <span>{t('auth.login.retailer')}</span>
+            <Store className="h-4 w-4" />
+            <span>Retailer</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => handleTabChange('wholesaler')}
+            className={`flex flex-col items-center justify-center space-y-1 py-2 px-2 rounded-md text-xs font-medium transition-all duration-200 ${userType === 'wholesaler'
+              ? 'bg-primary-600 text-white shadow-md'
+              : 'text-gray-600 dark:text-white hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-800'
+              }`}
+          >
+            <Package className="h-4 w-4" />
+            <span>Wholesaler</span>
           </button>
           <button
             type="button"
             onClick={() => handleTabChange('customer')}
-            className={`flex-1 flex items-center justify-center space-x-1 sm:space-x-2 py-2 sm:py-3 px-2 sm:px-4 rounded-md text-xs sm:text-sm font-medium transition-all duration-200 ${
-              userType === 'customer'
-                ? 'bg-primary-600 text-white shadow-md'
-                : 'text-gray-600 dark:text-white hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-800'
-            }`}
+            className={`flex flex-col items-center justify-center space-y-1 py-2 px-2 rounded-md text-xs font-medium transition-all duration-200 ${userType === 'customer'
+              ? 'bg-primary-600 text-white shadow-md'
+              : 'text-gray-600 dark:text-white hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-800'
+              }`}
           >
-            <UserIcon className="h-4 w-4 sm:h-5 sm:w-5" />
-            <span>{t('auth.login.customer')}</span>
+            <UserIcon className="h-4 w-4" />
+            <span>Customer</span>
           </button>
         </div>
 
         {/* Login Form */}
         <form className="mt-6 sm:mt-8 space-y-4 sm:space-y-6 bg-white dark:bg-black border border-transparent dark:border-gray-800 rounded-lg shadow-md p-6 sm:p-8" onSubmit={handleSubmit}>
           <div className="space-y-3 sm:space-y-4">
-            {userType === 'retailer' ? (
+            {(userType === 'retailer' || userType === 'wholesaler') ? (
               <div>
                 <label htmlFor="phone" className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-white">
                   {t('auth.login.phoneLabel')}
@@ -326,8 +352,8 @@ const LoginNew = () => {
               </label>
             </div>
             <div className="text-xs sm:text-sm">
-              <button 
-                type="button" 
+              <button
+                type="button"
                 onClick={() => setShowForgotPassword(true)}
                 className="font-medium text-primary-600 hover:text-primary-500"
               >
@@ -381,10 +407,10 @@ const LoginNew = () => {
                   ) : (
                     <>
                       <svg className="h-5 w-5" viewBox="0 0 24 24">
-                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
                       </svg>
                       <span>Continue with Google</span>
                     </>

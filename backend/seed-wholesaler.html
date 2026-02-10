@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Seed Wholesaler Data</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            color: #333;
+        }
+
+        button {
+            background: #4F46E5;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+
+        button:hover {
+            background: #4338CA;
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            display: none;
+        }
+
+        .success {
+            background: #D1FAE5;
+            border: 1px solid #10B981;
+            color: #065F46;
+        }
+
+        .error {
+            background: #FEE2E2;
+            border: 1px solid #EF4444;
+            color: #991B1B;
+        }
+
+        .info {
+            background: #E0E7FF;
+            border: 1px solid #6366F1;
+            color: #312E81;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+
+        pre {
+            background: #f9f9f9;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>🌾 Seed Wholesaler Data</h1>
+
+        <div class="info">
+            <strong>Instructions:</strong><br>
+            1. Login to your wholesaler account (9390392507)<br>
+            2. Click the button below to populate your account with sample data<br>
+            3. This will create 12 products and 3 sample orders
+        </div>
+
+        <button id="seedBtn" onclick="seedData()">🚀 Seed My Wholesaler Data</button>
+
+        <div id="result" class="result"></div>
+    </div>
+
+    <script>
+        async function seedData() {
+            const btn = document.getElementById('seedBtn');
+            const result = document.getElementById('result');
+
+            btn.disabled = true;
+            btn.textContent = '⏳ Seeding data...';
+            result.style.display = 'none';
+
+            try {
+                const token = localStorage.getItem('token');
+
+                if (!token) {
+                    throw new Error('Please login first! Go to http://localhost:3000/login');
+                }
+
+                const response = await fetch('http://localhost:5000/api/seed/seed-wholesaler', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    result.className = 'result success';
+                    result.innerHTML = `
+                        <h3>✅ Success!</h3>
+                        <p><strong>Products Created:</strong> ${data.data.productsCreated}</p>
+                        <p><strong>Orders Created:</strong> ${data.data.ordersCreated}</p>
+                        <p><strong>Fast-Moving Products:</strong> ${data.data.summary.fastMoving.join(', ')}</p>
+                        <p><strong>Slow-Moving Products:</strong> ${data.data.summary.slowMoving.join(', ')}</p>
+                        <br>
+                        <p>🎉 You can now test:</p>
+                        <ul>
+                            <li>View inventory at <a href="http://localhost:3000/wholesaler/inventory" target="_blank">/wholesaler/inventory</a></li>
+                            <li>Get AI insights at <a href="http://localhost:3000/wholesaler/ai-insights" target="_blank">/wholesaler/ai-insights</a></li>
+                            <li>View dashboard at <a href="http://localhost:3000/wholesaler-dashboard" target="_blank">/wholesaler-dashboard</a></li>
+                        </ul>
+                    `;
+                } else {
+                    throw new Error(data.message || 'Failed to seed data');
+                }
+
+                result.style.display = 'block';
+                btn.textContent = '✅ Data Seeded Successfully!';
+
+            } catch (error) {
+                result.className = 'result error';
+                result.innerHTML = `
+                    <h3>❌ Error</h3>
+                    <p>${error.message}</p>
+                    <p><small>Make sure you're logged in as a wholesaler (9390392507)</small></p>
+                `;
+                result.style.display = 'block';
+                btn.disabled = false;
+                btn.textContent = '🚀 Seed My Wholesaler Data';
+            }
+        }
+    </script>
+</body>
+
+</html>
