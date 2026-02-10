@@ -514,23 +514,23 @@ const Inventory = () => {
 
             {/* Low Stock Alert */}
             {lowStockItems.length > 0 && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
                     <div className="flex items-start">
-                        <AlertTriangle className="h-5 w-5 text-red-600 mr-3 mt-0.5 flex-shrink-0" />
+                        <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400 mr-3 mt-0.5 flex-shrink-0" />
                         <div className="flex-1">
-                            <h3 className="text-sm font-medium text-red-800 mb-2">{t('inventory.lowStockAlert')}</h3>
+                            <h3 className="text-sm font-medium text-red-800 dark:text-red-300 mb-2">{t('inventory.lowStockAlert')}</h3>
                             <div className="space-y-1">
                                 {lowStockItems.slice(0, 5).map((item) => (
-                                    <div key={item._id} className="flex justify-between text-sm text-red-700">
+                                    <div key={item._id} className="flex justify-between text-sm text-red-700 dark:text-red-300">
                                         <span className="font-medium">{item.item_name}</span>
-                                        <span className="text-red-600">
+                                        <span className="text-red-600 dark:text-red-400">
                                             {item.stock_qty} {item.unit || 'pieces'} left
                                             {item.stock_qty <= 0 && ' (OUT OF STOCK)'}
                                         </span>
                                     </div>
                                 ))}
                                 {lowStockItems.length > 5 && (
-                                    <p className="text-xs text-red-600 mt-2">
+                                    <p className="text-xs text-red-600 dark:text-red-400 mt-2">
                                         + {lowStockItems.length - 5} more items need restocking
                                     </p>
                                 )}
@@ -539,6 +539,90 @@ const Inventory = () => {
                     </div>
                 </div>
             )}
+
+            {/* Expiring Items Alert */}
+            {(() => {
+                const now = new Date();
+                const expiringItems = inventory.filter(item => {
+                    if (!item.expiry_date) return false;
+                    const daysUntilExpiry = Math.ceil((new Date(item.expiry_date) - now) / (1000 * 60 * 60 * 24));
+                    return daysUntilExpiry <= 30 && daysUntilExpiry >= 0;
+                });
+                
+                const expiredItems = inventory.filter(item => {
+                    if (!item.expiry_date) return false;
+                    return new Date(item.expiry_date) < now;
+                });
+
+                if (expiringItems.length === 0 && expiredItems.length === 0) return null;
+
+                return (
+                    <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg p-4">
+                        <div className="flex items-start">
+                            <AlertTriangle className="h-5 w-5 text-orange-600 dark:text-orange-400 mr-3 mt-0.5 flex-shrink-0" />
+                            <div className="flex-1">
+                                <h3 className="text-sm font-medium text-orange-800 dark:text-orange-300 mb-2">
+                                    ⚠️ Expiry Alert - {expiringItems.length + expiredItems.length} Item(s)
+                                </h3>
+                                <div className="space-y-2">
+                                    {expiredItems.length > 0 && (
+                                        <div className="bg-red-100 dark:bg-red-900/30 border border-red-300 dark:border-red-700 rounded p-2">
+                                            <p className="text-xs font-semibold text-red-800 dark:text-red-300 mb-1">🔴 EXPIRED:</p>
+                                            {expiredItems.slice(0, 3).map((item) => {
+                                                const daysExpired = Math.abs(Math.ceil((new Date(item.expiry_date) - now) / (1000 * 60 * 60 * 24)));
+                                                return (
+                                                    <div key={item._id} className="flex justify-between text-sm text-red-700 dark:text-red-300">
+                                                        <span className="font-medium">{item.item_name}</span>
+                                                        <span className="text-red-600 dark:text-red-400">
+                                                            Expired {daysExpired} day{daysExpired !== 1 ? 's' : ''} ago
+                                                        </span>
+                                                    </div>
+                                                );
+                                            })}
+                                            {expiredItems.length > 3 && (
+                                                <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+                                                    + {expiredItems.length - 3} more expired items
+                                                </p>
+                                            )}
+                                        </div>
+                                    )}
+                                    {expiringItems.length > 0 && (
+                                        <div>
+                                            <p className="text-xs font-semibold text-orange-800 dark:text-orange-300 mb-1">🟡 EXPIRING SOON:</p>
+                                            {expiringItems.slice(0, 5).map((item) => {
+                                                const daysUntilExpiry = Math.ceil((new Date(item.expiry_date) - now) / (1000 * 60 * 60 * 24));
+                                                let urgencyColor = 'text-orange-700 dark:text-orange-300';
+                                                if (daysUntilExpiry <= 3) urgencyColor = 'text-red-700 dark:text-red-300';
+                                                else if (daysUntilExpiry <= 7) urgencyColor = 'text-orange-700 dark:text-orange-300';
+                                                
+                                                return (
+                                                    <div key={item._id} className={`flex justify-between text-sm ${urgencyColor}`}>
+                                                        <span className="font-medium">{item.item_name}</span>
+                                                        <span className={daysUntilExpiry <= 7 ? 'font-bold' : ''}>
+                                                            {daysUntilExpiry} day{daysUntilExpiry !== 1 ? 's' : ''} left
+                                                            {daysUntilExpiry <= 3 && ' 🔥'}
+                                                        </span>
+                                                    </div>
+                                                );
+                                            })}
+                                            {expiringItems.length > 5 && (
+                                                <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">
+                                                    + {expiringItems.length - 5} more items expiring soon
+                                                </p>
+                                            )}
+                                        </div>
+                                    )}
+                                    <div className="mt-2 pt-2 border-t border-orange-200 dark:border-orange-700">
+                                        <p className="text-xs text-orange-700 dark:text-orange-300">
+                                            💡 <strong>Tip:</strong> Consider offering discounts on these items to sell them quickly!
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                );
+            })()}
 
             {/* Inventory Table */}
             <div className="card">
@@ -596,6 +680,7 @@ const Inventory = () => {
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Profit/Unit</th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('inventory.table.totalValue')}</th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('inventory.table.status')}</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Expiry</th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('common.actions')}</th>
                                     </tr>
                                 </thead>
@@ -634,6 +719,47 @@ const Inventory = () => {
                                                 <span className="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">
                                                     {t('inventory.table.inStock')}
                                                 </span>
+                                            )}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                            {item.expiry_date ? (() => {
+                                                const now = new Date();
+                                                const expiryDate = new Date(item.expiry_date);
+                                                const daysUntilExpiry = Math.ceil((expiryDate - now) / (1000 * 60 * 60 * 24));
+                                                
+                                                if (daysUntilExpiry < 0) {
+                                                    return (
+                                                        <span className="px-2 py-1 text-xs font-medium bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 rounded-full">
+                                                            Expired
+                                                        </span>
+                                                    );
+                                                } else if (daysUntilExpiry <= 3) {
+                                                    return (
+                                                        <span className="px-2 py-1 text-xs font-medium bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 rounded-full">
+                                                            {daysUntilExpiry}d left 🔥
+                                                        </span>
+                                                    );
+                                                } else if (daysUntilExpiry <= 7) {
+                                                    return (
+                                                        <span className="px-2 py-1 text-xs font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300 rounded-full">
+                                                            {daysUntilExpiry}d left
+                                                        </span>
+                                                    );
+                                                } else if (daysUntilExpiry <= 30) {
+                                                    return (
+                                                        <span className="px-2 py-1 text-xs font-medium bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 rounded-full">
+                                                            {daysUntilExpiry}d left
+                                                        </span>
+                                                    );
+                                                } else {
+                                                    return (
+                                                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                                                            {expiryDate.toLocaleDateString()}
+                                                        </span>
+                                                    );
+                                                }
+                                            })() : (
+                                                <span className="text-xs text-gray-400 dark:text-gray-500">-</span>
                                             )}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
