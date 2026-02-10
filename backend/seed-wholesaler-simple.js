@@ -2,8 +2,9 @@
 // Run with: node seed-wholesaler-simple.js
 
 const mongoose = require('mongoose');
+require('dotenv').config();
 
-const MONGODB_URI = 'mongodb+srv://saipranav974:xseYEzahzjx1dhE0@cluster0.mgjhg.mongodb.net/psp?retryWrites=true&w=majority&tls=true';
+const MONGODB_URI = process.env.MONGODB_URI;
 const WHOLESALER_PHONE = '9390392507';
 
 // Define schemas inline
