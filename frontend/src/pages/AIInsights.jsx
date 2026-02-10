@@ -876,22 +876,107 @@ const AIInsights = () => {
                         </div>
                     </div>
 
+                    {/* Extract and display Quick Actions prominently */}
+                    {(() => {
+                        const quickActionsMatch = insight.analysis.match(/## 🎯 Quick Actions\s*([\s\S]*?)(?=##|$)/);
+                        if (quickActionsMatch) {
+                            const actionsText = quickActionsMatch[1];
+                            const actions = actionsText.split('\n')
+                                .filter(line => line.trim().startsWith('-'))
+                                .map(line => line.replace(/^-\s*/, '').trim())
+                                .slice(0, 3);
+                            
+                            if (actions.length > 0) {
+                                return (
+                                    <div className="mb-6 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/30 dark:to-emerald-900/30 border-2 border-green-400 dark:border-green-600 rounded-xl p-6 shadow-lg animate-slideInLeft">
+                                        <div className="flex items-center mb-4">
+                                            <div className="p-2 bg-green-500 rounded-lg mr-3">
+                                                <Sparkles className="h-6 w-6 text-white" />
+                                            </div>
+                                            <h3 className="text-xl font-bold text-green-900 dark:text-green-100">🎯 Quick Actions - Do This Today!</h3>
+                                        </div>
+                                        <div className="space-y-3">
+                                            {actions.map((action, idx) => (
+                                                <div key={idx} className="flex items-start bg-white dark:bg-gray-800 rounded-lg p-3 shadow-sm border border-green-200 dark:border-green-700">
+                                                    <div className="flex-shrink-0 w-8 h-8 bg-green-500 text-white rounded-full flex items-center justify-center font-bold mr-3">
+                                                        {idx + 1}
+                                                    </div>
+                                                    <p className="text-gray-900 dark:text-gray-100 font-medium flex-1">{action}</p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                );
+                            }
+                        }
+                        return null;
+                    })()}
+
                     <div className="prose prose-sm max-w-none">
                         <ReactMarkdown
                             components={{
                                 h1: ({ node, ...props }) => <h1 className="text-2xl font-bold text-gray-900 dark:text-white mt-6 mb-3" {...props} />,
-                                h2: ({ node, ...props }) => <h2 className="text-xl font-semibold text-gray-900 dark:text-white mt-5 mb-2" {...props} />,
+                                h2: ({ node, children, ...props }) => {
+                                    const text = children?.toString() || '';
+                                    let colorClass = 'text-gray-900 dark:text-white';
+                                    let bgClass = 'bg-gray-100 dark:bg-gray-700/40';
+                                    
+                                    if (text.includes('🎯')) {
+                                        colorClass = 'text-green-700 dark:text-green-300';
+                                        bgClass = 'bg-green-100 dark:bg-green-900/40';
+                                    } else if (text.includes('💰')) {
+                                        colorClass = 'text-yellow-700 dark:text-yellow-300';
+                                        bgClass = 'bg-yellow-100 dark:bg-yellow-900/40';
+                                    } else if (text.includes('💡')) {
+                                        colorClass = 'text-purple-700 dark:text-purple-300';
+                                        bgClass = 'bg-purple-100 dark:bg-purple-900/40';
+                                    } else if (text.includes('📊')) {
+                                        colorClass = 'text-indigo-700 dark:text-indigo-300';
+                                        bgClass = 'bg-indigo-100 dark:bg-indigo-900/40';
+                                    }
+                                    
+                                    return (
+                                        <h2 className={`text-xl font-bold ${colorClass} ${bgClass} mt-6 mb-3 p-3 rounded-lg border-l-4 ${text.includes('🎯') ? 'border-green-500' : text.includes('💰') ? 'border-yellow-500' : text.includes('💡') ? 'border-purple-500' : 'border-indigo-500'}`} {...props}>
+                                            {children}
+                                        </h2>
+                                    );
+                                },
                                 h3: ({ node, ...props }) => <h3 className="text-lg font-medium text-gray-900 dark:text-white mt-4 mb-2" {...props} />,
-                                p: ({ node, ...props }) => <p className="text-gray-700 mb-3 leading-relaxed" {...props} />,
+                                p: ({ node, ...props }) => <p className="text-gray-700 dark:text-gray-300 mb-3 leading-relaxed" {...props} />,
                                 ul: ({ node, ...props }) => <ul className="list-disc list-inside space-y-2 mb-4" {...props} />,
                                 ol: ({ node, ...props }) => <ol className="list-decimal list-inside space-y-2 mb-4" {...props} />,
-                                li: ({ node, ...props }) => <li className="text-gray-700" {...props} />,
-                                strong: ({ node, ...props }) => <strong className="font-semibold text-gray-900 dark:text-white" {...props} />,
+                                li: ({ node, children, ...props }) => {
+                                    const text = children?.toString() || '';
+                                    let className = 'text-gray-700 dark:text-gray-300 pl-2';
+                                    let boxClass = '';
+                                    
+                                    if (text.toLowerCase().includes('action') || text.toLowerCase().includes('restock') || text.toLowerCase().includes('order')) {
+                                        boxClass = 'bg-green-50 dark:bg-green-900/30 border-l-4 border-green-500 pl-3 py-1 my-1 rounded';
+                                    } else if (text.toLowerCase().includes('urgent') || text.toLowerCase().includes('critical') || text.toLowerCase().includes('alert')) {
+                                        boxClass = 'bg-red-50 dark:bg-red-900/30 border-l-4 border-red-500 pl-3 py-1 my-1 rounded';
+                                    }
+                                    
+                                    return <li className={`${className} ${boxClass}`} {...props}>{children}</li>;
+                                },
+                                strong: ({ node, children, ...props }) => {
+                                    const text = children?.toString() || '';
+                                    let highlightClass = 'font-semibold text-gray-900 dark:text-white';
+                                    
+                                    if (text.match(/₹[\d,]+/)) {
+                                        highlightClass = 'font-bold text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/40 px-1 rounded';
+                                    } else if (text.match(/\d+%/)) {
+                                        highlightClass = 'font-bold text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/40 px-1 rounded';
+                                    } else if (text.toLowerCase().includes('high') || text.toLowerCase().includes('top')) {
+                                        highlightClass = 'font-bold text-purple-600 dark:text-purple-400 bg-purple-100 dark:bg-purple-900/40 px-1 rounded';
+                                    }
+                                    
+                                    return <strong className={highlightClass} {...props}>{children}</strong>;
+                                },
                                 code: ({ node, inline, ...props }) =>
                                     inline ? (
-                                        <code className="bg-gray-100 px-1.5 py-0.5 rounded text-sm font-mono text-gray-800" {...props} />
+                                        <code className="bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded text-sm font-mono text-gray-800 dark:text-gray-200" {...props} />
                                     ) : (
-                                        <code className="block bg-gray-100 p-3 rounded text-sm font-mono text-gray-800 overflow-x-auto" {...props} />
+                                        <code className="block bg-gray-100 dark:bg-gray-700 p-3 rounded text-sm font-mono text-gray-800 dark:text-gray-200 overflow-x-auto" {...props} />
                                     ),
                             }}
                         >
