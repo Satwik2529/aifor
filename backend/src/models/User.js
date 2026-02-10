@@ -206,7 +206,6 @@ userSchema.pre('save', async function (next) {
         type: 'Point',
         coordinates: [this.longitude, this.latitude] // [lng, lat] order for GeoJSON
       };
-      console.log(`📍 Updated retailer location: [${this.longitude}, ${this.latitude}]`);
     }
   }
 

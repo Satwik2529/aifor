@@ -237,8 +237,6 @@ const RegisterNew = () => {
           longitude: formData.longitude
         };
         
-        console.log('Sending registration data:', registrationData);
-        
         const response = await fetch(`${API_BASE_URL}/api/customer-auth/register`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -246,9 +244,6 @@ const RegisterNew = () => {
         });
 
         const result = await response.json();
-
-        console.log('Registration response:', result);
-        console.log('Response status:', response.status);
 
         if (result.success) {
           localStorage.setItem('token', result.data.token);

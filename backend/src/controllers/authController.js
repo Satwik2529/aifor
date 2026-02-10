@@ -193,10 +193,6 @@ const authController = {
   // Update user profile
   updateProfile: async (req, res) => {
     try {
-      console.log('📝 ============ UPDATE PROFILE ============');
-      console.log('User ID:', req.user._id);
-      console.log('Update data:', req.body);
-
       const userId = req.user._id;
       const updateData = {};
 

@@ -50,8 +50,6 @@ class FestivalForecastService {
         }
       });
       this.festivalsData = Array.from(uniqueFestivals.values());
-
-      console.log(`✅ Loaded ${this.festivalsData.length} unique festivals`);
     } catch (error) {
       console.error('❌ Failed to load festival data:', error);
       this.festivalsData = [];

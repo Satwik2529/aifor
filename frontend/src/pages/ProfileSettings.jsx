@@ -91,7 +91,7 @@ const ProfileSettings = () => {
         toast.error('Failed to load profile');
       }
     } catch (error) {
-      console.error('❌ Profile fetch error:', error);
+      console.error('Profile fetch error:', error);
       toast.error('Network error loading profile');
     } finally {
       setLoading(false);
@@ -164,7 +164,7 @@ const ProfileSettings = () => {
         }
       }
     } catch (error) {
-      console.error('❌ Profile update error:', error);
+      console.error('Profile update error:', error);
       toast.error('Network error updating profile');
     } finally {
       setSaving(false);

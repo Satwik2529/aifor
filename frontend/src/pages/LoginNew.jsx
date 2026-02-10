@@ -61,12 +61,10 @@ const LoginNew = () => {
       const getLocation = () => {
         return new Promise((resolve) => {
           if (!navigator.geolocation) {
-            console.log('Geolocation not supported');
             resolve(null);
             return;
           }
 
-          console.log('📍 Requesting location permission...');
           toast.loading('Requesting location permission...', { id: 'location-request' });
 
           navigator.geolocation.getCurrentPosition(
@@ -79,12 +77,10 @@ const LoginNew = () => {
                 timestamp: new Date().toISOString()
               };
               localStorage.setItem('pendingGoogleLocation', JSON.stringify(locationData));
-              console.log('✅ Location captured:', locationData);
               toast.success('Location captured!', { id: 'location-request' });
               resolve(locationData);
             },
             (error) => {
-              console.warn('⚠️ Location permission denied or unavailable:', error.message);
               toast.dismiss('location-request');
               if (error.code === 1) {
                 toast('Location permission denied - continuing without location', { icon: 'ℹ️' });
@@ -106,8 +102,6 @@ const LoginNew = () => {
 
       // Wait for location (or timeout/denial) before proceeding
       await getLocation();
-
-      console.log('🔵 Proceeding to Google OAuth...');
       
       // Store the intended userType before redirecting to Google
       localStorage.setItem('pendingGoogleUserType', userType);

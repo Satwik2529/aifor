@@ -135,7 +135,6 @@ CRITICAL:
         // Clear any previous pending orders for fresh context
         const orderKey = `${customerId}_${retailerId}`;
         pendingOrders.delete(orderKey);
-        console.log(`🔄 New dish request detected, cleared previous context for ${orderKey}`);
       }
 
       // Get retailer's inventory for context
@@ -185,8 +184,6 @@ CRITICAL:
           totalAmount: totalAmount,
           timestamp: Date.now()
         });
-        
-        console.log(`🛒 Stored pending order for ${orderKey}: ${availabilityCheck.available.length} items, ₹${totalAmount}`);
       }
       
       // Build final response
@@ -258,7 +255,6 @@ CRITICAL:
       });
 
       await notification.save();
-      console.log(`✅ Order confirmed and notification sent to ${retailer.shop_name}`);
 
       return {
         intent: 'order_confirmed',

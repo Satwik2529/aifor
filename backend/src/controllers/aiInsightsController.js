@@ -239,8 +239,6 @@ const aiInsightsController = {
       const userId = req.user._id;
       const { days = 30 } = req.query;
 
-      console.log('🤖 Generating demand forecast for user:', userId.toString());
-
       // Get recent sales data
       const salesStartDate = new Date();
       salesStartDate.setDate(salesStartDate.getDate() - days);
@@ -298,8 +296,6 @@ const aiInsightsController = {
   generateRevenueOptimization: async (req, res) => {
     try {
       const userId = req.user._id;
-
-      console.log('🤖 Generating revenue optimization for user:', userId.toString());
 
       // Get recent sales (last 60 days for better price analysis)
       const salesStartDate = new Date();
@@ -369,8 +365,6 @@ const aiInsightsController = {
   generateExpenseForecast: async (req, res) => {
     try {
       const userId = req.user._id;
-
-      console.log('🤖 Generating expense forecast for user:', userId.toString());
 
       // Get last 90 days of expenses
       const expensesStartDate = new Date();
@@ -456,8 +450,6 @@ const aiInsightsController = {
           message: 'Message is required'
         });
       }
-
-      console.log('🤖 AI Chat request from user:', userId.toString());
 
       // Generate AI response
       const aiResponse = await geminiService.chat(message, context || {});

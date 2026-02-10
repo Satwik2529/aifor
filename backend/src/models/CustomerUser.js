@@ -135,7 +135,6 @@ customerUserSchema.pre('save', async function (next) {
           type: 'Point',
           coordinates: [this.longitude, this.latitude] // [lng, lat] order for GeoJSON
         };
-        console.log(`📍 Updated customer location: [${this.longitude}, ${this.latitude}]`);
       }
     }
     return next();
