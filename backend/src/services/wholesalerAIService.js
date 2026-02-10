@@ -133,6 +133,50 @@ RULES:
             aiInsights.fastMovingProducts = aiInsights.fastMovingProducts.filter(p => !slowProductNames.has(p.productName));
         }
 
+        // Add productId to slow-moving products for action buttons
+        if (aiInsights.slowMovingProducts && aiInsights.slowMovingProducts.length > 0) {
+            aiInsights.slowMovingProducts = aiInsights.slowMovingProducts.map(slowProduct => {
+                const matchingProduct = productPerformance.find(p => p.productName === slowProduct.productName);
+                return {
+                    ...slowProduct,
+                    productId: matchingProduct ? matchingProduct.productId : null
+                };
+            }).filter(p => p.productId); // Only keep products with valid IDs
+        }
+
+        // Add productId to fast-moving products
+        if (aiInsights.fastMovingProducts && aiInsights.fastMovingProducts.length > 0) {
+            aiInsights.fastMovingProducts = aiInsights.fastMovingProducts.map(fastProduct => {
+                const matchingProduct = productPerformance.find(p => p.productName === fastProduct.productName);
+                return {
+                    ...fastProduct,
+                    productId: matchingProduct ? matchingProduct.productId : null
+                };
+            }).filter(p => p.productId);
+        }
+
+        // Add productId to pricing recommendations
+        if (aiInsights.pricingRecommendations && aiInsights.pricingRecommendations.length > 0) {
+            aiInsights.pricingRecommendations = aiInsights.pricingRecommendations.map(pricingRec => {
+                const matchingProduct = productPerformance.find(p => p.productName === pricingRec.productName);
+                return {
+                    ...pricingRec,
+                    productId: matchingProduct ? matchingProduct.productId : null
+                };
+            }).filter(p => p.productId);
+        }
+
+        // Add productId to stock alerts
+        if (aiInsights.stockAlerts && aiInsights.stockAlerts.length > 0) {
+            aiInsights.stockAlerts = aiInsights.stockAlerts.map(stockAlert => {
+                const matchingProduct = productPerformance.find(p => p.productName === stockAlert.productName);
+                return {
+                    ...stockAlert,
+                    productId: matchingProduct ? matchingProduct.productId : null
+                };
+            }).filter(p => p.productId);
+        }
+
         // Calculate actual profit summary
         const deliveredOrders = orders.filter(o => o.status === 'DELIVERED');
         const totalRevenue = deliveredOrders.reduce((sum, o) => sum + o.totalAmount, 0);

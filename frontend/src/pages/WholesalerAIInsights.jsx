@@ -433,7 +433,44 @@ const WholesalerAIInsights = () => {
                                                     <span className="text-sm text-gray-400">→</span>
                                                     <span className="text-sm font-semibold text-indigo-600 dark:text-indigo-400">₹{rec.suggestedPrice}</span>
                                                 </div>
-                                                <p className="text-xs text-gray-700 dark:text-gray-300">{rec.message || rec.reason}</p>
+                                                <p className="text-xs text-gray-700 dark:text-gray-300 mb-3">{rec.message || rec.reason}</p>
+                                                {rec.productId && (
+                                                    <button
+                                                        onClick={async () => {
+                                                            try {
+                                                                const token = localStorage.getItem('token');
+                                                                let API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+                                                                API_BASE_URL = API_BASE_URL.replace(/\/api$/, '');
+
+                                                                const response = await fetch(`${API_BASE_URL}/api/wholesalers/inventory/update`, {
+                                                                    method: 'POST',
+                                                                    headers: {
+                                                                        'Authorization': `Bearer ${token}`,
+                                                                        'Content-Type': 'application/json'
+                                                                    },
+                                                                    body: JSON.stringify({
+                                                                        productId: rec.productId,
+                                                                        pricePerUnit: rec.suggestedPrice
+                                                                    })
+                                                                });
+
+                                                                const result = await response.json();
+                                                                if (result.success) {
+                                                                    toast.success(`✅ Price updated to ₹${rec.suggestedPrice}!`);
+                                                                    fetchAIInsights();
+                                                                } else {
+                                                                    toast.error(result.message);
+                                                                }
+                                                            } catch (error) {
+                                                                toast.error('Failed to update price');
+                                                            }
+                                                        }}
+                                                        className="w-full flex items-center justify-center space-x-1 px-3 py-2 bg-indigo-600 text-white text-xs rounded-lg hover:bg-indigo-700 transition-colors"
+                                                    >
+                                                        <DollarSign className="h-4 w-4" />
+                                                        <span>Apply New Price</span>
+                                                    </button>
+                                                )}
                                             </div>
                                         ))}
                                     </div>
