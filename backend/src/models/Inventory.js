@@ -83,6 +83,10 @@ const inventorySchema = new mongoose.Schema({
     type: String,
     trim: true,
     maxlength: [255, 'Description cannot exceed 255 characters']
+  },
+  expiry_date: {
+    type: Date,
+    default: null
   }
 }, {
   timestamps: true,
@@ -120,6 +124,32 @@ inventorySchema.virtual('profitMargin').get(function() {
 // Virtual for low stock check
 inventorySchema.virtual('isLowStock').get(function() {
   return this.stock_qty <= this.min_stock_level; // Compare against user-defined minimum stock level
+});
+
+// Virtual for expiry status
+inventorySchema.virtual('expiryStatus').get(function() {
+  if (!this.expiry_date) return null;
+  
+  const now = new Date();
+  const expiryDate = new Date(this.expiry_date);
+  const daysUntilExpiry = Math.ceil((expiryDate - now) / (1000 * 60 * 60 * 24));
+  
+  if (daysUntilExpiry < 0) {
+    return { status: 'expired', daysUntilExpiry, severity: 'critical' };
+  } else if (daysUntilExpiry <= 7) {
+    return { status: 'expiring_soon', daysUntilExpiry, severity: 'high' };
+  } else if (daysUntilExpiry <= 30) {
+    return { status: 'expiring_this_month', daysUntilExpiry, severity: 'medium' };
+  } else {
+    return { status: 'fresh', daysUntilExpiry, severity: 'low' };
+  }
+});
+
+// Virtual for checking if item is expiring soon (within 7 days)
+inventorySchema.virtual('isExpiringSoon').get(function() {
+  if (!this.expiry_date) return false;
+  const expiryStatus = this.expiryStatus;
+  return expiryStatus && (expiryStatus.status === 'expiring_soon' || expiryStatus.status === 'expired');
 });
 
 module.exports = mongoose.model('Inventory', inventorySchema);

@@ -37,7 +37,11 @@ class OpenAIService {
   /**
    * Demand Forecasting Analysis
    */
-  async analyzeDemandForecast(salesData, inventoryData) {
+  async analyzeDemandForecast(salesData, inventoryData, expiringItems = []) {
+    const expiryContext = expiringItems.length > 0 
+      ? `\n\nEXPIRING ITEMS (within 30 days):\n${JSON.stringify(expiringItems, null, 2)}\n\n⚠️ CRITICAL: Include discount recommendations for expiring items to sell them fast!`
+      : '';
+
     const prompt = `
 You are a business analytics AI assistant. Analyze the following sales and inventory data to provide demand forecasting insights.
 
@@ -45,12 +49,13 @@ SALES DATA (Recent ${salesData.length} transactions):
 ${JSON.stringify(salesData, null, 2)}
 
 INVENTORY DATA (Current stock levels):
-${JSON.stringify(inventoryData, null, 2)}
+${JSON.stringify(inventoryData, null, 2)}${expiryContext}
 
 CRITICAL: Structure your response EXACTLY in this order:
 
 ## 🎯 Quick Actions
 List 3-5 immediate, actionable steps the retailer should take TODAY. Be specific with numbers and items.
+${expiringItems.length > 0 ? '- **URGENT**: Offer discounts on expiring items to sell them before expiry!' : ''}
 - Action 1
 - Action 2
 - Action 3
@@ -60,6 +65,7 @@ Provide key metrics and numbers:
 - Total Revenue: ₹X
 - Top Selling Item: [name]
 - Stock Alerts: X items
+${expiringItems.length > 0 ? `- ⚠️ Expiring Soon: ${expiringItems.length} items` : ''}
 
 ## 💡 Strategic Recommendations
 Provide 3-4 strategic insights for long-term growth:
@@ -71,6 +77,7 @@ Provide detailed forecasting:
 - **Top Selling Items**: List the top 5 items by sales volume and revenue
 - **Sales Trends**: Identify which products are trending up or down
 - **Stock Recommendations**: For each high-demand item, calculate recommended stock levels
+${expiringItems.length > 0 ? '- **Expiring Items Strategy**: Suggest discount percentages and promotional campaigns for items expiring soon' : ''}
 - **Reorder Points**: Suggest when to reorder based on current stock and sales velocity
 - **Demand Patterns**: Identify any patterns (daily, weekly trends)
 

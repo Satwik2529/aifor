@@ -33,7 +33,8 @@ const Inventory = () => {
         description: '',
         category: 'Other',
         min_stock_level: 5,
-        unit: 'piece' // NEW: Default to piece for backward compatibility
+        unit: 'piece', // NEW: Default to piece for backward compatibility
+        expiry_date: null
     });
 
     useEffect(() => {
@@ -110,7 +111,8 @@ const Inventory = () => {
                 description: '',
                 category: 'Other',
                 min_stock_level: 5,
-                unit: 'piece'
+                unit: 'piece',
+                expiry_date: null
             });
             fetchInventory();
         } catch (error) {
@@ -648,7 +650,8 @@ const Inventory = () => {
                                                             description: item.description || '',
                                                             category: item.category || '',
                                                             min_stock_level: item.min_stock_level || 0,
-                                                            unit: item.unit || 'piece'
+                                                            unit: item.unit || 'piece',
+                                                            expiry_date: item.expiry_date ? new Date(item.expiry_date).toISOString().split('T')[0] : null
                                                         });
                                                         setShowModal(true);
                                                     }}
@@ -1111,7 +1114,8 @@ const Inventory = () => {
                                             description: '',
                                             category: '',
                                             min_stock_level: 0,
-                                            unit: 'piece'
+                                            unit: 'piece',
+                                            expiry_date: null
                                         });
                                     }}
                                     className="text-gray-400 hover:text-gray-600"
@@ -1328,6 +1332,20 @@ const Inventory = () => {
                                         rows="3"
                                         placeholder="Item description (optional)"
                                     />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">Expiry Date (Optional)</label>
+                                    <input
+                                        type="date"
+                                        value={formData.expiry_date || ''}
+                                        onChange={(e) => setFormData({ ...formData, expiry_date: e.target.value })}
+                                        className="input-field"
+                                        min={new Date().toISOString().split('T')[0]}
+                                    />
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        Set expiry date for perishable items. AI will suggest discounts for items expiring soon.
+                                    </p>
                                 </div>
 
                                 <div className="flex justify-end gap-3 pt-4">

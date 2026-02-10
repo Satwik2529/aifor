@@ -254,8 +254,19 @@ const aiInsightsController = {
 
       // Get current inventory
       const inventoryData = await Inventory.find({ user_id: userId })
-        .select('item_name stock_qty price_per_unit min_stock_level category')
+        .select('item_name stock_qty price_per_unit min_stock_level category expiry_date')
         .lean();
+
+      // Check for expiring items
+      const now = new Date();
+      const expiringItems = inventoryData.filter(item => {
+        if (!item.expiry_date) return false;
+        const daysUntilExpiry = Math.ceil((new Date(item.expiry_date) - now) / (1000 * 60 * 60 * 24));
+        return daysUntilExpiry <= 30 && daysUntilExpiry >= 0;
+      }).map(item => ({
+        ...item,
+        daysUntilExpiry: Math.ceil((new Date(item.expiry_date) - now) / (1000 * 60 * 60 * 24))
+      }));
 
       if (salesData.length === 0) {
         return res.status(400).json({
@@ -265,7 +276,7 @@ const aiInsightsController = {
       }
 
       // Generate AI analysis using Gemini
-      const aiAnalysis = await geminiService.analyzeDemandForecast(salesData, inventoryData);
+      const aiAnalysis = await geminiService.analyzeDemandForecast(salesData, inventoryData, expiringItems);
 
       res.status(200).json({
         success: true,
@@ -275,6 +286,7 @@ const aiInsightsController = {
           metadata: {
             salesAnalyzed: salesData.length,
             inventoryItems: inventoryData.length,
+            expiringItems: expiringItems.length,
             periodDays: days,
             generatedAt: new Date()
           }
