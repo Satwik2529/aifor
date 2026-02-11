@@ -16,6 +16,7 @@ router.get('/orders/wholesaler', authenticateToken, wholesalerController.getWhol
 router.patch('/orders/:orderId/status', authenticateToken, wholesalerController.updateOrderStatus);
 router.get('/inventory/my', authenticateToken, wholesalerController.getMyInventory);
 router.post('/inventory/:action', authenticateToken, wholesalerController.manageInventory);
+router.post('/inventory/update', authenticateToken, wholesalerController.updateInventoryPrice);
 router.get('/ai-insights', authenticateToken, wholesalerController.getWholesalerAIInsights);
 router.post('/ai-assistant', authenticateToken, wholesalerController.aiInventoryAssistant);
 router.post('/send-campaign', authenticateToken, wholesalerController.sendAICampaign);

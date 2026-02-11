@@ -23,7 +23,7 @@ import { useTranslation } from 'react-i18next';
 
 const AIInsights = () => {
     const { t } = useTranslation();
-    
+
     // Chart colors
     const CHART_COLORS = {
         blue: ['#3b82f6', '#60a5fa', '#93c5fd', '#bfdbfe', '#dbeafe', '#eff6ff'],
@@ -33,7 +33,7 @@ const AIInsights = () => {
         red: ['#ef4444', '#f87171', '#fca5a5', '#fecaca', '#fee2e2', '#fef2f2'],
         pink: ['#ec4899', '#f472b6', '#f9a8d4', '#fbcfe8', '#fce7f3', '#fdf2f8']
     };
-    
+
     const [activeTab, setActiveTab] = useState('demand');
     const [loading, setLoading] = useState({
         demand: false,
@@ -54,7 +54,26 @@ const AIInsights = () => {
         festival: null
     });
     const [exportingPDF, setExportingPDF] = useState(false);
-    
+
+    // Load cached insights on mount
+    React.useEffect(() => {
+        const cachedInsights = localStorage.getItem('retailer_ai_insights');
+        const cacheTimestamp = localStorage.getItem('retailer_ai_insights_timestamp');
+
+        if (cachedInsights && cacheTimestamp) {
+            try {
+                const parsed = JSON.parse(cachedInsights);
+                const cacheAge = Date.now() - parseInt(cacheTimestamp);
+                // Use cache if less than 1 hour old
+                if (cacheAge < 3600000) {
+                    setInsights(parsed);
+                }
+            } catch (e) {
+                console.error('Failed to parse cached insights:', e);
+            }
+        }
+    }, []);
+
     // Chart data state
     const [chartData, setChartData] = useState({
         salesTrend: [],
@@ -64,7 +83,7 @@ const AIInsights = () => {
         expenseTrend: [],
         expenseByCategory: []
     });
-    
+
     // Refs for PDF export
     const demandRef = useRef(null);
     const revenueRef = useRef(null);
@@ -125,7 +144,12 @@ const AIInsights = () => {
             }
 
             if (response.success) {
-                setInsights(prev => ({ ...prev, [type]: response.data || response }));
+                const newInsights = { ...insights, [type]: response.data || response };
+                setInsights(newInsights);
+
+                // Cache the insights
+                localStorage.setItem('retailer_ai_insights', JSON.stringify(newInsights));
+                localStorage.setItem('retailer_ai_insights_timestamp', Date.now().toString());
             } else {
                 throw new Error(response.message || 'Failed to generate insights');
             }
@@ -142,7 +166,7 @@ const AIInsights = () => {
 
     const exportToPDF = async (type) => {
         setExportingPDF(true);
-        
+
         try {
             // Get the ref based on type
             let contentRef;
@@ -179,16 +203,16 @@ const AIInsights = () => {
                 margin: [10, 10, 10, 10],
                 filename: fileName,
                 image: { type: 'jpeg', quality: 0.98 },
-                html2canvas: { 
+                html2canvas: {
                     scale: 2,
                     useCORS: true,
                     letterRendering: true,
                     logging: false,
                     backgroundColor: '#ffffff'
                 },
-                jsPDF: { 
-                    unit: 'mm', 
-                    format: 'a4', 
+                jsPDF: {
+                    unit: 'mm',
+                    format: 'a4',
                     orientation: 'portrait',
                     compress: true
                 },
@@ -197,16 +221,16 @@ const AIInsights = () => {
 
             // Generate PDF
             await html2pdf().set(opt).from(contentRef.current).save();
-            
+
             // Hide PDF header again
             if (pdfHeader) {
                 pdfHeader.style.display = 'none';
             }
-            
+
         } catch (error) {
             console.error('Error exporting PDF:', error);
             alert('Failed to export PDF. Please try again.');
-            
+
             // Make sure to hide header on error too
             const contentRef = type === 'demand' ? demandRef : type === 'revenue' ? revenueRef : expenseRef;
             const pdfHeader = contentRef.current?.querySelector('.pdf-header');
@@ -223,13 +247,13 @@ const AIInsights = () => {
         try {
             // Import api from services
             const { salesAPI, inventoryAPI, expensesAPI } = await import('../services/api');
-            
+
             // Fetch sales data for demand charts
             const salesResponse = await salesAPI.getSales({ limit: 100 });
             if (salesResponse.success && salesResponse.data) {
                 processSalesChartData(salesResponse.data);
             }
-            
+
             // Fetch expenses data for expense charts
             const expensesResponse = await expensesAPI.getExpenses({ limit: 100 });
             if (expensesResponse.success && expensesResponse.data) {
@@ -246,36 +270,36 @@ const AIInsights = () => {
         const salesByDate = {};
         const productSales = {};
         const categoryRevenue = {};
-        
+
         sales.forEach(sale => {
             const date = new Date(sale.createdAt).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' });
             salesByDate[date] = (salesByDate[date] || 0) + sale.total_amount;
-            
+
             // Track product sales
             if (sale.items && Array.isArray(sale.items)) {
                 sale.items.forEach(item => {
                     productSales[item.item_name] = (productSales[item.item_name] || 0) + item.quantity;
-                    
+
                     // Track category revenue
                     const category = item.category || 'Other';
                     categoryRevenue[category] = (categoryRevenue[category] || 0) + (item.price_per_unit * item.quantity);
                 });
             }
         });
-        
+
         // Convert to chart format
         const salesTrend = Object.entries(salesByDate)
             .slice(-30)
             .map(([date, amount]) => ({ date, revenue: Math.round(amount) }));
-        
+
         const topProducts = Object.entries(productSales)
             .sort((a, b) => b[1] - a[1])
             .slice(0, 10)
             .map(([name, quantity]) => ({ name: name.length > 15 ? name.substring(0, 15) + '...' : name, quantity }));
-        
+
         const revenueByCategory = Object.entries(categoryRevenue)
             .map(([name, value]) => ({ name, value: Math.round(value) }));
-        
+
         setChartData(prev => ({
             ...prev,
             salesTrend,
@@ -289,22 +313,22 @@ const AIInsights = () => {
     const processExpenseChartData = (expenses) => {
         const expensesByDate = {};
         const expensesByCategory = {};
-        
+
         expenses.forEach(expense => {
             const date = new Date(expense.createdAt).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' });
             expensesByDate[date] = (expensesByDate[date] || 0) + expense.amount;
-            
+
             const category = expense.category || 'Other';
             expensesByCategory[category] = (expensesByCategory[category] || 0) + expense.amount;
         });
-        
+
         const expenseTrend = Object.entries(expensesByDate)
             .slice(-30)
             .map(([date, amount]) => ({ date, amount: Math.round(amount) }));
-        
+
         const expenseByCategory = Object.entries(expensesByCategory)
             .map(([name, value]) => ({ name, value: Math.round(value) }));
-        
+
         setChartData(prev => ({
             ...prev,
             expenseTrend,
@@ -432,8 +456,8 @@ const AIInsights = () => {
         }
 
         // Parse the festival data from chatbot response
-        const forecast = festivalData.tools_used?.includes('getFestivalDemandForecast') 
-            ? festivalData.results?.getFestivalDemandForecast 
+        const forecast = festivalData.tools_used?.includes('getFestivalDemandForecast')
+            ? festivalData.results?.getFestivalDemandForecast
             : null;
 
         if (!forecast || !forecast.has_forecast) {
@@ -558,11 +582,10 @@ const AIInsights = () => {
                                             <p className="text-xs text-gray-600 mb-2">
                                                 {item.reasoning}
                                             </p>
-                                            <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${
-                                                item.action.includes('Restock') 
-                                                    ? 'bg-red-100 text-red-800' 
-                                                    : 'bg-blue-100 text-blue-800'
-                                            }`}>
+                                            <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${item.action.includes('Restock')
+                                                ? 'bg-red-100 text-red-800'
+                                                : 'bg-blue-100 text-blue-800'
+                                                }`}>
                                                 {item.action}
                                             </span>
                                         </div>
@@ -709,7 +732,7 @@ const AIInsights = () => {
                                     <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                                     <XAxis dataKey="date" tick={{ fontSize: 11 }} stroke="#6b7280" />
                                     <YAxis tick={{ fontSize: 11 }} stroke="#6b7280" />
-                                    <Tooltip 
+                                    <Tooltip
                                         contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px' }}
                                         formatter={(value) => [`₹${value}`, 'Revenue']}
                                     />
@@ -729,7 +752,7 @@ const AIInsights = () => {
                                     <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                                     <XAxis type="number" tick={{ fontSize: 11 }} stroke="#6b7280" />
                                     <YAxis dataKey="name" type="category" width={100} tick={{ fontSize: 10 }} stroke="#6b7280" />
-                                    <Tooltip 
+                                    <Tooltip
                                         contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px' }}
                                         formatter={(value) => [value, 'Quantity']}
                                     />
@@ -753,7 +776,7 @@ const AIInsights = () => {
                                     <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                                     <XAxis dataKey="date" tick={{ fontSize: 11 }} stroke="#6b7280" />
                                     <YAxis tick={{ fontSize: 11 }} stroke="#6b7280" />
-                                    <Tooltip 
+                                    <Tooltip
                                         contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px' }}
                                         formatter={(value) => [`₹${value}`, 'Revenue']}
                                     />
@@ -804,7 +827,7 @@ const AIInsights = () => {
                                     <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                                     <XAxis dataKey="date" tick={{ fontSize: 11 }} stroke="#6b7280" />
                                     <YAxis tick={{ fontSize: 11 }} stroke="#6b7280" />
-                                    <Tooltip 
+                                    <Tooltip
                                         contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px' }}
                                         formatter={(value) => [`₹${value}`, 'Expense']}
                                     />
@@ -885,7 +908,7 @@ const AIInsights = () => {
                                 .filter(line => line.trim().startsWith('-'))
                                 .map(line => line.replace(/^-\s*/, '').trim())
                                 .slice(0, 3);
-                            
+
                             if (actions.length > 0) {
                                 return (
                                     <div className="mb-6 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/30 dark:to-emerald-900/30 border-2 border-green-400 dark:border-green-600 rounded-xl p-6 shadow-lg animate-slideInLeft">
@@ -920,7 +943,7 @@ const AIInsights = () => {
                                     const text = children?.toString() || '';
                                     let colorClass = 'text-gray-900 dark:text-white';
                                     let bgClass = 'bg-gray-100 dark:bg-gray-700/40';
-                                    
+
                                     if (text.includes('🎯')) {
                                         colorClass = 'text-green-700 dark:text-green-300';
                                         bgClass = 'bg-green-100 dark:bg-green-900/40';
@@ -934,7 +957,7 @@ const AIInsights = () => {
                                         colorClass = 'text-indigo-700 dark:text-indigo-300';
                                         bgClass = 'bg-indigo-100 dark:bg-indigo-900/40';
                                     }
-                                    
+
                                     return (
                                         <h2 className={`text-xl font-bold ${colorClass} ${bgClass} mt-6 mb-3 p-3 rounded-lg border-l-4 ${text.includes('🎯') ? 'border-green-500' : text.includes('💰') ? 'border-yellow-500' : text.includes('💡') ? 'border-purple-500' : 'border-indigo-500'}`} {...props}>
                                             {children}
@@ -949,19 +972,19 @@ const AIInsights = () => {
                                     const text = children?.toString() || '';
                                     let className = 'text-gray-700 dark:text-gray-300 pl-2';
                                     let boxClass = '';
-                                    
+
                                     if (text.toLowerCase().includes('action') || text.toLowerCase().includes('restock') || text.toLowerCase().includes('order')) {
                                         boxClass = 'bg-green-50 dark:bg-green-900/30 border-l-4 border-green-500 pl-3 py-1 my-1 rounded';
                                     } else if (text.toLowerCase().includes('urgent') || text.toLowerCase().includes('critical') || text.toLowerCase().includes('alert')) {
                                         boxClass = 'bg-red-50 dark:bg-red-900/30 border-l-4 border-red-500 pl-3 py-1 my-1 rounded';
                                     }
-                                    
+
                                     return <li className={`${className} ${boxClass}`} {...props}>{children}</li>;
                                 },
                                 strong: ({ node, children, ...props }) => {
                                     const text = children?.toString() || '';
                                     let highlightClass = 'font-semibold text-gray-900 dark:text-white';
-                                    
+
                                     if (text.match(/₹[\d,]+/)) {
                                         highlightClass = 'font-bold text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/40 px-1 rounded';
                                     } else if (text.match(/\d+%/)) {
@@ -969,7 +992,7 @@ const AIInsights = () => {
                                     } else if (text.toLowerCase().includes('high') || text.toLowerCase().includes('top')) {
                                         highlightClass = 'font-bold text-purple-600 dark:text-purple-400 bg-purple-100 dark:bg-purple-900/40 px-1 rounded';
                                     }
-                                    
+
                                     return <strong className={highlightClass} {...props}>{children}</strong>;
                                 },
                                 code: ({ node, inline, ...props }) =>

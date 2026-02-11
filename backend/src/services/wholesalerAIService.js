@@ -30,10 +30,24 @@ const getWholesalerAIInsights = async (wholesalerId) => {
             const avgOrdersPerWeek = (productOrders.length / 4).toFixed(1);
             const stockTurnoverRate = product.availableQty > 0 ? (totalSold / product.availableQty * 100).toFixed(1) : 0;
 
+            // Better movement classification based on actual sales
             let movementSpeed = 'slow', urgency = 'low';
-            if (avgOrdersPerWeek >= 3) { movementSpeed = 'fast'; urgency = 'low'; }
-            else if (avgOrdersPerWeek >= 1) { movementSpeed = 'medium'; urgency = 'medium'; }
-            else { movementSpeed = 'slow'; urgency = 'high'; }
+
+            // Fast moving: 3+ orders per week OR high turnover rate
+            if (avgOrdersPerWeek >= 3 || stockTurnoverRate >= 50) {
+                movementSpeed = 'fast';
+                urgency = 'low';
+            }
+            // Medium moving: 1-3 orders per week OR moderate turnover
+            else if (avgOrdersPerWeek >= 1 || (stockTurnoverRate >= 20 && stockTurnoverRate < 50)) {
+                movementSpeed = 'medium';
+                urgency = 'medium';
+            }
+            // Slow moving: Less than 1 order per week AND low turnover
+            else if (avgOrdersPerWeek < 1 && stockTurnoverRate < 20) {
+                movementSpeed = 'slow';
+                urgency = 'high';
+            }
 
             const stockStatus = product.availableQty < product.minOrderQty * 2 ? 'low' :
                 product.availableQty > product.minOrderQty * 10 ? 'high' : 'normal';
@@ -81,35 +95,54 @@ ${JSON.stringify(retailerAnalysis, null, 2)}
 Provide insights in JSON format with these keys:
 
 1. slowMovingProducts: array of {productName, message (simple 1 sentence), actionType ("discount"|"campaign"|"remove"), urgency, suggestedDiscount}
-   - ONLY include products with movementSpeed === "slow"
-   - Do NOT include products that are in fastMovingProducts
+   - ONLY include products with ACTUAL POOR SALES: avgOrdersPerWeek < 0.5 AND stockTurnoverRate < 15
+   - Do NOT include products with "normal stock; monitor sales" or "steady sales"
+   - Do NOT include products that are just overstocked but selling normally
+   - These must be products that are NOT SELLING and need urgent discounts
+   - Message should clearly state the sales problem (e.g., "Very low sales, only X orders in 30 days")
 
-2. fastMovingProducts: array of {productName, message (simple 1 sentence), actionType ("restock"|"increase_price"), currentStock}
-   - ONLY include products with movementSpeed === "fast"
-   - Do NOT include products that are in slowMovingProducts
+2. fastMovingProducts: array of {productName, message (simple 1 sentence), actionType ("restock"|"increase_price"), currentStock, suggestedRestockQty}
+   - ONLY include products with movementSpeed === "fast" (avgOrdersPerWeek >= 3 OR stockTurnoverRate >= 50)
+   - These are HIGH DEMAND products selling well
+   - Calculate suggestedRestockQty based on avgOrdersPerWeek * 4 (one month supply)
 
-3. expiryAlerts: array of {productName, daysLeft, message (simple), actionType ("urgent_campaign"|"discount"), suggestedDiscount, campaignMessage}
+3. restockRecommendations: array of {productName, currentStock, avgWeeklySales, suggestedRestockQty, message, urgency}
+   - Include products with movementSpeed === "medium" or "fast" AND stockStatus === "low"
+   - These have steady/good sales but need more inventory
+   - Calculate suggestedRestockQty = avgOrdersPerWeek * 4 weeks (one month supply)
+   - Message should say "Restock needed - selling X units/week"
 
-4. personalizedOffers: array of {retailerName, retailerId, productName, message, discount, campaignMessage}
+4. expiryAlerts: array of {productName, daysLeft, message (simple), actionType ("urgent_campaign"|"discount"), suggestedDiscount, campaignMessage}
+   - Products expiring within 30 days
+   - Higher discount for products expiring sooner (7 days = 30%, 15 days = 20%, 30 days = 15%)
+
+5. personalizedOffers: array of {retailerName, retailerId, productName, message, discount, campaignMessage}
    - Consider retailer location and buying patterns
    - Target retailers who haven't ordered recently
 
-5. pricingRecommendations: array of {productName, currentPrice, suggestedPrice, message, reason}
+6. pricingRecommendations: array of {productName, currentPrice, suggestedPrice, message, reason}
+   - For products with good sales that can support higher prices
+   - For products with very low margins that need price adjustment
 
-6. stockAlerts: array of {productName, status, message, actionType ("buy_more"|"reduce_price")}
+7. stockAlerts: array of {productName, status, message, actionType ("buy_more"|"reduce_price")}
+   - For products with stockStatus === "high" but movementSpeed === "medium" (overstocked but selling)
+   - Message should explain: "Overstocked - X units, selling Y/week, will take Z weeks to clear"
 
-7. overallHealth: {score (0-100), message}
+8. overallHealth: {score (0-100), message}
 
-8. profitSummary: {totalRevenue, totalCost, netProfit, profitMargin, message}
+9. profitSummary: {totalRevenue, totalCost, netProfit, profitMargin, message}
 
-RULES:
+CRITICAL RULES:
 - Use SIMPLE language
 - Keep messages under 20 words
 - Focus on WHAT TO DO
-- A product can ONLY be in slowMovingProducts OR fastMovingProducts, NEVER both
-- For expiry products, create urgent campaigns
-- Calculate profit from cost vs selling price
-- Consider retailer location and buying patterns for personalized offers`;
+- slowMovingProducts = ONLY products with avgOrdersPerWeek < 0.5 AND stockTurnoverRate < 15 (VERY POOR SALES)
+- Do NOT put products with "normal stock" or "monitor sales" in slowMovingProducts
+- fastMovingProducts = ONLY products with avgOrdersPerWeek >= 3 OR stockTurnoverRate >= 50
+- restockRecommendations = Products with good/steady sales but low stock
+- Products with just high stock but normal sales go to stockAlerts, NOT slowMovingProducts
+- Consider expiry dates - products expiring soon should be in expiryAlerts, not slowMovingProducts
+- Calculate profit from cost vs selling price`;
 
         const completion = await openai.chat.completions.create({
             model: "gpt-4o-mini",
@@ -133,6 +166,36 @@ RULES:
             aiInsights.fastMovingProducts = aiInsights.fastMovingProducts.filter(p => !slowProductNames.has(p.productName));
         }
 
+        // CRITICAL: Filter slow-moving products to only include truly slow ones
+        if (aiInsights.slowMovingProducts && aiInsights.slowMovingProducts.length > 0) {
+            aiInsights.slowMovingProducts = aiInsights.slowMovingProducts.filter(slowProduct => {
+                const perfData = productPerformance.find(p => p.productName === slowProduct.productName);
+                // VERY STRICT: Only include if avgOrdersPerWeek < 0.5 AND stockTurnoverRate < 15
+                // This means VERY POOR sales, not just low stock
+                if (!perfData) return false;
+
+                // Check if product is expiring soon - if yes, it should be in expiryAlerts, not here
+                const product = inventory.find(p => p._id.toString() === perfData.productId.toString());
+                if (product && product.expiryDate) {
+                    const daysUntilExpiry = Math.floor((new Date(product.expiryDate) - new Date()) / (1000 * 60 * 60 * 24));
+                    if (daysUntilExpiry > 0 && daysUntilExpiry <= 30) {
+                        return false; // Should be in expiry alerts instead
+                    }
+                }
+
+                return perfData.avgOrdersPerWeek < 0.5 && perfData.stockTurnoverRate < 15;
+            });
+        }
+
+        // CRITICAL: Filter fast-moving products to only include truly fast ones
+        if (aiInsights.fastMovingProducts && aiInsights.fastMovingProducts.length > 0) {
+            aiInsights.fastMovingProducts = aiInsights.fastMovingProducts.filter(fastProduct => {
+                const perfData = productPerformance.find(p => p.productName === fastProduct.productName);
+                // Only include if avgOrdersPerWeek >= 3 OR stockTurnoverRate >= 50
+                return perfData && perfData.movementSpeed === 'fast' && (perfData.avgOrdersPerWeek >= 3 || perfData.stockTurnoverRate >= 50);
+            });
+        }
+
         // Add productId to slow-moving products for action buttons
         if (aiInsights.slowMovingProducts && aiInsights.slowMovingProducts.length > 0) {
             aiInsights.slowMovingProducts = aiInsights.slowMovingProducts.map(slowProduct => {
@@ -150,7 +213,21 @@ RULES:
                 const matchingProduct = productPerformance.find(p => p.productName === fastProduct.productName);
                 return {
                     ...fastProduct,
-                    productId: matchingProduct ? matchingProduct.productId : null
+                    productId: matchingProduct ? matchingProduct.productId : null,
+                    suggestedRestockQty: matchingProduct ? Math.ceil(matchingProduct.avgOrdersPerWeek * 4) : null
+                };
+            }).filter(p => p.productId);
+        }
+
+        // Add productId to restock recommendations
+        if (aiInsights.restockRecommendations && aiInsights.restockRecommendations.length > 0) {
+            aiInsights.restockRecommendations = aiInsights.restockRecommendations.map(restockRec => {
+                const matchingProduct = productPerformance.find(p => p.productName === restockRec.productName);
+                return {
+                    ...restockRec,
+                    productId: matchingProduct ? matchingProduct.productId : null,
+                    suggestedRestockQty: restockRec.suggestedRestockQty || (matchingProduct ? Math.ceil(matchingProduct.avgOrdersPerWeek * 4) : null),
+                    avgWeeklySales: matchingProduct ? matchingProduct.avgOrdersPerWeek : null
                 };
             }).filter(p => p.productId);
         }

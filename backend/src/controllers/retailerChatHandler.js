@@ -7,7 +7,7 @@ const OpenAI = require('openai');
 const { normalize, isValidQuantity } = require('../utils/quantityHelper');
 
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
+    apiKey: process.env.OPENAI_API_KEY
 });
 const pendingOrders = new Map();
 
@@ -31,19 +31,19 @@ const handleRetailerChat = async (userId, message, language) => {
 
         // Get comprehensive business data
         const businessData = await getBusinessData(userId);
-        
+
         // Use enhanced AI to understand and process the request
         const aiResponse = await processRetailerRequest(message, businessData, language);
-        
+
         // Execute the determined action (pass original message for auto-confirm detection and language)
         return await executeAction(userId, aiResponse, businessData, message, language);
 
     } catch (error) {
         console.error('Retailer chat error:', error);
-        return { 
-            success: false, 
-            message: "I encountered an error processing your request. Please try again or be more specific.", 
-            data: null 
+        return {
+            success: false,
+            message: "I encountered an error processing your request. Please try again or be more specific.",
+            data: null
         };
     }
 };
@@ -117,12 +117,12 @@ const getBusinessData = async (userId) => {
  */
 const parseMessageFallback = (message) => {
     const lowerMessage = message.toLowerCase();
-    
+
     // Inventory addition patterns
     if (lowerMessage.includes('add') && (lowerMessage.includes('item') || lowerMessage.includes('inventory') || lowerMessage.includes('product'))) {
         // Enhanced regex patterns to handle various message formats
         let itemMatch, quantityMatch, costMatch, sellingMatch, categoryMatch;
-        
+
         // Pattern 1: "add a item to inventory laptop under electronics category"
         const pattern1 = /add.*?(?:item|product).*?(?:to\s+)?inventory\s+([^,\s]+).*?under\s+([^,\s]+)\s+category/i;
         const match1 = message.match(pattern1);
@@ -130,7 +130,7 @@ const parseMessageFallback = (message) => {
             itemMatch = [null, match1[1]];
             categoryMatch = [null, match1[2]];
         }
-        
+
         // Pattern 2: "add a item to inventory of 100 keyboards each of 100 rupee and selling price 200 and electronics category"
         const pattern2 = /add.*?(?:item|product).*?inventory.*?of\s+(\d+)\s+([^,\s]+).*?each.*?of\s+(\d+).*?rupee.*?selling.*?price\s+(\d+).*?and\s+([^,\s]+)\s+category/i;
         const match2 = message.match(pattern2);
@@ -141,33 +141,33 @@ const parseMessageFallback = (message) => {
             sellingMatch = [null, match2[4]];
             categoryMatch = [null, match2[5]];
         }
-        
+
         // Fallback patterns for individual components
         if (!itemMatch) {
-            itemMatch = message.match(/add.*?(?:item|product).*?:?\s*([^,]+)/i) || 
-                       message.match(/inventory\s+([^,\s]+)/i) ||
-                       message.match(/(\w+)\s+under/i);
+            itemMatch = message.match(/add.*?(?:item|product).*?:?\s*([^,]+)/i) ||
+                message.match(/inventory\s+([^,\s]+)/i) ||
+                message.match(/(\w+)\s+under/i);
         }
         if (!quantityMatch) {
             quantityMatch = message.match(/(\d+)\s*(?:pieces?|units?|items?|keyboards?|laptops?)/i) ||
-                           message.match(/of\s+(\d+)\s+/i);
+                message.match(/of\s+(\d+)\s+/i);
         }
         if (!costMatch) {
             costMatch = message.match(/cost.*?₹?(\d+)/i) ||
-                       message.match(/each.*?of\s+(\d+)/i) ||
-                       message.match(/(\d+).*?rupee/i);
+                message.match(/each.*?of\s+(\d+)/i) ||
+                message.match(/(\d+).*?rupee/i);
         }
         if (!sellingMatch) {
             sellingMatch = message.match(/selling.*?price\s+(\d+)/i) ||
-                          message.match(/price.*?₹?(\d+)/i) ||
-                          message.match(/selling.*?₹?(\d+)/i);
+                message.match(/price.*?₹?(\d+)/i) ||
+                message.match(/selling.*?₹?(\d+)/i);
         }
         if (!categoryMatch) {
             categoryMatch = message.match(/category\s+([^,\n]+)/i) ||
-                           message.match(/under\s+([^,\s]+)/i) ||
-                           message.match(/and\s+([^,\s]+)\s+category/i);
+                message.match(/under\s+([^,\s]+)/i) ||
+                message.match(/and\s+([^,\s]+)\s+category/i);
         }
-        
+
         // Enhanced category mapping with more variations
         let validCategory = "Other";
         if (categoryMatch) {
@@ -206,7 +206,7 @@ const parseMessageFallback = (message) => {
             };
             validCategory = categoryMap[categoryInput] || 'Other';
         }
-        
+
         // Check if we have enough information
         if (itemMatch && quantityMatch && costMatch && sellingMatch) {
             return {
@@ -224,7 +224,7 @@ const parseMessageFallback = (message) => {
             if (!quantityMatch) missing.push("quantity");
             if (!costMatch) missing.push("cost_price");
             if (!sellingMatch) missing.push("selling_price");
-            
+
             return {
                 action: "clarify",
                 missing: missing,
@@ -238,7 +238,7 @@ const parseMessageFallback = (message) => {
             };
         }
     }
-    
+
     // Sales patterns
     if (lowerMessage.includes('bill') || lowerMessage.includes('sale') || lowerMessage.includes('sell')) {
         return {
@@ -247,7 +247,7 @@ const parseMessageFallback = (message) => {
             response: "To create a sale, please specify: items to sell, quantities, and customer name (optional). Example: 'Bill 2 chocolates for John'"
         };
     }
-    
+
     // Expense patterns
     if (lowerMessage.includes('expense') || lowerMessage.includes('cost') || lowerMessage.includes('spent')) {
         return {
@@ -256,7 +256,7 @@ const parseMessageFallback = (message) => {
             response: "To add an expense, I need: description, amount, and category. Example: 'Add expense: Office rent ₹5000, category Rent'"
         };
     }
-    
+
     // Insights patterns
     if (lowerMessage.includes('sales') || lowerMessage.includes('profit') || lowerMessage.includes('revenue') || lowerMessage.includes('report')) {
         return {
@@ -265,7 +265,7 @@ const parseMessageFallback = (message) => {
             response: "Here's your business overview with key metrics and recommendations."
         };
     }
-    
+
     return null;
 };
 
@@ -277,19 +277,22 @@ const processRetailerRequest = async (message, businessData, language) => {
     const languageNames = {
         'en': 'English',
         'hi': 'Hindi (हिंदी)',
-        'te': 'Telugu (తెలుగు)'
+        'te': 'Telugu (తెలుగు)',
+        'ta': 'Tamil (தமிழ்)',
+        'kn': 'Kannada (ಕನ್ನಡ)'
     };
-    
+
     const languageName = languageNames[language] || 'English';
-    
+
     const prompt = `
-You are an advanced business assistant for a retail store. Analyze this request: "${message}"
+You are an advanced business assistant for a retail store in India. Analyze this request: "${message}"
 
 CRITICAL LANGUAGE INSTRUCTION:
 - User's language preference: ${languageName}
 - You MUST respond in ${languageName} language ONLY
 - All text in the "response" field must be in ${languageName}
-- Numbers, currency symbols (₹), and JSON structure remain the same
+- ALWAYS use ₹ (Rupee symbol), NEVER use $ (Dollar)
+- Numbers and JSON structure remain the same
 - Item names from inventory can stay in their original language
 
 CURRENT BUSINESS STATUS:
@@ -303,10 +306,10 @@ CURRENT BUSINESS STATUS:
 - Monthly Revenue: ₹${businessData.metrics.monthlyRevenue}
 
 📦 INVENTORY STATUS (${businessData.inventory.length} items):
-${businessData.inventory.slice(0, 10).map(item => 
-    `${item.item_name}: ${item.stock_qty} units @ ₹${item.price_per_unit} (cost: ₹${item.cost_per_unit || 0})`
-).join('\n')}
-${businessData.inventory.length > 10 ? `... and ${businessData.inventory.length - 10} more items` : ''}
+${businessData.inventory.slice(0, 15).map(item =>
+        `${item.item_name}: ${item.stock_qty} units @ ₹${item.price_per_unit} (cost: ₹${item.cost_per_unit || 0})`
+    ).join('\n')}
+${businessData.inventory.length > 15 ? `... and ${businessData.inventory.length - 15} more items` : ''}
 
 ⚠️ STOCK ALERTS:
 - Low Stock: ${businessData.metrics.lowStockCount} items
@@ -314,14 +317,14 @@ ${businessData.inventory.length > 10 ? `... and ${businessData.inventory.length 
 ${businessData.lowStockItems.slice(0, 5).map(item => `  • ${item.item_name}: ${item.stock_qty} left`).join('\n')}
 
 💰 RECENT SALES (${businessData.sales.length}):
-${businessData.sales.slice(0, 3).map(sale => 
-    `₹${sale.total_amount} - ${sale.items?.length || 0} items (${new Date(sale.createdAt).toLocaleDateString()})`
-).join('\n')}
+${businessData.sales.slice(0, 5).map(sale =>
+        `₹${sale.total_amount} - ${sale.items?.length || 0} items (${new Date(sale.createdAt).toLocaleDateString()})`
+    ).join('\n')}
 
 💸 RECENT EXPENSES (${businessData.expenses.length}):
-${businessData.expenses.slice(0, 3).map(expense => 
-    `₹${expense.amount} - ${expense.description} (${expense.category})`
-).join('\n')}
+${businessData.expenses.slice(0, 5).map(expense =>
+        `₹${expense.amount} - ${expense.description} (${expense.category})`
+    ).join('\n')}
 
 📋 PENDING ORDERS: ${businessData.metrics.pendingOrders}
 
@@ -340,45 +343,54 @@ FOR UPDATING INVENTORY:
 FOR ADDING EXPENSE:
 {"action": "add_expense", "description": "description", "amount": number, "category": "Rent|Utilities|Supplies|Marketing|Transportation|Equipment|Maintenance|Insurance|Professional Services|Other", "is_sales_expense": boolean}
 
-FOR BUSINESS INSIGHTS/ANALYTICS:
-{"action": "insights", "type": "sales|inventory|expenses|profit|overview", "response": "detailed_analysis_with_specific_numbers_and_recommendations"}
+FOR BUSINESS INSIGHTS/ANALYTICS (when user asks about sales, profit, inventory status, etc.):
+{"action": "insights", "type": "sales|inventory|expenses|profit|overview", "response": "MUST be in ${languageName} with specific numbers from business data above. Be conversational and helpful, not generic. Use ₹ symbol."}
+
+CRITICAL FOR INSIGHTS:
+- If user asks about today's sales and todayRevenue is 0, mention ACTUAL inventory items they can sell
+- If asking about profit, show REAL numbers from metrics above
+- If asking about inventory, list ACTUAL items with stock levels
+- Be specific, helpful, and actionable - NOT generic
+- ALWAYS use ₹ symbol, NEVER $
 
 FOR MISSING INFORMATION:
-{"action": "clarify", "missing": ["field1", "field2"], "response": "ask_for_specific_missing_information"}
+{"action": "clarify", "missing": ["field1", "field2"], "response": "ask_for_specific_missing_information_in_${languageName}"}
 
 FOR UNCLEAR REQUESTS:
-{"action": "help", "response": "helpful_guidance_on_what_i_can_do"}
+{"action": "help", "response": "helpful_guidance_in_${languageName}_about_what_i_can_do"}
 
 IMPORTANT RULES:
 1. Use EXACT item names from inventory for sales/updates
-2. For insights, provide specific numbers and actionable recommendations
-3. If information is missing, ask for clarification
+2. For insights, provide SPECIFIC numbers from the business data above - NOT generic responses
+3. If information is missing, ask for clarification in ${languageName}
 4. For sales, validate stock availability
-5. Suggest improvements based on current metrics
+5. Suggest improvements based on ACTUAL current metrics
+6. ALWAYS use ₹ (Rupee), NEVER $ (Dollar)
+7. Be conversational and helpful, not robotic
 
 Return ONLY valid JSON, no markdown or extra text.
 `;
 
     try {
         const completion = await openai.chat.completions.create({
-          model: 'gpt-4o-mini',
-          messages: [{ role: 'user', content: prompt }],
-          temperature: 0.3,
-          max_tokens: 1000,
-          response_format: { type: "json_object" }
+            model: 'gpt-4o-mini',
+            messages: [{ role: 'user', content: prompt }],
+            temperature: 0.3,
+            max_tokens: 1000,
+            response_format: { type: "json_object" }
         });
-        
+
         const responseText = completion.choices[0].message.content.trim();
         return JSON.parse(responseText);
     } catch (error) {
         console.error('AI processing error:', error);
-        
+
         // Fallback: Try to parse the message manually for common patterns
         const fallbackResponse = parseMessageFallback(message);
         if (fallbackResponse) {
             return fallbackResponse;
         }
-        
+
         return {
             action: "help",
             response: "I can help you with sales, inventory management, expense tracking, and business insights. What would you like to do?"
@@ -393,10 +405,10 @@ const executeAction = async (userId, aiResponse, businessData, originalMessage, 
     try {
         // Check if message contains "make bill" or similar direct commands
         const directBillCommands = ['make bill', 'create bill', 'bill for', 'make sale', 'create sale'];
-        const isDirectBillCommand = directBillCommands.some(cmd => 
+        const isDirectBillCommand = directBillCommands.some(cmd =>
             originalMessage.toLowerCase().includes(cmd)
         );
-        
+
         switch (aiResponse.action) {
             case 'create_sale':
                 // Auto-confirm if it's a direct "make bill" command
@@ -473,9 +485,9 @@ const handleCancellation = async (userId) => {
             'hi': "रद्द करने के लिए कोई लंबित ऑपरेशन नहीं है। मैं आपकी और कैसे मदद कर सकता हूं?",
             'te': "రద్దు చేయడానికి పెండింగ్ ఆపరేషన్ లేదు. నేను మీకు ఇంకా ఎలా సహాయం చేయగలను?"
         };
-        
+
         const language = pendingOperation?.language || 'en';
-        
+
         return {
             success: true,
             message: messages[language] || messages['en'],
@@ -484,7 +496,7 @@ const handleCancellation = async (userId) => {
     }
 
     const language = pendingOperation.language || 'en';
-    
+
     // Clear the pending operation
     pendingOrders.delete(`retailer_${userId}`);
 
@@ -511,7 +523,7 @@ const createSalePreview = async (userId, aiResponse, businessData, autoConfirm =
             'hi': "कृपया बताएं कि आप कौन सी वस्तुएं बेचना चाहते हैं। उदाहरण: '2 चावल के बैग ₹50 प्रत्येक पर बेचें'",
             'te': "దయచేసి మీరు ఏ వస్తువులను అమ్మాలనుకుంటున్నారో పేర్కొనండి. ఉదాహరణ: '2 బియ్యం సంచులు ₹50 చొప్పున అమ్మండి'"
         };
-        
+
         return {
             success: false,
             message: messages[language] || messages['en'],
@@ -525,7 +537,7 @@ const createSalePreview = async (userId, aiResponse, businessData, autoConfirm =
     const stockIssues = [];
 
     for (const item of aiResponse.items) {
-        const inventoryItem = businessData.inventory.find(inv => 
+        const inventoryItem = businessData.inventory.find(inv =>
             inv.item_name.toLowerCase() === item.item_name.toLowerCase()
         );
 
@@ -535,7 +547,7 @@ const createSalePreview = async (userId, aiResponse, businessData, autoConfirm =
                 'hi': `"${item.item_name}" इन्वेंटरी में नहीं मिला।\n\nउपलब्ध वस्तुएं:\n${businessData.inventory.slice(0, 10).map(i => `• ${i.item_name}`).join('\n')}${businessData.inventory.length > 10 ? '\n... और अधिक' : ''}`,
                 'te': `"${item.item_name}" ఇన్వెంటరీలో కనుగొనబడలేదు।\n\nఅందుబాటులో ఉన్న వస్తువులు:\n${businessData.inventory.slice(0, 10).map(i => `• ${i.item_name}`).join('\n')}${businessData.inventory.length > 10 ? '\n... మరియు మరిన్ని' : ''}`
             };
-            
+
             return {
                 success: false,
                 message: messages[language] || messages['en'],
@@ -553,7 +565,7 @@ const createSalePreview = async (userId, aiResponse, businessData, autoConfirm =
 
         const itemTotal = item.quantity * item.price_per_unit;
         const itemCogs = item.quantity * (inventoryItem.cost_per_unit || inventoryItem.cost_price || 0);
-        
+
         saleItems.push({
             item_name: inventoryItem.item_name,
             quantity: item.quantity,
@@ -564,22 +576,22 @@ const createSalePreview = async (userId, aiResponse, businessData, autoConfirm =
             current_stock: inventoryItem.stock_qty,
             new_stock: inventoryItem.stock_qty - item.quantity
         });
-        
+
         totalAmount += itemTotal;
         totalCogs += itemCogs;
     }
 
     if (stockIssues.length > 0) {
-        const issueText = stockIssues.map(issue => 
+        const issueText = stockIssues.map(issue =>
             `• ${issue.item_name}: Need ${issue.requested}, only ${issue.available} available`
         ).join('\n');
-        
+
         const messages = {
             'en': `Insufficient stock:\n\n${issueText}\n\nPlease adjust quantities or restock items.`,
             'hi': `अपर्याप्त स्टॉक:\n\n${issueText}\n\nकृपया मात्रा समायोजित करें या वस्तुओं को फिर से स्टॉक करें।`,
             'te': `తగినంత స్టాక్ లేదు:\n\n${issueText}\n\nదయచేసి పరిమాణాలను సర్దుబాటు చేయండి లేదా వస్తువులను తిరిగి స్టాక్ చేయండి.`
         };
-        
+
         return {
             success: false,
             message: messages[language] || messages['en'],
@@ -614,13 +626,13 @@ const createSalePreview = async (userId, aiResponse, businessData, autoConfirm =
         'hi': '📋 बिक्री पूर्वावलोकन:\n\n',
         'te': '📋 అమ్మకం ప్రివ్యూ:\n\n'
     };
-    
+
     const labels = {
         'en': { qty: 'Qty', stockAfter: 'Stock after sale', total: 'Total', cogs: 'COGS', profit: 'Gross Profit', customer: 'Customer', payment: 'Payment', confirm: "Reply 'yes' to confirm this sale." },
         'hi': { qty: 'मात्रा', stockAfter: 'बिक्री के बाद स्टॉक', total: 'कुल', cogs: 'लागत', profit: 'सकल लाभ', customer: 'ग्राहक', payment: 'भुगतान', confirm: "इस बिक्री की पुष्टि करने के लिए 'हाँ' का उत्तर दें।" },
         'te': { qty: 'పరిమాణం', stockAfter: 'అమ్మకం తర్వాత స్టాక్', total: 'మొత్తం', cogs: 'ఖర్చు', profit: 'స్థూల లాభం', customer: 'కస్టమర్', payment: 'చెల్లింపు', confirm: "ఈ అమ్మకాన్ని నిర్ధారించడానికి 'అవును' అని సమాధానం ఇవ్వండి." }
     };
-    
+
     const label = labels[language] || labels['en'];
 
     let messageText = previewHeaders[language] || previewHeaders['en'];
@@ -629,7 +641,7 @@ const createSalePreview = async (userId, aiResponse, businessData, autoConfirm =
         messageText += `   ${label.qty}: ${item.quantity} × ₹${item.price_per_unit} = ₹${item.total}\n`;
         messageText += `   ${label.stockAfter}: ${item.new_stock}\n\n`;
     });
-    
+
     messageText += `💰 ${label.total}: ₹${totalAmount}\n`;
     messageText += `💸 ${label.cogs}: ₹${totalCogs}\n`;
     messageText += `📈 ${label.profit}: ₹${totalAmount - totalCogs}\n`;
@@ -640,12 +652,12 @@ const createSalePreview = async (userId, aiResponse, businessData, autoConfirm =
     return {
         success: true,
         message: messageText,
-        data: { 
-            type: 'sale_preview', 
-            items: saleItems, 
+        data: {
+            type: 'sale_preview',
+            items: saleItems,
             total_amount: totalAmount,
             gross_profit: totalAmount - totalCogs,
-            pending: true 
+            pending: true
         }
     };
 };
@@ -697,17 +709,17 @@ const confirmSale = async (userId, pendingSale) => {
         pendingOrders.delete(`retailer_${userId}`);
 
         const retailer = await User.findById(userId);
-        
+
         // Get language from pending sale or default to English
         const language = pendingSale.language || 'en';
-        
+
         // Language-specific success messages
         const messages = {
             'en': `✅ Sale completed successfully!\n\n📋 Bill #${sale._id.toString().slice(-6).toUpperCase()}\n💰 Total: ₹${pendingSale.totalAmount}\n📈 Profit: ₹${pendingSale.grossProfit}\n🏪 ${retailer?.shop_name || 'Store'}\n📅 ${new Date().toLocaleString()}`,
             'hi': `✅ बिक्री सफलतापूर्वक पूर्ण हुई!\n\n📋 बिल #${sale._id.toString().slice(-6).toUpperCase()}\n💰 कुल: ₹${pendingSale.totalAmount}\n📈 लाभ: ₹${pendingSale.grossProfit}\n🏪 ${retailer?.shop_name || 'स्टोर'}\n📅 ${new Date().toLocaleString()}`,
             'te': `✅ అమ్మకం విజయవంతంగా పూర్తయింది!\n\n📋 బిల్ #${sale._id.toString().slice(-6).toUpperCase()}\n💰 మొత్తం: ₹${pendingSale.totalAmount}\n📈 లాభం: ₹${pendingSale.grossProfit}\n🏪 ${retailer?.shop_name || 'స్టోర్'}\n📅 ${new Date().toLocaleString()}`
         };
-        
+
         return {
             success: true,
             message: messages[language] || messages['en'],
@@ -737,7 +749,7 @@ const addInventoryItem = async (userId, data) => {
         // Validate required fields
         const requiredFields = ['item_name', 'quantity', 'cost_per_unit', 'price_per_unit'];
         const missingFields = requiredFields.filter(field => !data[field]);
-        
+
         if (missingFields.length > 0) {
             return {
                 success: false,
@@ -756,8 +768,8 @@ const addInventoryItem = async (userId, data) => {
         }
 
         // Check if item already exists
-        const existingItem = await Inventory.findOne({ 
-            user_id: userId, 
+        const existingItem = await Inventory.findOne({
+            user_id: userId,
             item_name: { $regex: new RegExp(`^${data.item_name}$`, 'i') }
         });
 
@@ -805,10 +817,10 @@ const addInventoryItem = async (userId, data) => {
         };
     } catch (error) {
         console.error('Add inventory error:', error);
-        return { 
-            success: false, 
-            message: `Error adding inventory: ${error.message}`, 
-            data: null 
+        return {
+            success: false,
+            message: `Error adding inventory: ${error.message}`,
+            data: null
         };
     }
 };
@@ -818,7 +830,7 @@ const addInventoryItem = async (userId, data) => {
  */
 const updateInventoryItem = async (userId, data, businessData) => {
     try {
-        const inventoryItem = businessData.inventory.find(item => 
+        const inventoryItem = businessData.inventory.find(item =>
             item.item_name.toLowerCase() === data.item_name.toLowerCase()
         );
 
@@ -853,10 +865,10 @@ const updateInventoryItem = async (userId, data, businessData) => {
         };
     } catch (error) {
         console.error('Update inventory error:', error);
-        return { 
-            success: false, 
-            message: `Error updating inventory: ${error.message}`, 
-            data: null 
+        return {
+            success: false,
+            message: `Error updating inventory: ${error.message}`,
+            data: null
         };
     }
 };
@@ -867,15 +879,15 @@ const updateInventoryItem = async (userId, data, businessData) => {
 const confirmInventoryAdd = async (userId, pendingOperation) => {
     try {
         const { existing_item, new_data } = pendingOperation;
-        
+
         // Update existing item
         existing_item.stock_qty += new_data.quantity;
-        
+
         // Update price if different
         if (new_data.price_per_unit !== existing_item.price_per_unit) {
             existing_item.price_per_unit = new_data.price_per_unit;
         }
-        
+
         // Update cost if provided
         if (new_data.cost_per_unit) {
             existing_item.cost_per_unit = new_data.cost_per_unit;
@@ -928,7 +940,7 @@ const addExpense = async (userId, data) => {
         await newExpense.save();
 
         const expenseType = newExpense.is_sales_expense ? '🎯 Sales-related' : '🏢 Operating';
-        
+
         return {
             success: true,
             message: `✅ Expense added:\n\n💸 ${data.description}\n💰 Amount: ₹${data.amount}\n📂 Category: ${newExpense.category}\n🏷️ Type: ${expenseType}\n📅 Date: ${new Date().toLocaleDateString()}`,
@@ -936,10 +948,10 @@ const addExpense = async (userId, data) => {
         };
     } catch (error) {
         console.error('Add expense error:', error);
-        return { 
-            success: false, 
-            message: `Error adding expense: ${error.message}`, 
-            data: null 
+        return {
+            success: false,
+            message: `Error adding expense: ${error.message}`,
+            data: null
         };
     }
 };
@@ -973,10 +985,10 @@ const generateBusinessInsights = async (aiResponse, businessData) => {
         return {
             success: true,
             message: insightMessage,
-            data: { 
-                type: 'business_insights', 
+            data: {
+                type: 'business_insights',
                 metrics: businessData.metrics,
-                insights_type: aiResponse.type 
+                insights_type: aiResponse.type
             }
         };
     } catch (error) {
@@ -991,7 +1003,7 @@ const generateBusinessInsights = async (aiResponse, businessData) => {
 
 const generateSalesInsights = (businessData) => {
     const { metrics, sales } = businessData;
-    
+
     let insights = `📊 SALES INSIGHTS\n\n`;
     insights += `💰 Total Revenue: ₹${metrics.totalRevenue.toLocaleString()}\n`;
     insights += `📈 Gross Profit: ₹${metrics.grossProfit.toLocaleString()}\n`;
@@ -1026,7 +1038,15 @@ const generateSalesInsights = (businessData) => {
             });
         }
     } else {
-        insights += `📝 No sales recorded yet. Start by creating your first sale!`;
+        insights += `📝 No sales recorded yet.\n\n`;
+        insights += `💡 You have ${businessData.inventory.length} items in inventory:\n`;
+        businessData.inventory.slice(0, 5).forEach(item => {
+            insights += `• ${item.item_name}: ${item.stock_qty} units @ ₹${item.price_per_unit}\n`;
+        });
+        if (businessData.inventory.length > 5) {
+            insights += `... and ${businessData.inventory.length - 5} more items\n`;
+        }
+        insights += `\nStart selling by saying: "Make bill for 2 ${businessData.inventory[0]?.item_name || 'items'}"`;
     }
 
     return insights;
@@ -1034,7 +1054,7 @@ const generateSalesInsights = (businessData) => {
 
 const generateInventoryInsights = (businessData) => {
     const { inventory, lowStockItems, outOfStockItems, metrics } = businessData;
-    
+
     let insights = `📦 INVENTORY INSIGHTS\n\n`;
     insights += `📊 Total Items: ${inventory.length}\n`;
     insights += `⚠️ Low Stock: ${metrics.lowStockCount} items\n`;
@@ -1042,7 +1062,7 @@ const generateInventoryInsights = (businessData) => {
 
     const totalInventoryValue = inventory.reduce((sum, item) => sum + (item.stock_qty * item.cost_per_unit || 0), 0);
     const totalSellingValue = inventory.reduce((sum, item) => sum + (item.stock_qty * item.price_per_unit), 0);
-    
+
     insights += `💰 Inventory Value (Cost): ₹${totalInventoryValue.toLocaleString()}\n`;
     insights += `🏷️ Inventory Value (Selling): ₹${totalSellingValue.toLocaleString()}\n`;
     insights += `📈 Potential Profit: ₹${(totalSellingValue - totalInventoryValue).toLocaleString()}\n\n`;
@@ -1067,7 +1087,7 @@ const generateInventoryInsights = (businessData) => {
 
 const generateExpenseInsights = (businessData) => {
     const { expenses, metrics } = businessData;
-    
+
     let insights = `💸 EXPENSE INSIGHTS\n\n`;
     insights += `💰 Total Expenses: ₹${metrics.totalExpenses.toLocaleString()}\n`;
     insights += `📅 Today: ₹${metrics.todayExpenses.toLocaleString()}\n`;
@@ -1102,7 +1122,7 @@ const generateExpenseInsights = (businessData) => {
 
 const generateProfitInsights = (businessData) => {
     const { metrics } = businessData;
-    
+
     let insights = `📈 PROFIT ANALYSIS\n\n`;
     insights += `💰 Total Revenue: ₹${metrics.totalRevenue.toLocaleString()}\n`;
     insights += `💸 Total COGS: ₹${metrics.totalCogs.toLocaleString()}\n`;
@@ -1135,23 +1155,23 @@ const generateProfitInsights = (businessData) => {
 
 const generateOverviewInsights = (businessData) => {
     const { metrics, inventory, sales, expenses } = businessData;
-    
+
     let insights = `🏪 BUSINESS OVERVIEW\n\n`;
     insights += `📊 FINANCIAL SUMMARY:\n`;
     insights += `💰 Revenue: ₹${metrics.totalRevenue.toLocaleString()}\n`;
     insights += `💎 Net Profit: ₹${metrics.netProfit.toLocaleString()}\n`;
     insights += `📈 Profit Margin: ${metrics.profitMargin}%\n\n`;
-    
+
     insights += `📦 INVENTORY STATUS:\n`;
     insights += `• ${inventory.length} total items\n`;
     insights += `• ${metrics.lowStockCount} low stock alerts\n`;
     insights += `• ${metrics.outOfStockCount} out of stock\n\n`;
-    
+
     insights += `🛒 SALES ACTIVITY:\n`;
     insights += `• ${sales.length} total transactions\n`;
     insights += `• ₹${metrics.todayRevenue.toLocaleString()} today\n`;
     insights += `• ₹${metrics.monthlyRevenue.toLocaleString()} this month\n\n`;
-    
+
     insights += `💸 EXPENSES:\n`;
     insights += `• ₹${metrics.totalExpenses.toLocaleString()} total\n`;
     insights += `• ₹${metrics.monthlyExpenses.toLocaleString()} this month\n\n`;
@@ -1161,18 +1181,21 @@ const generateOverviewInsights = (businessData) => {
     }
 
     // Quick recommendations
-    insights += `💡 QUICK RECOMMENDATIONS:\n`;
+    insights += `💡 QUICK ACTIONS:\n`;
     if (metrics.lowStockCount > 0) {
         insights += `• Restock ${metrics.lowStockCount} low inventory items\n`;
     }
     if (metrics.pendingOrders > 0) {
         insights += `• Process ${metrics.pendingOrders} pending orders\n`;
     }
-    if (parseFloat(metrics.profitMargin) < 15) {
+    if (parseFloat(metrics.profitMargin) < 15 && sales.length > 0) {
         insights += `• Review pricing to improve profit margin\n`;
     }
-    if (sales.length === 0) {
-        insights += `• Start recording sales to track performance\n`;
+    if (sales.length === 0 && inventory.length > 0) {
+        insights += `• Start recording sales - Try: "Make bill for 2 ${inventory[0]?.item_name}"\n`;
+    }
+    if (inventory.length === 0) {
+        insights += `• Add inventory items first - Try: "Add 100 rice bags, cost ₹50, selling ₹80"\n`;
     }
 
     return insights;

@@ -898,6 +898,61 @@ exports.applyDiscountToProduct = async (req, res) => {
     }
 };
 
+// Update inventory price (wholesaler action)
+exports.updateInventoryPrice = async (req, res) => {
+    try {
+        const { productId, pricePerUnit } = req.body;
+
+        if (!productId || !pricePerUnit) {
+            return res.status(400).json({
+                success: false,
+                message: 'Product ID and price are required'
+            });
+        }
+
+        const product = await WholesalerInventory.findOne({
+            _id: productId,
+            wholesaler: req.user._id
+        });
+
+        if (!product) {
+            return res.status(404).json({
+                success: false,
+                message: 'Product not found'
+            });
+        }
+
+        const oldPrice = product.pricePerUnit;
+        product.pricePerUnit = pricePerUnit;
+
+        // Clear any previous discount if price is being manually updated
+        if (product.discountApplied) {
+            product.discountApplied = undefined;
+        }
+
+        await product.save();
+
+        res.status(200).json({
+            success: true,
+            message: `Price updated for ${product.productName}`,
+            data: {
+                product,
+                oldPrice,
+                newPrice: pricePerUnit,
+                change: pricePerUnit - oldPrice
+            }
+        });
+
+    } catch (error) {
+        console.error('Update price error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to update price',
+            error: error.message
+        });
+    }
+};
+
 // Get active offers for retailer
 exports.getActiveOffers = async (req, res) => {
     try {
@@ -961,9 +1016,11 @@ exports.getActiveOffers = async (req, res) => {
 
             return {
                 ...offerObj,
+                wholesaler: wholesalerId, // Keep the ID for order creation
                 effectiveDiscount: discountPercentage,
                 daysUntilExpiry: offer.expiryDate ? Math.ceil((offer.expiryDate - now) / (1000 * 60 * 60 * 24)) : null,
                 wholesalerInfo: {
+                    id: wholesaler._id,
                     name: wholesaler.name,
                     businessName: wholesaler.wholesalerProfile?.businessName,
                     location: wholesaler.locality || wholesaler.address?.city,
@@ -1076,8 +1133,12 @@ exports.getAllActiveOffers = async (req, res) => {
                 }
             }
 
+            // Remove the populated wholesaler object and replace with wholesalerInfo
+            const { wholesaler: wholesalerObj, ...offerData } = offerObj;
+
             return {
-                ...offerObj,
+                ...offerData,
+                wholesaler: wholesaler._id, // Keep the ID for order creation
                 effectiveDiscount: discountPercentage,
                 daysUntilExpiry: offer.expiryDate ? Math.ceil((offer.expiryDate - now) / (1000 * 60 * 60 * 24)) : null,
                 wholesalerInfo: {

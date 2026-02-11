@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Bell, X, Check, Package, ShoppingCart, XCircle, FileText } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -8,6 +9,7 @@ import toast from 'react-hot-toast';
  * Now with dark mode support
  */
 const NotificationBell = ({ isDarkMode }) => {
+  const navigate = useNavigate();
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [showDropdown, setShowDropdown] = useState(false);
@@ -63,6 +65,20 @@ const NotificationBell = ({ isDarkMode }) => {
       console.error('Fetch notifications error:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Handle notification click
+  const handleNotificationClick = (notification) => {
+    markAsRead(notification._id);
+
+    // Navigate based on notification type
+    if (notification.type === 'promotion') {
+      navigate('/dashboard/wholesaler-offers');
+      setShowDropdown(false);
+    } else if (notification.type === 'order') {
+      navigate('/dashboard/wholesaler-orders');
+      setShowDropdown(false);
     }
   };
 
@@ -233,7 +249,7 @@ const NotificationBell = ({ isDarkMode }) => {
                 {notifications.map((notification) => (
                   <div
                     key={notification._id}
-                    onClick={() => !notification.is_read && markAsRead(notification._id)}
+                    onClick={() => handleNotificationClick(notification)}
                     className={`p-4 cursor-pointer transition-all ${getNotificationBg(notification, isDarkMode)} ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50'}`}
                   >
                     <div className="flex items-start space-x-3">

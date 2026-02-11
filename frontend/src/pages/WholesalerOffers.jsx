@@ -50,6 +50,17 @@ const WholesalerOffers = () => {
             let API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
             API_BASE_URL = API_BASE_URL.replace(/\/api$/, '');
 
+            // Validate quantity
+            if (orderQuantity < (offer.minOrderQty || 1)) {
+                toast.error(`Minimum order quantity is ${offer.minOrderQty || 1}`);
+                return;
+            }
+
+            if (orderQuantity > offer.availableQty) {
+                toast.error(`Only ${offer.availableQty} units available`);
+                return;
+            }
+
             const response = await fetch(`${API_BASE_URL}/api/wholesalers/orders`, {
                 method: 'POST',
                 headers: {
@@ -57,13 +68,13 @@ const WholesalerOffers = () => {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    wholesalerId: offer.wholesalerInfo.id,
+                    wholesalerId: offer.wholesalerInfo.id || offer.wholesaler,
                     items: [{
                         productId: offer._id,
                         quantity: orderQuantity
                     }],
                     paymentMode: 'Cash',
-                    notes: `Order from special offer - ${offer.effectiveDiscount}% discount`
+                    notes: `Special offer order - ${offer.effectiveDiscount}% discount applied`
                 })
             });
 
@@ -72,9 +83,10 @@ const WholesalerOffers = () => {
                 toast.success('✅ Order placed successfully!');
                 setSelectedOffer(null);
                 setOrderQuantity(1);
-                navigate('/retailer-wholesaler-orders');
+                fetchOffers(); // Refresh offers
+                setTimeout(() => navigate('/retailer-wholesaler-orders'), 1500);
             } else {
-                toast.error(result.message);
+                toast.error(result.message || 'Failed to place order');
             }
         } catch (error) {
             console.error('Error:', error);
