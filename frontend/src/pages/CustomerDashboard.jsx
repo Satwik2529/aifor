@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Send, Package, Clock, CheckCircle, XCircle, Plus, Store, ShoppingCart, AlertCircle, Settings, Bot, MessageCircle, Moon, Sun, Sparkles, FileText, X, MapPin } from 'lucide-react';
+import { Search, Send, Package, Clock, CheckCircle, XCircle, Plus, Store, ShoppingCart, AlertCircle, Settings, Bot, MessageCircle, Moon, Sun, Sparkles, FileText, X, MapPin, Tag, TrendingDown, Home } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import NotificationBell from '../components/NotificationBell';
 import FloatingAIChatbot from '../components/FloatingAIChatbot';
@@ -20,7 +20,7 @@ const CustomerDashboard = () => {
     notes: ''
   });
   const [isLoading, setIsLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState('message');
+  const [activeTab, setActiveTab] = useState('home'); // Changed default to 'home'
   const [retailerInventory, setRetailerInventory] = useState([]);
   const [itemAvailability, setItemAvailability] = useState({});
   const [checkingStock, setCheckingStock] = useState(false);
@@ -545,6 +545,21 @@ const CustomerDashboard = () => {
         {/* Clean Tab Navigation */}
         <div className={`inline-flex rounded-xl p-1 mb-6 ${isDarkMode ? 'bg-gray-900' : 'bg-white'} shadow-sm border ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
           <button
+            onClick={() => setActiveTab('home')}
+            className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'home'
+              ? isDarkMode
+                ? 'bg-blue-600 text-white shadow-lg'
+                : 'bg-blue-600 text-white shadow-lg'
+              : isDarkMode
+                ? 'text-gray-400 hover:text-white hover:bg-gray-800'
+                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+              }`}
+          >
+            <Home className="h-4 w-4" />
+            <span>Home</span>
+          </button>
+
+          <button
             onClick={() => setActiveTab('message')}
             className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'message'
               ? isDarkMode
@@ -579,6 +594,182 @@ const CustomerDashboard = () => {
             )}
           </button>
         </div>
+
+        {/* Home Tab - Feature Cards */}
+        {activeTab === 'home' && (
+          <div className="space-y-6">
+            {/* Welcome Section */}
+            <div className={`rounded-xl p-6 ${isDarkMode ? 'bg-gradient-to-r from-blue-900 to-purple-900' : 'bg-gradient-to-r from-blue-600 to-purple-600'} text-white`}>
+              <h2 className="text-2xl font-bold mb-2">Welcome back, {user.name}! 👋</h2>
+              <p className="text-blue-100">Discover nearby shops, find hot deals, and manage your orders all in one place.</p>
+            </div>
+
+            {/* Feature Cards Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* Nearby Shops Card */}
+              <div
+                onClick={() => navigate('/customer/nearby-shops')}
+                className={`group cursor-pointer rounded-xl p-6 transition-all hover:scale-105 ${
+                  isDarkMode 
+                    ? 'bg-gradient-to-br from-green-900 to-teal-900 hover:from-green-800 hover:to-teal-800' 
+                    : 'bg-gradient-to-br from-green-500 to-teal-500 hover:from-green-600 hover:to-teal-600'
+                } shadow-lg hover:shadow-2xl`}
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <div className="p-3 bg-white/20 rounded-xl">
+                    <MapPin className="h-8 w-8 text-white" />
+                  </div>
+                  <div className="text-white/80 group-hover:text-white transition-colors">
+                    <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </div>
+                </div>
+                <h3 className="text-xl font-bold text-white mb-2">Nearby Shops</h3>
+                <p className="text-white/90 text-sm mb-4">
+                  Find retailers near you within 5-50km radius. Get directions and contact details.
+                </p>
+                <div className="flex items-center text-white/80 text-xs">
+                  <span className="px-2 py-1 bg-white/20 rounded-full">GPS Enabled</span>
+                </div>
+              </div>
+
+              {/* My Orders Card */}
+              <div
+                onClick={() => setActiveTab('my-requests')}
+                className={`group cursor-pointer rounded-xl p-6 transition-all hover:scale-105 ${
+                  isDarkMode 
+                    ? 'bg-gradient-to-br from-blue-900 to-indigo-900 hover:from-blue-800 hover:to-indigo-800' 
+                    : 'bg-gradient-to-br from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600'
+                } shadow-lg hover:shadow-2xl`}
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <div className="p-3 bg-white/20 rounded-xl">
+                    <ShoppingCart className="h-8 w-8 text-white" />
+                  </div>
+                  <div className="text-white/80 group-hover:text-white transition-colors">
+                    {requests.length > 0 && (
+                      <span className="px-3 py-1 bg-red-500 text-white rounded-full text-sm font-bold">
+                        {requests.length}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <h3 className="text-xl font-bold text-white mb-2">My Orders</h3>
+                <p className="text-white/90 text-sm mb-4">
+                  Track your orders, view status updates, and manage your purchase history.
+                </p>
+                <div className="flex items-center text-white/80 text-xs">
+                  <span className="px-2 py-1 bg-white/20 rounded-full">
+                    {requests.length} Active Order{requests.length !== 1 ? 's' : ''}
+                  </span>
+                </div>
+              </div>
+
+              {/* Hot Deals Card */}
+              <div
+                onClick={() => navigate('/hot-deals')}
+                className={`group cursor-pointer rounded-xl p-6 transition-all hover:scale-105 ${
+                  isDarkMode 
+                    ? 'bg-gradient-to-br from-orange-900 to-red-900 hover:from-orange-800 hover:to-red-800' 
+                    : 'bg-gradient-to-br from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600'
+                } shadow-lg hover:shadow-2xl`}
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <div className="p-3 bg-white/20 rounded-xl">
+                    <TrendingDown className="h-8 w-8 text-white" />
+                  </div>
+                  <div className="text-white/80 group-hover:text-white transition-colors">
+                    <Tag className="h-6 w-6" />
+                  </div>
+                </div>
+                <h3 className="text-xl font-bold text-white mb-2">Hot Deals 🔥</h3>
+                <p className="text-white/90 text-sm mb-4">
+                  Save up to 75% on expiring items! Browse discounts from nearby retailers.
+                </p>
+                <div className="flex items-center text-white/80 text-xs">
+                  <span className="px-2 py-1 bg-white/20 rounded-full">Limited Time Offers</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Stats */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className={`rounded-lg p-4 ${isDarkMode ? 'bg-gray-900 border border-gray-800' : 'bg-white border border-gray-200'}`}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Total Orders</p>
+                    <p className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{requests.length}</p>
+                  </div>
+                  <ShoppingCart className={`h-8 w-8 ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`} />
+                </div>
+              </div>
+
+              <div className={`rounded-lg p-4 ${isDarkMode ? 'bg-gray-900 border border-gray-800' : 'bg-white border border-gray-200'}`}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Pending Orders</p>
+                    <p className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                      {requests.filter(r => r.status === 'pending').length}
+                    </p>
+                  </div>
+                  <Clock className={`h-8 w-8 ${isDarkMode ? 'text-yellow-400' : 'text-yellow-600'}`} />
+                </div>
+              </div>
+
+              <div className={`rounded-lg p-4 ${isDarkMode ? 'bg-gray-900 border border-gray-800' : 'bg-white border border-gray-200'}`}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Completed</p>
+                    <p className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                      {requests.filter(r => r.status === 'completed').length}
+                    </p>
+                  </div>
+                  <CheckCircle className={`h-8 w-8 ${isDarkMode ? 'text-green-400' : 'text-green-600'}`} />
+                </div>
+              </div>
+            </div>
+
+            {/* Recent Activity */}
+            {requests.length > 0 && (
+              <div className={`rounded-xl p-6 ${isDarkMode ? 'bg-gray-900 border border-gray-800' : 'bg-white border border-gray-200'}`}>
+                <h3 className={`text-lg font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                  Recent Orders
+                </h3>
+                <div className="space-y-3">
+                  {requests.slice(0, 3).map((request) => (
+                    <div
+                      key={request._id}
+                      className={`p-4 rounded-lg border ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200'}`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                            {request.retailer_id?.shop_name || request.retailer_id?.name}
+                          </p>
+                          <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                            {request.items?.length || 0} item{request.items?.length !== 1 ? 's' : ''}
+                          </p>
+                        </div>
+                        {getStatusBadge(request.status)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  onClick={() => setActiveTab('my-requests')}
+                  className={`mt-4 w-full py-2 rounded-lg text-sm font-medium transition-colors ${
+                    isDarkMode 
+                      ? 'bg-blue-600 hover:bg-blue-700 text-white' 
+                      : 'bg-blue-600 hover:bg-blue-700 text-white'
+                  }`}
+                >
+                  View All Orders
+                </button>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Message Retailer Tab */}
         {activeTab === 'message' && (

@@ -87,6 +87,26 @@ const inventorySchema = new mongoose.Schema({
   expiry_date: {
     type: Date,
     default: null
+  },
+  // Discount & Campaign fields
+  active_discount: {
+    type: Number,
+    min: 0,
+    max: 100,
+    default: 0 // Percentage discount currently active
+  },
+  discounted_price: {
+    type: Number,
+    min: 0,
+    default: null // Calculated selling price after discount
+  },
+  sales_velocity: {
+    type: Number,
+    default: 0 // Units sold per week (calculated from sales data)
+  },
+  last_velocity_update: {
+    type: Date,
+    default: null
   }
 }, {
   timestamps: true,
@@ -150,6 +170,19 @@ inventorySchema.virtual('isExpiringSoon').get(function() {
   if (!this.expiry_date) return false;
   const expiryStatus = this.expiryStatus;
   return expiryStatus && (expiryStatus.status === 'expiring_soon' || expiryStatus.status === 'expired');
+});
+
+// Virtual for slow velocity check (less than 1 unit per week)
+inventorySchema.virtual('isSlowMoving').get(function() {
+  return this.sales_velocity < 1;
+});
+
+// Virtual for final selling price (with discount applied)
+inventorySchema.virtual('finalPrice').get(function() {
+  if (this.active_discount > 0 && this.discounted_price) {
+    return this.discounted_price;
+  }
+  return this.selling_price;
 });
 
 module.exports = mongoose.model('Inventory', inventorySchema);

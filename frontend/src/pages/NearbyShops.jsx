@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { MapPin, Navigation, Store, Phone, Mail, ExternalLink, Loader2 } from 'lucide-react';
+import { MapPin, Navigation, Store, Phone, Mail, ExternalLink, Loader2, Tag } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 
 /**
@@ -7,6 +8,7 @@ import toast from 'react-hot-toast';
  * Allows customers to find shops within a specified radius
  */
 const NearbyShops = () => {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [shops, setShops] = useState([]);
   const [selectedRadius, setSelectedRadius] = useState(10); // Default 10km
@@ -255,6 +257,13 @@ const NearbyShops = () => {
                       >
                         <Navigation className="h-4 w-4" />
                         <span>Directions</span>
+                      </button>
+                      <button
+                        onClick={() => navigate(`/hot-deals?shop_id=${shop.id}`)}
+                        className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-orange-600 to-red-600 text-white rounded-lg hover:from-orange-700 hover:to-red-700 transition-all"
+                      >
+                        <Tag className="h-4 w-4" />
+                        <span>Hot Deals</span>
                       </button>
                       <a
                         href={`https://www.google.com/maps?q=${shop.latitude},${shop.longitude}`}

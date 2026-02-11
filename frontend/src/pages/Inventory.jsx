@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, Filter, Download, Edit, Trash2, Package, AlertTriangle, X, Image, FileText } from 'lucide-react';
+import { Plus, Search, Filter, Download, Edit, Trash2, Package, AlertTriangle, X, Image, FileText, TrendingDown } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { inventoryAPI } from '../services/api';
 import html2pdf from 'html2pdf.js';
 import toast, { Toaster } from 'react-hot-toast';
@@ -7,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 
 const Inventory = () => {
     const { t } = useTranslation();
+    const navigate = useNavigate();
     const [inventory, setInventory] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
@@ -613,9 +615,18 @@ const Inventory = () => {
                                         </div>
                                     )}
                                     <div className="mt-2 pt-2 border-t border-orange-200 dark:border-orange-700">
-                                        <p className="text-xs text-orange-700 dark:text-orange-300">
-                                            💡 <strong>Tip:</strong> Consider offering discounts on these items to sell them quickly!
-                                        </p>
+                                        <div className="flex items-center justify-between">
+                                            <p className="text-xs text-orange-700 dark:text-orange-300">
+                                                💡 <strong>Tip:</strong> Consider offering discounts on these items to sell them quickly!
+                                            </p>
+                                            <button
+                                                onClick={() => navigate('/dashboard/discount-campaigns')}
+                                                className="ml-4 px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all flex items-center gap-2 text-sm font-semibold shadow-md"
+                                            >
+                                                <TrendingDown className="h-4 w-4" />
+                                                Apply AI Discounts
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>

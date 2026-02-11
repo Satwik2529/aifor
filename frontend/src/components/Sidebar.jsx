@@ -11,7 +11,8 @@ import {
   Truck,
   BarChart3,
   MessageSquare,
-  Tag
+  Tag,
+  TrendingDown
 } from 'lucide-react';
 
 /**
@@ -28,6 +29,7 @@ const Sidebar = ({ isOpen, onClose }) => {
     { name: t('nav.inventory'), href: '/dashboard/inventory', icon: Package },
     { name: t('nav.customers'), href: '/dashboard/customers', icon: Users },
     { name: t('nav.customerRequests'), href: '/dashboard/customer-requests', icon: MessageSquare },
+    { name: 'Discount Campaigns', href: '/dashboard/discount-campaigns', icon: TrendingDown },
     { name: 'Wholesalers', href: '/dashboard/wholesalers', icon: Truck },
     { name: 'Special Offers', href: '/dashboard/wholesaler-offers', icon: Tag },
     { name: 'My Orders', href: '/dashboard/wholesaler-orders', icon: Package },
