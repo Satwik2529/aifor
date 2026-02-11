@@ -28,7 +28,17 @@ const DiscountCampaigns = () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
+
+      if (!token) {
+        toast.error('Please login to view campaigns');
+        setLoading(false);
+        return;
+      }
+
       const headers = { Authorization: `Bearer ${token}` };
+
+      console.log('Fetching campaign data from:', API_URL);
+      console.log('Token:', token ? token.substring(0, 20) + '...' : 'MISSING');
 
       const [recsRes, campaignsRes, analyticsRes] = await Promise.all([
         axios.get(`${API_URL}/campaigns/recommendations`, { headers }),
@@ -36,12 +46,27 @@ const DiscountCampaigns = () => {
         axios.get(`${API_URL}/campaigns/analytics`, { headers })
       ]);
 
+      console.log('Recommendations response:', recsRes.data);
+      console.log('Campaigns response:', campaignsRes.data);
+      console.log('Analytics response:', analyticsRes.data);
+
       setRecommendations(recsRes.data.data || []);
       setActiveCampaigns(campaignsRes.data.data || []);
       setAnalytics(analyticsRes.data.data || null);
+
+      toast.success('Campaign data loaded successfully');
     } catch (error) {
-      console.error('Error fetching data:', error);
-      toast.error('Failed to load campaign data');
+      console.error('Error fetching campaign data:', error);
+      console.error('Error response:', error.response?.data);
+      console.error('Error status:', error.response?.status);
+
+      if (error.response?.status === 401) {
+        toast.error('Session expired. Please login again.');
+        localStorage.removeItem('token');
+        window.location.href = '/login';
+      } else {
+        toast.error(`Failed to load campaign data: ${error.response?.data?.message || error.message}`);
+      }
     } finally {
       setLoading(false);
     }
@@ -130,6 +155,18 @@ const DiscountCampaigns = () => {
     <div className="space-y-6">
       <Toaster />
 
+      {/* Debug Info (only in development) */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg p-4 text-xs">
+          <div className="font-bold mb-2">🔧 Debug Info:</div>
+          <div>API URL: {API_URL}</div>
+          <div>Token: {localStorage.getItem('token') ? '✅ Present' : '❌ Missing'}</div>
+          <div>Recommendations: {recommendations.length} items</div>
+          <div>Active Campaigns: {activeCampaigns.length} campaigns</div>
+          <div>Analytics: {analytics ? '✅ Loaded' : '❌ Not loaded'}</div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
@@ -145,11 +182,10 @@ const DiscountCampaigns = () => {
       <div className="flex gap-2 border-b border-gray-200 dark:border-gray-700">
         <button
           onClick={() => setActiveTab('recommendations')}
-          className={`px-4 py-2 font-medium transition-colors ${
-            activeTab === 'recommendations'
-              ? 'text-indigo-600 border-b-2 border-indigo-600'
-              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-          }`}
+          className={`px-4 py-2 font-medium transition-colors ${activeTab === 'recommendations'
+            ? 'text-indigo-600 border-b-2 border-indigo-600'
+            : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+            }`}
         >
           <div className="flex items-center gap-2">
             <Zap className="h-4 w-4" />
@@ -158,11 +194,10 @@ const DiscountCampaigns = () => {
         </button>
         <button
           onClick={() => setActiveTab('campaigns')}
-          className={`px-4 py-2 font-medium transition-colors ${
-            activeTab === 'campaigns'
-              ? 'text-indigo-600 border-b-2 border-indigo-600'
-              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-          }`}
+          className={`px-4 py-2 font-medium transition-colors ${activeTab === 'campaigns'
+            ? 'text-indigo-600 border-b-2 border-indigo-600'
+            : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+            }`}
         >
           <div className="flex items-center gap-2">
             <CheckCircle className="h-4 w-4" />
@@ -171,11 +206,10 @@ const DiscountCampaigns = () => {
         </button>
         <button
           onClick={() => setActiveTab('analytics')}
-          className={`px-4 py-2 font-medium transition-colors ${
-            activeTab === 'analytics'
-              ? 'text-indigo-600 border-b-2 border-indigo-600'
-              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-          }`}
+          className={`px-4 py-2 font-medium transition-colors ${activeTab === 'analytics'
+            ? 'text-indigo-600 border-b-2 border-indigo-600'
+            : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+            }`}
         >
           <div className="flex items-center gap-2">
             <BarChart3 className="h-4 w-4" />
@@ -225,12 +259,11 @@ const DiscountCampaigns = () => {
                         <h3 className="text-lg font-bold text-gray-900 dark:text-white">
                           {item.item_name}
                         </h3>
-                        <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${
-                          item.urgency === 'critical' ? 'bg-red-600 text-white' :
+                        <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${item.urgency === 'critical' ? 'bg-red-600 text-white' :
                           item.urgency === 'high' ? 'bg-orange-600 text-white' :
-                          item.urgency === 'medium' ? 'bg-yellow-600 text-white' :
-                          'bg-blue-600 text-white'
-                        }`}>
+                            item.urgency === 'medium' ? 'bg-yellow-600 text-white' :
+                              'bg-blue-600 text-white'
+                          }`}>
                           {item.urgency} Priority
                         </span>
                       </div>
@@ -330,9 +363,8 @@ const DiscountCampaigns = () => {
                       <h3 className="text-lg font-bold text-gray-900 dark:text-white">
                         {campaign.inventory_id?.item_name || 'Unknown Item'}
                       </h3>
-                      <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                        campaign.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                      }`}>
+                      <span className={`px-3 py-1 rounded-full text-xs font-bold ${campaign.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                        }`}>
                         {campaign.status.toUpperCase()}
                       </span>
                     </div>
