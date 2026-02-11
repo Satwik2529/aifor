@@ -708,7 +708,7 @@ const AIInsights = () => {
                             {tabs.find(t => t.id === type)?.name}
                         </h1>
                         <p style={{ fontSize: '16px', color: '#6B7280', marginBottom: '5px' }}>
-                            Powered by Google Gemini AI - Biznova
+                            Powered by OpenAI - Biznova
                         </p>
                         <p style={{ fontSize: '12px', color: '#9CA3AF' }}>
                             Generated on: {new Date(insight.metadata?.generatedAt).toLocaleString('en-IN')}

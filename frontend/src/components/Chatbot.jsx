@@ -474,6 +474,138 @@ const Chatbot = ({ retailerId, retailerName, isCustomer = false }) => {
                                     </div>
                                 )}
 
+                                {/* Item Exists Confirmation Card - For Inventory */}
+                                {message.data && message.data.type === 'item_exists' && (
+                                    <div className="border-t border-gray-200 bg-gradient-to-br from-blue-50 to-indigo-50 p-4">
+                                        <div className="flex items-center justify-between mb-3">
+                                            <div>
+                                                <p className="text-xs font-semibold uppercase tracking-wide text-indigo-600">
+                                                    📦 Item Already Exists
+                                                </p>
+                                            </div>
+                                            <div className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-semibold">
+                                                ⚠️ Confirm
+                                            </div>
+                                        </div>
+
+                                        {/* Comparison Table */}
+                                        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden mb-3">
+                                            <table className="w-full text-sm">
+                                                <thead className="bg-gray-50 border-b border-gray-200">
+                                                    <tr>
+                                                        <th className="text-left py-2 px-3 font-semibold text-gray-700"></th>
+                                                        <th className="text-center py-2 px-3 font-semibold text-gray-700">Current</th>
+                                                        <th className="text-center py-2 px-3 font-semibold text-gray-700">Adding</th>
+                                                        <th className="text-center py-2 px-3 font-semibold text-gray-700">New Total</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <tr className="border-b border-gray-100">
+                                                        <td className="py-2.5 px-3 text-gray-700 font-medium">Stock</td>
+                                                        <td className="py-2.5 px-3 text-center text-gray-600">{message.data.existing_item?.stock_qty || 0}</td>
+                                                        <td className="py-2.5 px-3 text-center text-blue-600 font-semibold">+{message.data.new_data?.quantity || 0}</td>
+                                                        <td className="py-2.5 px-3 text-center text-green-600 font-bold">{(message.data.existing_item?.stock_qty || 0) + (message.data.new_data?.quantity || 0)}</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td className="py-2.5 px-3 text-gray-700 font-medium">Price</td>
+                                                        <td className="py-2.5 px-3 text-center text-gray-600">₹{message.data.existing_item?.price_per_unit || 0}</td>
+                                                        <td className="py-2.5 px-3 text-center text-blue-600 font-semibold">₹{message.data.new_data?.price_per_unit || 0}</td>
+                                                        <td className="py-2.5 px-3 text-center text-gray-600">₹{message.data.new_data?.price_per_unit || message.data.existing_item?.price_per_unit || 0}</td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+
+                                        {/* Confirmation Button */}
+                                        <div className="mt-4">
+                                            <button
+                                                onClick={() => {
+                                                    setInputMessage('yes');
+                                                    setTimeout(() => handleSendMessage(), 100);
+                                                }}
+                                                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 px-4 rounded-lg transition-colors shadow-md flex items-center justify-center space-x-2"
+                                            >
+                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                                </svg>
+                                                <span>Yes, Update Inventory</span>
+                                            </button>
+                                        </div>
+
+                                        {/* Info Note */}
+                                        <div className="mt-2">
+                                            <p className="text-xs text-gray-500 text-center">
+                                                This will add to existing stock and update the price
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Expense Preview Card - Before Confirmation */}
+                                {message.data && message.data.type === 'expense_preview' && (
+                                    <div className="border-t border-gray-200 bg-gradient-to-br from-purple-50 to-pink-50 p-4">
+                                        <div className="flex items-center justify-between mb-3">
+                                            <div>
+                                                <p className="text-xs font-semibold uppercase tracking-wide text-purple-600">
+                                                    💸 Expense Preview
+                                                </p>
+                                            </div>
+                                            <div className="bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-xs font-semibold">
+                                                ⏳ Pending
+                                            </div>
+                                        </div>
+
+                                        {/* Expense Details */}
+                                        <div className="bg-white rounded-lg border border-gray-200 p-4 mb-3">
+                                            <div className="space-y-3">
+                                                <div className="flex justify-between items-start">
+                                                    <span className="text-sm text-gray-600">Description:</span>
+                                                    <span className="text-sm font-semibold text-gray-900 text-right">{message.data.description}</span>
+                                                </div>
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-sm text-gray-600">Amount:</span>
+                                                    <span className="text-xl font-bold text-red-600">₹{message.data.amount}</span>
+                                                </div>
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-sm text-gray-600">Category:</span>
+                                                    <span className="text-sm font-semibold text-gray-900">{message.data.category}</span>
+                                                </div>
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-sm text-gray-600">Type:</span>
+                                                    <span className="text-sm font-semibold text-gray-900">{message.data.expense_type}</span>
+                                                </div>
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-sm text-gray-600">Date:</span>
+                                                    <span className="text-sm font-semibold text-gray-900">{new Date().toLocaleDateString()}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Confirmation Button */}
+                                        <div className="mt-4">
+                                            <button
+                                                onClick={() => {
+                                                    setInputMessage('yes');
+                                                    setTimeout(() => handleSendMessage(), 100);
+                                                }}
+                                                className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2.5 px-4 rounded-lg transition-colors shadow-md flex items-center justify-center space-x-2"
+                                            >
+                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                                </svg>
+                                                <span>Yes, Add Expense</span>
+                                            </button>
+                                        </div>
+
+                                        {/* Info Note */}
+                                        <div className="mt-2">
+                                            <p className="text-xs text-gray-500 text-center">
+                                                This will record the expense in your books
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
+
                                 {/* Bill Preview Card - Before Confirmation */}
                                 {message.data && message.data.type === 'bill_preview' && message.data.sales && message.data.sales.length > 0 ? (
                                     <div className="border-t border-gray-200 bg-gradient-to-br from-yellow-50 to-orange-50 p-4">

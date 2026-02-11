@@ -22,16 +22,18 @@ const pendingOperations = new Map();
  */
 const handleRetailerChatOptimized = async (userId, message, language = 'en') => {
   try {
-    console.log(`🔧 Optimized Retailer Chat: "${message}"`);
+    console.log(`🔧 Optimized Retailer Chat: "${message}" (language: ${language})`);
 
-    // Handle confirmations
-    if (['yes', 'confirm', 'ok', 'proceed'].some(word => message.toLowerCase().trim() === word)) {
-      return await handleConfirmation(userId);
+    // Handle confirmations (all languages) - delegate to old handler with original message and language
+    if (['yes', 'confirm', 'ok', 'proceed', 'हाँ', 'ठीक है', 'అవును', 'సరే'].some(word => message.toLowerCase().trim() === word)) {
+      const { handleRetailerChat } = require('./retailerChatHandler');
+      return await handleRetailerChat(userId, message, language);
     }
 
-    // Handle cancellations
-    if (['no', 'cancel'].some(word => message.toLowerCase().trim() === word)) {
-      return await handleCancellation(userId);
+    // Handle cancellations (all languages) - delegate to old handler with original message and language
+    if (['no', 'cancel', 'नहीं', 'रद्द करें', 'కాదు', 'రద్దు'].some(word => message.toLowerCase().trim() === word)) {
+      const { handleRetailerChat } = require('./retailerChatHandler');
+      return await handleRetailerChat(userId, message, language);
     }
 
     // Step 1: Detect intent (lightweight AI call)
@@ -178,11 +180,14 @@ RULES:
 4. Suggest next steps if relevant
 5. Use emojis sparingly for readability
 6. Format with line breaks for clarity
+7. DO NOT use asterisks (*) for bold or emphasis - use plain text only
+8. DO NOT use markdown formatting - just plain text with emojis
 
 DO NOT:
 - Make up data not in the results
 - Ask for information already provided
 - Be overly verbose
+- Use asterisks (*) or markdown formatting
 
 Generate response:
 `;
@@ -194,7 +199,10 @@ Generate response:
       temperature: 0.7,
       max_tokens: 800
     });
-    return completion.choices[0].message.content.trim();
+    let response = completion.choices[0].message.content.trim();
+    // Remove any asterisks that might still appear
+    response = response.replace(/\*\*/g, '').replace(/\*/g, '');
+    return response;
   } catch (error) {
     console.error('Response generation error:', error);
     // Fallback: Format data directly
@@ -284,38 +292,6 @@ const handleActionIntent = async (userId, intent, message, language) => {
   // Delegate to old handler for actions
   // TODO: Optimize these actions in future iterations
   return await handleRetailerChat(userId, message, language);
-};
-
-/**
- * Handle confirmations
- */
-const handleConfirmation = async (userId) => {
-  const pending = pendingOperations.get(`retailer_${userId}`);
-  
-  if (!pending) {
-    return {
-      success: false,
-      message: "No pending operation to confirm.",
-      data: null
-    };
-  }
-
-  // Delegate to old handler for now
-  const { handleRetailerChat } = require('./retailerChatHandler');
-  return await handleRetailerChat(userId, 'yes', 'en');
-};
-
-/**
- * Handle cancellations
- */
-const handleCancellation = async (userId) => {
-  pendingOperations.delete(`retailer_${userId}`);
-  
-  return {
-    success: true,
-    message: "✅ Operation cancelled. What else can I help you with?",
-    data: { type: 'cancelled' }
-  };
 };
 
 module.exports = {

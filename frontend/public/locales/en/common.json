@@ -552,7 +552,7 @@
   },
   "ai": {
     "title": "AI Business Insights",
-    "subtitle": "Powered by Google Gemini AI for intelligent business analytics",
+    "subtitle": "Powered by OpenAI for intelligent business analytics",
     "tabs": {
       "demand": {
         "name": "Demand Forecasting",

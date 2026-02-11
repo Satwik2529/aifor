@@ -10,6 +10,7 @@ const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY
 });
 const pendingOrders = new Map();
+const conversationHistory = new Map(); // Store last 5 messages per user
 
 /**
  * Enhanced Retailer Business Assistant
@@ -17,26 +18,41 @@ const pendingOrders = new Map();
  */
 const handleRetailerChat = async (userId, message, language) => {
     try {
-        console.log(`🛍️ Retailer chat: "${message}"`);
+        // Ensure userId is a string for consistent key matching
+        const userIdStr = userId.toString();
+        console.log(`🛍️ Retailer chat: "${message}" from userId: ${userIdStr}`);
 
         // Handle confirmations for pending operations
-        if (['yes', 'confirm', 'ok', 'proceed', 'हाँ', 'ठीक है'].some(word => message.toLowerCase().trim() === word)) {
-            return await handleConfirmation(userId);
+        if (['yes', 'confirm', 'ok', 'proceed', 'हाँ', 'ठीक है', 'అవును', 'సరే'].some(word => message.toLowerCase().trim() === word)) {
+            const result = await handleConfirmation(userIdStr);
+            // Add to conversation history
+            addToConversationHistory(userIdStr, message, result.message);
+            return result;
         }
 
         // Handle cancellations for pending operations
-        if (['no', 'cancel', 'नहीं', 'रद्द करें'].some(word => message.toLowerCase().trim() === word)) {
-            return await handleCancellation(userId);
+        if (['no', 'cancel', 'नहीं', 'रद्द करें', 'కాదు', 'రద్దు'].some(word => message.toLowerCase().trim() === word)) {
+            const result = await handleCancellation(userIdStr);
+            addToConversationHistory(userIdStr, message, result.message);
+            return result;
         }
 
         // Get comprehensive business data
         const businessData = await getBusinessData(userId);
 
+        // Get conversation history for context
+        const history = getConversationHistory(userIdStr);
+
         // Use enhanced AI to understand and process the request
-        const aiResponse = await processRetailerRequest(message, businessData, language);
+        const aiResponse = await processRetailerRequest(message, businessData, language, history);
 
         // Execute the determined action (pass original message for auto-confirm detection and language)
-        return await executeAction(userId, aiResponse, businessData, message, language);
+        const result = await executeAction(userIdStr, aiResponse, businessData, message, language);
+
+        // Add to conversation history
+        addToConversationHistory(userIdStr, message, result.message);
+
+        return result;
 
     } catch (error) {
         console.error('Retailer chat error:', error);
@@ -53,38 +69,78 @@ const handleRetailerChat = async (userId, message, language) => {
  */
 const getBusinessData = async (userId) => {
     try {
-        const [inventory, sales, expenses, customerRequests, retailer] = await Promise.all([
+        // Calculate date ranges first
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+        
+        const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+        const startOfWeek = new Date(today);
+        startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
+
+        // Fetch data with date-based queries for better performance
+        const [inventory, allSales, allExpenses, customerRequests, retailer] = await Promise.all([
             Inventory.find({ user_id: userId }),
-            Sale.find({ user_id: userId }).sort({ createdAt: -1 }).limit(10),
-            Expense.find({ user_id: userId }).sort({ createdAt: -1 }).limit(10),
+            Sale.find({ user_id: userId }).sort({ date: -1 }),
+            Expense.find({ user_id: userId }).sort({ date: -1 }),
             CustomerRequest.find({ retailer_id: userId }).sort({ createdAt: -1 }).limit(5),
             User.findById(userId)
         ]);
 
-        // Calculate business metrics
-        const today = new Date();
-        const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-        const startOfWeek = new Date(today.setDate(today.getDate() - today.getDay()));
+        // Filter sales by date ranges using 'date' field (not createdAt)
+        const todaySales = allSales.filter(s => {
+            const saleDate = new Date(s.date);
+            return saleDate >= today && saleDate < tomorrow;
+        });
 
-        const todaySales = sales.filter(s => new Date(s.createdAt).toDateString() === new Date().toDateString());
-        const weeklySales = sales.filter(s => new Date(s.createdAt) >= startOfWeek);
-        const monthlySales = sales.filter(s => new Date(s.createdAt) >= startOfMonth);
+        const yesterdaySales = allSales.filter(s => {
+            const saleDate = new Date(s.date);
+            return saleDate >= yesterday && saleDate < today;
+        });
 
-        const todayExpenses = expenses.filter(e => new Date(e.createdAt).toDateString() === new Date().toDateString());
-        const monthlyExpenses = expenses.filter(e => new Date(e.createdAt) >= startOfMonth);
+        const weeklySales = allSales.filter(s => new Date(s.date) >= startOfWeek);
+        const monthlySales = allSales.filter(s => new Date(s.date) >= startOfMonth);
 
-        const totalRevenue = sales.reduce((sum, s) => sum + s.total_amount, 0);
-        const totalCogs = sales.reduce((sum, s) => sum + (s.total_cogs || 0), 0);
-        const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
+        // Filter expenses by date ranges using 'date' field
+        const todayExpenses = allExpenses.filter(e => {
+            const expenseDate = new Date(e.date);
+            return expenseDate >= today && expenseDate < tomorrow;
+        });
+
+        const yesterdayExpenses = allExpenses.filter(e => {
+            const expenseDate = new Date(e.date);
+            return expenseDate >= yesterday && expenseDate < today;
+        });
+
+        const monthlyExpenses = allExpenses.filter(e => new Date(e.date) >= startOfMonth);
+
+        // Calculate totals
+        const totalRevenue = allSales.reduce((sum, s) => sum + s.total_amount, 0);
+        const totalCogs = allSales.reduce((sum, s) => sum + (s.total_cogs || 0), 0);
+        const totalExpenses = allExpenses.reduce((sum, e) => sum + e.amount, 0);
         const netProfit = totalRevenue - totalCogs - totalExpenses;
+
+        const todayRevenue = todaySales.reduce((sum, s) => sum + s.total_amount, 0);
+        const todayCogs = todaySales.reduce((sum, s) => sum + (s.total_cogs || 0), 0);
+        const todayExpensesTotal = todayExpenses.reduce((sum, e) => sum + e.amount, 0);
+        const todayProfit = todayRevenue - todayCogs - todayExpensesTotal;
+
+        const yesterdayRevenue = yesterdaySales.reduce((sum, s) => sum + s.total_amount, 0);
+        const yesterdayCogs = yesterdaySales.reduce((sum, s) => sum + (s.total_cogs || 0), 0);
+        const yesterdayExpensesTotal = yesterdayExpenses.reduce((sum, e) => sum + e.amount, 0);
+        const yesterdayProfit = yesterdayRevenue - yesterdayCogs - yesterdayExpensesTotal;
 
         const lowStockItems = inventory.filter(item => item.stock_qty <= (item.min_stock_level || 5));
         const outOfStockItems = inventory.filter(item => item.stock_qty <= 0);
 
         return {
             inventory,
-            sales,
-            expenses,
+            sales: allSales.slice(0, 50), // Return recent sales for context
+            expenses: allExpenses.slice(0, 50), // Return recent expenses for context
             customerRequests,
             retailer,
             metrics: {
@@ -94,10 +150,18 @@ const getBusinessData = async (userId) => {
                 netProfit,
                 grossProfit: totalRevenue - totalCogs,
                 profitMargin: totalRevenue > 0 ? ((netProfit / totalRevenue) * 100).toFixed(2) : 0,
-                todayRevenue: todaySales.reduce((sum, s) => sum + s.total_amount, 0),
+                todayRevenue,
+                todayCogs,
+                todayExpenses: todayExpensesTotal,
+                todayProfit,
+                todaySalesCount: todaySales.length,
+                yesterdayRevenue,
+                yesterdayCogs,
+                yesterdayExpenses: yesterdayExpensesTotal,
+                yesterdayProfit,
+                yesterdaySalesCount: yesterdaySales.length,
                 weeklyRevenue: weeklySales.reduce((sum, s) => sum + s.total_amount, 0),
                 monthlyRevenue: monthlySales.reduce((sum, s) => sum + s.total_amount, 0),
-                todayExpenses: todayExpenses.reduce((sum, e) => sum + e.amount, 0),
                 monthlyExpenses: monthlyExpenses.reduce((sum, e) => sum + e.amount, 0),
                 lowStockCount: lowStockItems.length,
                 outOfStockCount: outOfStockItems.length,
@@ -270,9 +334,41 @@ const parseMessageFallback = (message) => {
 };
 
 /**
+ * Add message to conversation history (last 5 messages)
+ */
+const addToConversationHistory = (userId, userMessage, assistantMessage) => {
+    const key = `retailer_${userId}`;
+    if (!conversationHistory.has(key)) {
+        conversationHistory.set(key, []);
+    }
+    
+    const history = conversationHistory.get(key);
+    history.push({
+        user: userMessage,
+        assistant: assistantMessage,
+        timestamp: new Date()
+    });
+    
+    // Keep only last 5 conversations
+    if (history.length > 5) {
+        history.shift();
+    }
+    
+    conversationHistory.set(key, history);
+};
+
+/**
+ * Get conversation history for user
+ */
+const getConversationHistory = (userId) => {
+    const key = `retailer_${userId}`;
+    return conversationHistory.get(key) || [];
+};
+
+/**
  * Enhanced AI processing for retailer requests
  */
-const processRetailerRequest = async (message, businessData, language) => {
+const processRetailerRequest = async (message, businessData, language, conversationHistory = []) => {
     // Language mapping for response instructions
     const languageNames = {
         'en': 'English',
@@ -284,6 +380,16 @@ const processRetailerRequest = async (message, businessData, language) => {
 
     const languageName = languageNames[language] || 'English';
 
+    // Build conversation history context
+    let historyContext = '';
+    if (conversationHistory.length > 0) {
+        historyContext = '\n\nCONVERSATION HISTORY (Last ' + conversationHistory.length + ' exchanges):\n';
+        conversationHistory.forEach((conv, idx) => {
+            historyContext += `${idx + 1}. User: "${conv.user}"\n   Assistant: "${conv.assistant.substring(0, 150)}${conv.assistant.length > 150 ? '...' : ''}"\n`;
+        });
+        historyContext += '\nUse this context to provide more relevant and contextual responses.\n';
+    }
+
     const prompt = `
 You are an advanced business assistant for a retail store in India. Analyze this request: "${message}"
 
@@ -294,7 +400,7 @@ CRITICAL LANGUAGE INSTRUCTION:
 - ALWAYS use ₹ (Rupee symbol), NEVER use $ (Dollar)
 - Numbers and JSON structure remain the same
 - Item names from inventory can stay in their original language
-
+${historyContext}
 CURRENT BUSINESS STATUS:
 📊 FINANCIAL METRICS:
 - Total Revenue: ₹${businessData.metrics.totalRevenue}
@@ -302,8 +408,24 @@ CURRENT BUSINESS STATUS:
 - Total Expenses: ₹${businessData.metrics.totalExpenses}
 - Net Profit: ₹${businessData.metrics.netProfit}
 - Profit Margin: ${businessData.metrics.profitMargin}%
-- Today's Revenue: ₹${businessData.metrics.todayRevenue}
-- Monthly Revenue: ₹${businessData.metrics.monthlyRevenue}
+
+📅 TODAY'S PERFORMANCE:
+- Revenue: ₹${businessData.metrics.todayRevenue}
+- COGS: ₹${businessData.metrics.todayCogs}
+- Expenses: ₹${businessData.metrics.todayExpenses}
+- Profit: ₹${businessData.metrics.todayProfit}
+- Sales Count: ${businessData.metrics.todaySalesCount}
+
+📅 YESTERDAY'S PERFORMANCE:
+- Revenue: ₹${businessData.metrics.yesterdayRevenue}
+- COGS: ₹${businessData.metrics.yesterdayCogs}
+- Expenses: ₹${businessData.metrics.yesterdayExpenses}
+- Profit: ₹${businessData.metrics.yesterdayProfit}
+- Sales Count: ${businessData.metrics.yesterdaySalesCount}
+
+📆 MONTHLY PERFORMANCE:
+- Revenue: ₹${businessData.metrics.monthlyRevenue}
+- Expenses: ₹${businessData.metrics.monthlyExpenses}
 
 📦 INVENTORY STATUS (${businessData.inventory.length} items):
 ${businessData.inventory.slice(0, 15).map(item =>
@@ -347,11 +469,15 @@ FOR BUSINESS INSIGHTS/ANALYTICS (when user asks about sales, profit, inventory s
 {"action": "insights", "type": "sales|inventory|expenses|profit|overview", "response": "MUST be in ${languageName} with specific numbers from business data above. Be conversational and helpful, not generic. Use ₹ symbol."}
 
 CRITICAL FOR INSIGHTS:
+- If user asks about today's or yesterday's sales/profit, use the EXACT numbers from TODAY'S/YESTERDAY'S PERFORMANCE sections above
 - If user asks about today's sales and todayRevenue is 0, mention ACTUAL inventory items they can sell
-- If asking about profit, show REAL numbers from metrics above
+- If asking about profit, show REAL numbers from metrics above with comparison to yesterday if relevant
 - If asking about inventory, list ACTUAL items with stock levels
 - Be specific, helpful, and actionable - NOT generic
+- Use conversation history to provide contextual responses
 - ALWAYS use ₹ symbol, NEVER $
+- DO NOT use asterisks (*) for bold or emphasis - use plain text only
+- DO NOT use markdown formatting in responses - just plain text with emojis
 
 FOR MISSING INFORMATION:
 {"action": "clarify", "missing": ["field1", "field2"], "response": "ask_for_specific_missing_information_in_${languageName}"}
@@ -420,17 +546,23 @@ const executeAction = async (userId, aiResponse, businessData, originalMessage, 
             case 'add_expense':
                 return await addExpense(userId, aiResponse);
             case 'insights':
-                return await generateBusinessInsights(aiResponse, businessData);
+                const insightsResult = await generateBusinessInsights(aiResponse, businessData);
+                // Remove asterisks from insights response
+                if (insightsResult.message) {
+                    insightsResult.message = insightsResult.message.replace(/\*\*/g, '').replace(/\*/g, '');
+                }
+                return insightsResult;
             case 'clarify':
                 return {
                     success: true,
-                    message: aiResponse.response,
+                    message: (aiResponse.response || '').replace(/\*\*/g, '').replace(/\*/g, ''),
                     data: { type: 'clarification_needed', missing_fields: aiResponse.missing }
                 };
             default:
+                const defaultMessage = aiResponse.response || "I can help you with sales, inventory, expenses, and business insights. What would you like to do?";
                 return {
                     success: true,
-                    message: aiResponse.response || "I can help you with sales, inventory, expenses, and business insights. What would you like to do?",
+                    message: defaultMessage.replace(/\*\*/g, '').replace(/\*/g, ''),
                     data: null
                 };
         }
@@ -448,7 +580,13 @@ const executeAction = async (userId, aiResponse, businessData, originalMessage, 
  * Handle confirmations for pending operations
  */
 const handleConfirmation = async (userId) => {
+    console.log(`🔍 handleConfirmation called for userId: ${userId}`);
+    console.log(`🔍 Looking for key: retailer_${userId}`);
+    console.log(`🔍 Available keys:`, Array.from(pendingOrders.keys()));
+    
     const pendingOperation = pendingOrders.get(`retailer_${userId}`);
+    console.log(`🔍 Found pending operation:`, !!pendingOperation);
+    
     if (!pendingOperation) {
         return {
             success: false,
@@ -602,7 +740,7 @@ const createSalePreview = async (userId, aiResponse, businessData, autoConfirm =
     // Store pending sale with language
     const pendingSale = {
         type: 'sale',
-        userId,
+        userId: userId.toString(), // Ensure string
         items: saleItems,
         totalAmount,
         totalCogs,
@@ -615,10 +753,14 @@ const createSalePreview = async (userId, aiResponse, businessData, autoConfirm =
 
     // If autoConfirm is true, create the sale immediately
     if (autoConfirm) {
-        return await confirmSale(userId, pendingSale);
+        return await confirmSale(userId.toString(), pendingSale);
     }
 
-    pendingOrders.set(`retailer_${userId}`, pendingSale);
+    const userIdStr = userId.toString();
+    pendingOrders.set(`retailer_${userIdStr}`, pendingSale);
+    console.log(`✅ Stored pending sale for retailer_${userIdStr}`);
+    console.log(`✅ Total pending orders:`, pendingOrders.size);
+    console.log(`✅ All keys:`, Array.from(pendingOrders.keys()));
 
     // Language-specific preview messages
     const previewHeaders = {
@@ -628,9 +770,9 @@ const createSalePreview = async (userId, aiResponse, businessData, autoConfirm =
     };
 
     const labels = {
-        'en': { qty: 'Qty', stockAfter: 'Stock after sale', total: 'Total', cogs: 'COGS', profit: 'Gross Profit', customer: 'Customer', payment: 'Payment', confirm: "Reply 'yes' to confirm this sale." },
-        'hi': { qty: 'मात्रा', stockAfter: 'बिक्री के बाद स्टॉक', total: 'कुल', cogs: 'लागत', profit: 'सकल लाभ', customer: 'ग्राहक', payment: 'भुगतान', confirm: "इस बिक्री की पुष्टि करने के लिए 'हाँ' का उत्तर दें।" },
-        'te': { qty: 'పరిమాణం', stockAfter: 'అమ్మకం తర్వాత స్టాక్', total: 'మొత్తం', cogs: 'ఖర్చు', profit: 'స్థూల లాభం', customer: 'కస్టమర్', payment: 'చెల్లింపు', confirm: "ఈ అమ్మకాన్ని నిర్ధారించడానికి 'అవును' అని సమాధానం ఇవ్వండి." }
+        'en': { qty: 'Qty', total: 'Total', customer: 'Customer', payment: 'Payment', confirm: "Click 'Yes' button or reply 'yes' to confirm." },
+        'hi': { qty: 'मात्रा', total: 'कुल', customer: 'ग्राहक', payment: 'भुगतान', confirm: "'हाँ' बटन क्लिक करें या 'हाँ' लिखें।" },
+        'te': { qty: 'పరిమాణం', total: 'మొత్తం', customer: 'కస్టమర్', payment: 'చెల్లింపు', confirm: "'అవును' బటన్ క్లిక్ చేయండి లేదా 'అవును' అని రాయండి." }
     };
 
     const label = labels[language] || labels['en'];
@@ -638,15 +780,12 @@ const createSalePreview = async (userId, aiResponse, businessData, autoConfirm =
     let messageText = previewHeaders[language] || previewHeaders['en'];
     saleItems.forEach((item, idx) => {
         messageText += `${idx + 1}. ${item.item_name}\n`;
-        messageText += `   ${label.qty}: ${item.quantity} × ₹${item.price_per_unit} = ₹${item.total}\n`;
-        messageText += `   ${label.stockAfter}: ${item.new_stock}\n\n`;
+        messageText += `   ${label.qty}: ${item.quantity} × ₹${item.price_per_unit} = ₹${item.total}\n\n`;
     });
 
     messageText += `💰 ${label.total}: ₹${totalAmount}\n`;
-    messageText += `💸 ${label.cogs}: ₹${totalCogs}\n`;
-    messageText += `📈 ${label.profit}: ₹${totalAmount - totalCogs}\n`;
-    messageText += `👤 ${label.customer}: ${pendingSale.customer_name}\n`;
-    messageText += `💳 ${label.payment}: ${pendingSale.payment_method}\n\n`;
+    messageText += `� ${label.customer}: ${pendingSale.customer_name}\n`;
+    messageText += `� ${label.payment}: ${pendingSale.payment_method}\n\n`;
     messageText += label.confirm;
 
     return {
@@ -915,7 +1054,7 @@ const confirmInventoryAdd = async (userId, pendingOperation) => {
 };
 
 /**
- * Add expense with enhanced categorization
+ * Add expense with enhanced categorization - Creates preview first
  */
 const addExpense = async (userId, data) => {
     try {
@@ -928,29 +1067,74 @@ const addExpense = async (userId, data) => {
             };
         }
 
-        const newExpense = new Expense({
-            user_id: userId,
+        // Create expense preview
+        const expenseType = data.is_sales_expense ? '🎯 Sales-related' : '🏢 Operating';
+        const category = data.category || 'Other';
+
+        // Store pending expense
+        const pendingExpense = {
+            type: 'expense',
+            userId,
             description: data.description,
             amount: data.amount,
-            category: data.category || 'Other',
+            category: category,
             is_sales_expense: data.is_sales_expense || false,
-            date: new Date()
-        });
+            timestamp: Date.now()
+        };
 
-        await newExpense.save();
-
-        const expenseType = newExpense.is_sales_expense ? '🎯 Sales-related' : '🏢 Operating';
+        pendingOrders.set(`retailer_${userId}`, pendingExpense);
 
         return {
             success: true,
-            message: `✅ Expense added:\n\n💸 ${data.description}\n💰 Amount: ₹${data.amount}\n📂 Category: ${newExpense.category}\n🏷️ Type: ${expenseType}\n📅 Date: ${new Date().toLocaleDateString()}`,
-            data: { type: 'expense_added', expense: newExpense }
+            message: `📋 Expense Preview:\n\n💸 ${data.description}\n💰 Amount: ₹${data.amount}\n📂 Category: ${category}\n🏷️ Type: ${expenseType}\n📅 Date: ${new Date().toLocaleDateString()}\n\nReply 'yes' to confirm this expense.`,
+            data: { 
+                type: 'expense_preview', 
+                description: data.description,
+                amount: data.amount,
+                category: category,
+                is_sales_expense: data.is_sales_expense || false,
+                expense_type: expenseType
+            }
         };
     } catch (error) {
         console.error('Add expense error:', error);
         return {
             success: false,
             message: `Error adding expense: ${error.message}`,
+            data: null
+        };
+    }
+};
+
+/**
+ * Confirm expense addition
+ */
+const confirmExpense = async (userId, pendingOperation) => {
+    try {
+        const newExpense = new Expense({
+            user_id: userId,
+            description: pendingOperation.description,
+            amount: pendingOperation.amount,
+            category: pendingOperation.category,
+            is_sales_expense: pendingOperation.is_sales_expense,
+            date: new Date()
+        });
+
+        await newExpense.save();
+        pendingOrders.delete(`retailer_${userId}`);
+
+        const expenseType = newExpense.is_sales_expense ? '🎯 Sales-related' : '🏢 Operating';
+
+        return {
+            success: true,
+            message: `✅ Expense added successfully!\n\n💸 ${newExpense.description}\n💰 Amount: ₹${newExpense.amount}\n📂 Category: ${newExpense.category}\n🏷️ Type: ${expenseType}\n📅 Date: ${new Date().toLocaleDateString()}`,
+            data: { type: 'expense_added', expense: newExpense }
+        };
+    } catch (error) {
+        console.error('Confirm expense error:', error);
+        return {
+            success: false,
+            message: "Error adding expense. Please try again.",
             data: null
         };
     }
@@ -1006,8 +1190,26 @@ const generateSalesInsights = (businessData) => {
 
     let insights = `📊 SALES INSIGHTS\n\n`;
     insights += `💰 Total Revenue: ₹${metrics.totalRevenue.toLocaleString()}\n`;
-    insights += `📈 Gross Profit: ₹${metrics.grossProfit.toLocaleString()}\n`;
-    insights += `📅 Today: ₹${metrics.todayRevenue.toLocaleString()}\n`;
+    insights += `📈 Gross Profit: ₹${metrics.grossProfit.toLocaleString()}\n\n`;
+    
+    insights += `📅 TODAY:\n`;
+    insights += `• Revenue: ₹${metrics.todayRevenue.toLocaleString()}\n`;
+    insights += `• Profit: ₹${metrics.todayProfit.toLocaleString()}\n`;
+    insights += `• Sales: ${metrics.todaySalesCount} transactions\n\n`;
+    
+    insights += `📅 YESTERDAY:\n`;
+    insights += `• Revenue: ₹${metrics.yesterdayRevenue.toLocaleString()}\n`;
+    insights += `• Profit: ₹${metrics.yesterdayProfit.toLocaleString()}\n`;
+    insights += `• Sales: ${metrics.yesterdaySalesCount} transactions\n\n`;
+    
+    // Comparison
+    const revenueDiff = metrics.todayRevenue - metrics.yesterdayRevenue;
+    const profitDiff = metrics.todayProfit - metrics.yesterdayProfit;
+    if (metrics.yesterdayRevenue > 0) {
+        const revenueChange = ((revenueDiff / metrics.yesterdayRevenue) * 100).toFixed(1);
+        insights += `📊 vs Yesterday: ${revenueDiff >= 0 ? '📈' : '📉'} ${revenueChange}% revenue, ${profitDiff >= 0 ? '📈' : '📉'} ₹${Math.abs(profitDiff).toLocaleString()} profit\n\n`;
+    }
+    
     insights += `📆 This Month: ₹${metrics.monthlyRevenue.toLocaleString()}\n\n`;
 
     if (sales.length > 0) {
@@ -1130,6 +1332,24 @@ const generateProfitInsights = (businessData) => {
     insights += `📈 Gross Profit: ₹${metrics.grossProfit.toLocaleString()}\n`;
     insights += `💎 Net Profit: ₹${metrics.netProfit.toLocaleString()}\n`;
     insights += `📊 Profit Margin: ${metrics.profitMargin}%\n\n`;
+    
+    insights += `📅 TODAY'S PROFIT:\n`;
+    insights += `• Revenue: ₹${metrics.todayRevenue.toLocaleString()}\n`;
+    insights += `• COGS: ₹${metrics.todayCogs.toLocaleString()}\n`;
+    insights += `• Expenses: ₹${metrics.todayExpenses.toLocaleString()}\n`;
+    insights += `• Net Profit: ₹${metrics.todayProfit.toLocaleString()}\n\n`;
+    
+    insights += `📅 YESTERDAY'S PROFIT:\n`;
+    insights += `• Revenue: ₹${metrics.yesterdayRevenue.toLocaleString()}\n`;
+    insights += `• COGS: ₹${metrics.yesterdayCogs.toLocaleString()}\n`;
+    insights += `• Expenses: ₹${metrics.yesterdayExpenses.toLocaleString()}\n`;
+    insights += `• Net Profit: ₹${metrics.yesterdayProfit.toLocaleString()}\n\n`;
+    
+    // Comparison
+    const profitDiff = metrics.todayProfit - metrics.yesterdayProfit;
+    if (metrics.yesterdayProfit !== 0) {
+        insights += `📊 Comparison: ${profitDiff >= 0 ? '📈 Up' : '📉 Down'} ₹${Math.abs(profitDiff).toLocaleString()} from yesterday\n\n`;
+    }
 
     // Profit analysis
     if (metrics.netProfit > 0) {
@@ -1158,18 +1378,27 @@ const generateOverviewInsights = (businessData) => {
 
     let insights = `🏪 BUSINESS OVERVIEW\n\n`;
     insights += `📊 FINANCIAL SUMMARY:\n`;
-    insights += `💰 Revenue: ₹${metrics.totalRevenue.toLocaleString()}\n`;
+    insights += `💰 Total Revenue: ₹${metrics.totalRevenue.toLocaleString()}\n`;
     insights += `💎 Net Profit: ₹${metrics.netProfit.toLocaleString()}\n`;
     insights += `📈 Profit Margin: ${metrics.profitMargin}%\n\n`;
 
-    insights += `📦 INVENTORY STATUS:\n`;
+    insights += `� TODAY vs YESTERDAY:\n`;
+    insights += `• Today: ₹${metrics.todayRevenue.toLocaleString()} (${metrics.todaySalesCount} sales)\n`;
+    insights += `• Yesterday: ₹${metrics.yesterdayRevenue.toLocaleString()} (${metrics.yesterdaySalesCount} sales)\n`;
+    const revenueDiff = metrics.todayRevenue - metrics.yesterdayRevenue;
+    if (metrics.yesterdayRevenue > 0) {
+        const change = ((revenueDiff / metrics.yesterdayRevenue) * 100).toFixed(1);
+        insights += `• Change: ${revenueDiff >= 0 ? '📈' : '📉'} ${change}%\n`;
+    }
+    insights += `\n`;
+
+    insights += `� INVENTORY STATUS:\n`;
     insights += `• ${inventory.length} total items\n`;
     insights += `• ${metrics.lowStockCount} low stock alerts\n`;
     insights += `• ${metrics.outOfStockCount} out of stock\n\n`;
 
     insights += `🛒 SALES ACTIVITY:\n`;
     insights += `• ${sales.length} total transactions\n`;
-    insights += `• ₹${metrics.todayRevenue.toLocaleString()} today\n`;
     insights += `• ₹${metrics.monthlyRevenue.toLocaleString()} this month\n\n`;
 
     insights += `💸 EXPENSES:\n`;

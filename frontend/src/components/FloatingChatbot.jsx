@@ -212,24 +212,39 @@ const FloatingChatbot = ({ isCustomerMode = false, retailerId = null, retailerNa
         setIsLoading(true);
 
         try {
-            const response = await api.post('/conversational/execute', {
-                confirmationId: pendingConfirmation.confirmationId,
-                confirmed: confirmed,
+            // Send confirmation message in local language
+            const confirmMessages = {
+                'en': confirmed ? 'yes' : 'no',
+                'hi': confirmed ? 'हाँ' : 'नहीं',
+                'te': confirmed ? 'అవును' : 'కాదు'
+            };
+            
+            const confirmMessage = confirmMessages[language] || (confirmed ? 'yes' : 'no');
+            
+            const requestData = {
+                message: confirmMessage,
                 language: language
-            });
+            };
 
-            if (response.data.success) {
+            // Add retailer_id for customer mode
+            if (isCustomerMode && retailerId) {
+                requestData.retailer_id = retailerId;
+            }
+
+            const response = await api.post('/chatbot/chat', requestData);
+
+            if (response.data) {
                 const botMessage = {
                     type: 'bot',
                     content: response.data.message,
                     timestamp: new Date(),
-                    isSuccess: response.data.executed
+                    isSuccess: response.data.success
                 };
 
                 setMessages(prev => [...prev, botMessage]);
 
                 // Speak the response
-                if (autoSpeak) {
+                if (autoSpeak && !isCustomerMode) {
                     speak(response.data.message);
                 }
             }
@@ -243,7 +258,7 @@ const FloatingChatbot = ({ isCustomerMode = false, retailerId = null, retailerNa
 
             setMessages(prev => [...prev, {
                 type: 'bot',
-                content: errorMessages[language],
+                content: errorMessages[language] || errorMessages['en'],
                 timestamp: new Date()
             }]);
         } finally {
@@ -281,6 +296,12 @@ const FloatingChatbot = ({ isCustomerMode = false, retailerId = null, retailerNa
 
             const response = await api.post('/chatbot/chat', requestData);
 
+            // Check if response requires confirmation
+            const requiresConfirmation = response.data.data?.pending === true || 
+                                        response.data.data?.type === 'sale_preview' ||
+                                        response.data.data?.type === 'expense_preview' ||
+                                        response.data.data?.type === 'item_exists';
+
             // Always display the message, whether success or error
             const botMessage = {
                 type: 'bot',
@@ -288,10 +309,19 @@ const FloatingChatbot = ({ isCustomerMode = false, retailerId = null, retailerNa
                 timestamp: new Date(),
                 data: response.data.data,
                 isError: !response.data.success,
-                isStockError: response.data.data?.type === 'stock_error'
+                isStockError: response.data.data?.type === 'stock_error',
+                isConfirmation: requiresConfirmation
             };
 
             setMessages(prev => [...prev, botMessage]);
+
+            // Set pending confirmation if needed
+            if (requiresConfirmation) {
+                setPendingConfirmation({
+                    confirmationId: Date.now(), // Temporary ID
+                    data: response.data.data
+                });
+            }
 
             // Speak the response (only for retailer mode and only on success)
             if (autoSpeak && !isCustomerMode && response.data.success) {
@@ -474,14 +504,18 @@ const FloatingChatbot = ({ isCustomerMode = false, retailerId = null, retailerNa
                                     disabled={isLoading}
                                     className="flex-1 bg-green-600 text-white px-3 py-2 sm:px-4 text-sm sm:text-base rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 font-medium"
                                 >
-                                    {language === 'hi' ? '✅ हां' : language === 'te' ? '✅ అవును' : '✅ Yes'}
+                                    {language === 'hi' ? '✅ हाँ' : 
+                                     language === 'te' ? '✅ అవును' : 
+                                     '✅ Yes'}
                                 </button>
                                 <button
                                     onClick={() => handleConfirmation(false)}
                                     disabled={isLoading}
                                     className="flex-1 bg-red-600 text-white px-3 py-2 sm:px-4 text-sm sm:text-base rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 font-medium"
                                 >
-                                    {language === 'hi' ? '❌ नहीं' : language === 'te' ? '❌ కాదు' : '❌ No'}
+                                    {language === 'hi' ? '❌ नहीं' : 
+                                     language === 'te' ? '❌ కాదు' : 
+                                     '❌ No'}
                                 </button>
                             </div>
                         </div>
