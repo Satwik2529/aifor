@@ -31,6 +31,8 @@ import WholesalerAIInsights from './pages/WholesalerAIInsights';
 import WholesalerInventory from './pages/WholesalerInventory';
 import WholesalerOrders from './pages/WholesalerOrders';
 import RetailerWholesalerOrders from './pages/RetailerWholesalerOrders';
+import DiscountCampaigns from './pages/DiscountCampaigns';
+import HotDeals from './pages/HotDeals';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -130,6 +132,7 @@ function App() {
               <Route path="/customer/chatbot" element={<CustomerChatbotPage />} />
               <Route path="/customer/profile-settings" element={<ProfileSettings />} />
               <Route path="/customer/nearby-shops" element={<NearbyShops />} />
+              <Route path="/hot-deals" element={<HotDeals />} />
 
               {/* Wholesaler Dashboard */}
               <Route path="/wholesaler-dashboard" element={<WholesalerDashboard />} />
@@ -153,6 +156,7 @@ function App() {
                 <Route path="inventory" element={<Inventory />} />
                 <Route path="customers" element={<CustomersHub />} />
                 <Route path="wholesalers" element={<WholesalersHub />} />
+                <Route path="discount-campaigns" element={<DiscountCampaigns />} />
                 <Route path="ai" element={<AIInsights />} />
                 <Route path="analytics" element={<Analytics />} />
                 <Route path="profile" element={<ProfileSettings />} />
