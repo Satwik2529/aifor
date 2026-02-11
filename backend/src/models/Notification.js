@@ -23,7 +23,24 @@ const notificationSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['new_request', 'request_completed', 'request_cancelled', 'bill_generated', 'order', 'promotion', 'alert', 'system'],
+    enum: [
+      'new_request', 
+      'request_completed', 
+      'request_cancelled', 
+      'bill_generated', 
+      'order', 
+      'promotion', 
+      'alert', 
+      'system',
+      // Advanced alert types
+      'low_stock',
+      'out_of_stock',
+      'pending_orders',
+      'sales_drop',
+      'high_expenses',
+      'festival_reminder',
+      'festival_upcoming'
+    ],
     required: true
   },
   title: {

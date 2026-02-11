@@ -80,8 +80,9 @@ const CustomerDashboard = () => {
 
       if (result.success) {
         setRetailers(result.data.retailers || []);
-        if (!result.data.retailers || result.data.retailers.length === 0) {
-          toast.error('No retailers found. Please ask a retailer to sign up first.');
+        // Only show error if searching and no results found
+        if (search && (!result.data.retailers || result.data.retailers.length === 0)) {
+          toast('No retailers found matching your search.', { icon: 'ℹ️' });
         }
       } else {
         toast.error('Failed to load retailers');
