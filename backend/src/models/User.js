@@ -129,6 +129,17 @@ const userSchema = new mongoose.Schema({
       type: String,
       trim: true
     },
+    businessType: {
+      type: String,
+      trim: true,
+      enum: ['Distributor', 'Manufacturer', 'Importer', 'Wholesaler', 'Supplier', ''],
+      default: ''
+    },
+    gstNumber: {
+      type: String,
+      trim: true,
+      uppercase: true
+    },
     contactPerson: {
       type: String,
       trim: true
@@ -147,8 +158,14 @@ const userSchema = new mongoose.Schema({
     },
     paymentModes: {
       type: [String],
-      enum: ['Cash', 'UPI', 'Credit', 'Bank Transfer'],
+      enum: ['Cash', 'UPI', 'Credit', 'Bank Transfer', 'Card', 'Net Banking', 'Cheque'],
       default: ['Cash', 'UPI']
+    },
+    description: {
+      type: String,
+      trim: true,
+      maxlength: [500, 'Description cannot exceed 500 characters'],
+      default: ''
     },
     isActive: {
       type: Boolean,

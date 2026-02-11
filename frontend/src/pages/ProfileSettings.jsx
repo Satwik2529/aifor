@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { User, Mail, Phone, MapPin, Building2, FileText, Briefcase, Hash, Save, Navigation, ExternalLink } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { User, Mail, Phone, MapPin, Building2, FileText, Briefcase, Hash, Save, Navigation, ExternalLink, ArrowLeft } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -8,6 +9,7 @@ import { useAuth } from '../contexts/AuthContext';
  * Allows both Retailers and Customers to view and edit their profile information
  */
 const ProfileSettings = () => {
+  const navigate = useNavigate();
   const { user: authUser, updateProfile: updateAuthProfile } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -31,12 +33,15 @@ const ProfileSettings = () => {
     language: 'Hindi',
     upi_id: '',
     // Wholesaler-specific
+    // Wholesaler-specific
     wholesalerProfile: {
       businessName: '',
       businessType: '',
       gstNumber: '',
       minOrderValue: '',
       deliveryRadius: '',
+      deliveryRadiusKm: '',
+      avgDeliveryTime: '',
       paymentModes: [],
       description: ''
     }
@@ -73,6 +78,14 @@ const ProfileSettings = () => {
 
       if (result.success) {
         const profileData = storedUserType === 'customer' ? result.data.customer : result.data.user;
+
+        console.log('📋 Profile Data Loaded:', {
+          userType: storedUserType,
+          role: profileData.role,
+          hasWholesalerProfile: !!profileData.wholesalerProfile,
+          wholesalerProfile: profileData.wholesalerProfile
+        });
+
         setFormData({
           name: profileData.name || '',
           email: profileData.email || '',
@@ -85,18 +98,20 @@ const ProfileSettings = () => {
           gst_number: profileData.gst_number || '',
           language: profileData.language || 'Hindi',
           upi_id: profileData.upi_id || '',
-          wholesalerProfile: profileData.wholesalerProfile || {
-            businessName: '',
-            businessType: '',
-            gstNumber: '',
-            minOrderValue: '',
-            deliveryRadius: '',
-            paymentModes: [],
-            description: ''
+          wholesalerProfile: {
+            businessName: profileData.wholesalerProfile?.businessName || '',
+            businessType: profileData.wholesalerProfile?.businessType || '',
+            gstNumber: profileData.wholesalerProfile?.gstNumber || '',
+            minOrderValue: profileData.wholesalerProfile?.minOrderValue || '',
+            deliveryRadius: profileData.wholesalerProfile?.deliveryRadius || '',
+            deliveryRadiusKm: profileData.wholesalerProfile?.deliveryRadiusKm || '',
+            avgDeliveryTime: profileData.wholesalerProfile?.avgDeliveryTime || '',
+            paymentModes: profileData.wholesalerProfile?.paymentModes || [],
+            description: profileData.wholesalerProfile?.description || ''
           }
         });
         setLastUpdated(profileData.updatedAt);
-        
+
         // Set location data if available
         if (profileData.latitude && profileData.longitude) {
           setLocationData({
@@ -297,10 +312,20 @@ const ProfileSettings = () => {
     <div className="max-w-4xl mx-auto animate-fadeIn">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Profile Settings</h1>
-        <p className="text-gray-600">Manage your personal and business information</p>
+        <div className="flex items-center gap-3 mb-2">
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            title="Go back"
+          >
+            <ArrowLeft className="h-6 w-6 text-gray-600" />
+          </button>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Profile Settings</h1>
+        </div>
+        <p className="text-gray-600 ml-14">Manage your personal and business information</p>
         {lastUpdated && (
-          <p className="text-sm text-gray-500 mt-1">
+          <p className="text-sm text-gray-500 mt-1 ml-14">
             Last updated: {new Date(lastUpdated).toLocaleString()}
           </p>
         )}
@@ -545,8 +570,8 @@ const ProfileSettings = () => {
               {/* Info Message */}
               <div className="bg-green-50 border border-green-200 rounded-lg p-3">
                 <p className="text-sm text-green-800">
-                  ✅ {userType === 'retailer' 
-                    ? 'Your store is discoverable by nearby customers!' 
+                  ✅ {userType === 'retailer'
+                    ? 'Your store is discoverable by nearby customers!'
                     : 'You can find nearby stores in your area!'}
                 </p>
               </div>
@@ -682,7 +707,7 @@ const ProfileSettings = () => {
         )}
 
         {/* Wholesaler Business Information Card */}
-        {userType === 'retailer' && authUser?.role === 'wholesaler' && (
+        {(userType === 'wholesaler' || (userType === 'retailer' && authUser?.role === 'wholesaler')) && (
           <div className="bg-white rounded-lg shadow-md p-6">
             <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
               <Building2 className="h-5 w-5 text-primary-600" />
@@ -767,12 +792,27 @@ const ProfileSettings = () => {
                 </label>
                 <input
                   type="number"
-                  name="wholesalerProfile.deliveryRadius"
-                  value={formData.wholesalerProfile.deliveryRadius}
+                  name="wholesalerProfile.deliveryRadiusKm"
+                  value={formData.wholesalerProfile.deliveryRadiusKm || formData.wholesalerProfile.deliveryRadius}
                   onChange={handleChange}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
                   placeholder="e.g., 50"
                   min="0"
+                />
+              </div>
+
+              {/* Average Delivery Time */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Average Delivery Time
+                </label>
+                <input
+                  type="text"
+                  name="wholesalerProfile.avgDeliveryTime"
+                  value={formData.wholesalerProfile.avgDeliveryTime}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  placeholder="e.g., 2-3 days"
                 />
               </div>
 
@@ -782,7 +822,7 @@ const ProfileSettings = () => {
                   Accepted Payment Modes
                 </label>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  {['Cash', 'UPI', 'Card', 'Net Banking', 'Cheque', 'Credit'].map(mode => (
+                  {['Cash', 'UPI', 'Card', 'Net Banking', 'Cheque', 'Credit', 'Bank Transfer'].map(mode => (
                     <label key={mode} className="flex items-center space-x-2 cursor-pointer">
                       <input
                         type="checkbox"
@@ -814,7 +854,7 @@ const ProfileSettings = () => {
                   maxLength={500}
                 />
                 <p className="text-xs text-gray-500 mt-1">
-                  {formData.wholesalerProfile.description.length}/500 characters
+                  {(formData.wholesalerProfile.description || '').length}/500 characters
                 </p>
               </div>
             </div>

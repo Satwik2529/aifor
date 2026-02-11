@@ -50,9 +50,9 @@ const WholesalerOffers = () => {
             let API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
             API_BASE_URL = API_BASE_URL.replace(/\/api$/, '');
 
-            // Validate quantity
-            if (orderQuantity < (offer.minOrderQty || 1)) {
-                toast.error(`Minimum order quantity is ${offer.minOrderQty || 1}`);
+            // Validate quantity - only check available quantity, no minimum restriction for special offers
+            if (orderQuantity <= 0) {
+                toast.error('Quantity must be at least 1');
                 return;
             }
 

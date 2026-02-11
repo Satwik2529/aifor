@@ -34,10 +34,13 @@ const RegisterNew = () => {
     },
     // Wholesaler specific
     businessName: '',
+    businessType: '',
+    gstNumber: '',
     minOrderValue: '',
     deliveryRadiusKm: '',
     avgDeliveryTime: '',
     paymentModes: [],
+    description: '',
     // Location fields (for all)
     locality: '',
     latitude: null,
@@ -126,10 +129,13 @@ const RegisterNew = () => {
         pincode: ''
       },
       businessName: '',
+      businessType: '',
+      gstNumber: '',
       minOrderValue: '',
       deliveryRadiusKm: '',
       avgDeliveryTime: '',
-      paymentModes: []
+      paymentModes: [],
+      description: ''
     });
   };
 
@@ -244,7 +250,7 @@ const RegisterNew = () => {
             localStorage.setItem('rememberMe', 'true');
             localStorage.setItem('savedPhone', formData.phone);
           }
-          
+
           toast.success(t('auth.register.success'));
           if (registrationData.latitude && registrationData.longitude) {
             toast.success('📍 Your store is now discoverable by nearby customers!');
@@ -271,12 +277,15 @@ const RegisterNew = () => {
             longitude: formData.longitude,
             wholesalerProfile: {
               businessName: formData.businessName,
+              businessType: formData.businessType || '',
+              gstNumber: formData.gstNumber || '',
               contactPerson: formData.name,
               locality: formData.locality,
               minOrderValue: parseFloat(formData.minOrderValue),
               deliveryRadiusKm: parseFloat(formData.deliveryRadiusKm),
               avgDeliveryTime: formData.avgDeliveryTime,
               paymentModes: formData.paymentModes,
+              description: formData.description || '',
               isActive: true
             }
           })
@@ -300,7 +309,7 @@ const RegisterNew = () => {
         let API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
         // Remove /api suffix if present to avoid double /api/api/
         API_BASE_URL = API_BASE_URL.replace(/\/api$/, '');
-        
+
         const registrationData = {
           name: formData.name,
           email: formData.email,
@@ -311,7 +320,7 @@ const RegisterNew = () => {
           latitude: formData.latitude,
           longitude: formData.longitude
         };
-        
+
         const response = await fetch(`${API_BASE_URL}/api/customer-auth/register`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -323,13 +332,13 @@ const RegisterNew = () => {
         if (result.success) {
           localStorage.setItem('token', result.data.token);
           localStorage.setItem('userType', 'customer');
-          
+
           // Remember me functionality
           if (rememberMe) {
             localStorage.setItem('rememberMe', 'true');
             localStorage.setItem('savedEmail', formData.email);
           }
-          
+
           toast.success(t('auth.register.success'));
           if (formData.latitude && formData.longitude) {
             toast.success('📍 You can now find nearby stores!');
@@ -631,6 +640,42 @@ const RegisterNew = () => {
                 </div>
 
                 <div>
+                  <label htmlFor="businessType" className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-white">
+                    Business Type
+                  </label>
+                  <select
+                    id="businessType"
+                    name="businessType"
+                    value={formData.businessType}
+                    onChange={handleChange}
+                    className="input-field text-sm"
+                  >
+                    <option value="">Select type</option>
+                    <option value="Distributor">Distributor</option>
+                    <option value="Manufacturer">Manufacturer</option>
+                    <option value="Importer">Importer</option>
+                    <option value="Wholesaler">Wholesaler</option>
+                    <option value="Supplier">Supplier</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label htmlFor="gstNumber" className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-white">
+                    GST Number
+                  </label>
+                  <input
+                    id="gstNumber"
+                    name="gstNumber"
+                    type="text"
+                    value={formData.gstNumber}
+                    onChange={handleChange}
+                    className="input-field text-sm uppercase"
+                    placeholder="22AAAAA0000A1Z5"
+                    maxLength={15}
+                  />
+                </div>
+
+                <div>
                   <label htmlFor="minOrderValue" className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-white">
                     Minimum Order Value (₹) *
                   </label>
@@ -706,6 +751,25 @@ const RegisterNew = () => {
                       </label>
                     ))}
                   </div>
+                </div>
+
+                <div className="md:col-span-2">
+                  <label htmlFor="description" className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-white">
+                    Business Description
+                  </label>
+                  <textarea
+                    id="description"
+                    name="description"
+                    value={formData.description}
+                    onChange={handleChange}
+                    rows={3}
+                    className="input-field text-sm"
+                    placeholder="Describe your wholesale business, products, and services..."
+                    maxLength={500}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    {formData.description?.length || 0}/500 characters
+                  </p>
                 </div>
               </>
             )}

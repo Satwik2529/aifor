@@ -25,7 +25,7 @@ const CustomerRequests = () => {
 
   useEffect(() => {
     fetchRequests();
-    
+
     // Auto-refresh every 30 seconds for real-time updates
     const interval = setInterval(fetchRequests, 30000);
     return () => clearInterval(interval);
@@ -33,15 +33,15 @@ const CustomerRequests = () => {
 
   const fetchRequests = async () => {
     try {
-      const url = filter === 'all' 
+      const url = filter === 'all'
         ? `${API_URL}/api/customer-requests/retailer`
         : `${API_URL}/api/customer-requests/retailer?status=${filter}`;
-        
+
       const response = await fetch(url, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const result = await response.json();
-      
+
       if (result.success) {
         // Debug: Log first request's customer data
         if (result.data.requests.length > 0) {
@@ -52,7 +52,7 @@ const CustomerRequests = () => {
             address: result.data.requests[0].customer_id?.address
           });
         }
-        
+
         // Sort: Active requests first, then completed/cancelled
         const sorted = result.data.requests.sort((a, b) => {
           const statusOrder = { pending: 1, processing: 2, billed: 3, completed: 4, cancelled: 5 };
@@ -80,9 +80,9 @@ const CustomerRequests = () => {
     console.log('🚫 Cancelling request:', selectedRequest._id, 'Reason:', cancellationReason);
     setIsLoading(true);
     try {
-      const requestBody = { 
+      const requestBody = {
         status: 'cancelled',
-        cancellation_reason: cancellationReason 
+        cancellation_reason: cancellationReason
       };
       console.log('📤 Sending cancel request:', requestBody);
 
@@ -135,9 +135,9 @@ const CustomerRequests = () => {
 
     setIsLoading(true);
     try {
-      const requestBody = { 
+      const requestBody = {
         status: 'completed',
-        payment_method: paymentMethod 
+        payment_method: paymentMethod
       };
       console.log('📤 Sending complete request:', requestBody);
 
@@ -224,7 +224,7 @@ const CustomerRequests = () => {
 
   const handleGenerateBill = async (e) => {
     e.preventDefault();
-    
+
     if (!selectedRequest) return;
 
     console.log('💵 Generating bill for request:', selectedRequest._id);
@@ -272,33 +272,33 @@ const CustomerRequests = () => {
 
   const getStatusBadge = (status) => {
     const statusConfig = {
-      pending: { 
-        color: 'bg-yellow-100 text-yellow-800 border border-yellow-300', 
-        icon: Clock, 
+      pending: {
+        color: 'bg-yellow-100 text-yellow-800 border border-yellow-300',
+        icon: Clock,
         text: 'Pending',
         pulse: true
       },
-      processing: { 
-        color: 'bg-blue-100 text-blue-800 border border-blue-300', 
-        icon: Package, 
+      processing: {
+        color: 'bg-blue-100 text-blue-800 border border-blue-300',
+        icon: Package,
         text: 'Processing',
         pulse: true
       },
-      billed: { 
-        color: 'bg-purple-100 text-purple-800 border border-purple-300', 
-        icon: DollarSign, 
+      billed: {
+        color: 'bg-purple-100 text-purple-800 border border-purple-300',
+        icon: DollarSign,
         text: 'Billed',
         pulse: false
       },
-      completed: { 
-        color: 'bg-green-100 text-green-800 border border-green-300 font-semibold', 
-        icon: CheckCircle, 
+      completed: {
+        color: 'bg-green-100 text-green-800 border border-green-300 font-semibold',
+        icon: CheckCircle,
         text: '✓ Completed',
         pulse: false
       },
-      cancelled: { 
-        color: 'bg-red-100 text-red-800 border border-red-300', 
-        icon: XCircle, 
+      cancelled: {
+        color: 'bg-red-100 text-red-800 border border-red-300',
+        icon: XCircle,
         text: '✗ Cancelled',
         pulse: false
       }
@@ -316,7 +316,7 @@ const CustomerRequests = () => {
   };
 
   const calculateTotal = () => {
-    const subtotal = billForm.items.reduce((sum, item) => 
+    const subtotal = billForm.items.reduce((sum, item) =>
       sum + (item.price_per_unit * item.quantity), 0
     );
     const tax = subtotal * (billForm.taxRate / 100);
@@ -340,11 +340,10 @@ const CustomerRequests = () => {
             <button
               key={filterOption.value}
               onClick={() => setFilter(filterOption.value)}
-              className={`px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
-                filter === filterOption.value
+              className={`px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${filter === filterOption.value
                   ? 'bg-primary-600 text-white shadow-md scale-105'
                   : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 hover:shadow'
-              }`}
+                }`}
             >
               {filterOption.label}
             </button>
@@ -353,36 +352,36 @@ const CustomerRequests = () => {
       </div>
 
       {/* Requests List */}
-      <div className="space-y-3 sm:space-y-4">
+      <div className="space-y-6">
         {requests.map((request) => (
-          <div key={request._id} className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6 hover:shadow-lg transition-shadow border border-transparent dark:border-gray-700">
+          <div key={request._id} className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 hover:shadow-xl transition-all border-l-4 border-primary-500 dark:border-primary-600">
             {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 sm:gap-0 mb-4">
-              <div className="flex items-start gap-3">
-                <div className="bg-primary-100 dark:bg-primary-900/30 p-2 rounded-full flex-shrink-0">
-                  <User className="h-4 w-4 sm:h-5 sm:w-5 text-primary-600 dark:text-primary-400" />
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4 mb-6">
+              <div className="flex items-start gap-4">
+                <div className="bg-gradient-to-br from-primary-100 to-primary-200 dark:from-primary-900/30 dark:to-primary-800/30 p-3 rounded-xl flex-shrink-0 shadow-sm">
+                  <User className="h-6 w-6 text-primary-600 dark:text-primary-400" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-sm sm:text-base text-gray-900 dark:text-gray-100 truncate">{request.customer_id?.name || 'Customer'}</h3>
-                  <div className="flex flex-col xs:flex-row xs:items-center gap-1 xs:gap-3 text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-1">
+                  <h3 className="font-bold text-lg text-gray-900 dark:text-gray-100 mb-2">{request.customer_id?.name || 'Customer'}</h3>
+                  <div className="flex flex-col gap-2 text-sm text-gray-600 dark:text-gray-400">
                     {request.customer_id?.phone && (
-                      <div className="flex items-center gap-1">
-                        <Phone className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
-                        <span className="truncate">{request.customer_id.phone}</span>
+                      <div className="flex items-center gap-2">
+                        <Phone className="h-4 w-4 flex-shrink-0 text-primary-500" />
+                        <span className="font-medium">{request.customer_id.phone}</span>
                       </div>
                     )}
                     {request.customer_id?.email && (
-                      <div className="flex items-center gap-1">
-                        <span className="truncate">{request.customer_id.email}</span>
+                      <div className="flex items-center gap-2">
+                        <span>{request.customer_id.email}</span>
                       </div>
                     )}
                     {!request.customer_id?.phone && !request.customer_id?.email && (
-                      <span className="text-gray-500 dark:text-gray-500 italic text-xs">No contact info</span>
+                      <span className="text-gray-500 dark:text-gray-500 italic text-sm">No contact info</span>
                     )}
                   </div>
                   {request.customer_id?.address && Object.values(request.customer_id.address).some(val => val && val.trim()) && (
-                    <div className="flex items-start gap-1 text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-1">
-                      <MapPin className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0 mt-0.5" />
+                    <div className="flex items-start gap-2 text-sm text-gray-600 dark:text-gray-400 mt-3 p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                      <MapPin className="h-4 w-4 flex-shrink-0 mt-0.5 text-primary-500" />
                       <span className="line-clamp-2">
                         {[
                           request.customer_id.address.street,
@@ -394,14 +393,14 @@ const CustomerRequests = () => {
                     </div>
                   )}
                   {(!request.customer_id?.address || !Object.values(request.customer_id.address).some(val => val && val.trim())) && (
-                    <div className="flex items-start gap-1 text-xs text-gray-500 dark:text-gray-500 italic mt-1">
-                      <MapPin className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0 mt-0.5" />
+                    <div className="flex items-start gap-2 text-sm text-gray-500 dark:text-gray-500 italic mt-3">
+                      <MapPin className="h-4 w-4 flex-shrink-0 mt-0.5" />
                       <span>No address provided</span>
                     </div>
                   )}
                 </div>
               </div>
-              <div className="flex sm:flex-col items-center sm:items-end gap-2">
+              <div className="flex sm:flex-col items-center sm:items-end gap-3">
                 {getStatusBadge(request.status)}
                 <span className="text-xs text-gray-500 whitespace-nowrap">
                   {new Date(request.createdAt).toLocaleString()}
@@ -410,16 +409,19 @@ const CustomerRequests = () => {
             </div>
 
             {/* Items */}
-            <div className="mb-4">
-              <h4 className="text-xs sm:text-sm font-medium text-gray-700 mb-2">Requested Items:</h4>
-              <div className="space-y-2">
+            <div className="mb-6">
+              <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
+                <Package className="h-4 w-4 text-primary-500" />
+                Requested Items
+              </h4>
+              <div className="space-y-3">
                 {request.items.map((item, idx) => (
-                  <div key={idx} className="flex flex-col xs:flex-row xs:justify-between gap-1 xs:gap-2 text-xs sm:text-sm bg-gray-50 p-2 rounded">
-                    <span className="text-gray-900 font-medium">{item.item_name}</span>
-                    <span className="text-gray-600 whitespace-nowrap">
-                      Qty: {item.quantity}
+                  <div key={idx} className="flex flex-col xs:flex-row xs:justify-between gap-2 text-sm bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700/50 dark:to-gray-800/50 p-4 rounded-lg border border-gray-200 dark:border-gray-600">
+                    <span className="text-gray-900 dark:text-gray-100 font-semibold">{item.item_name}</span>
+                    <span className="text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                      Qty: <span className="font-bold text-gray-900 dark:text-gray-100">{item.quantity}</span>
                       {item.price_per_unit > 0 && (
-                        <span className="ml-2 font-medium text-gray-900">
+                        <span className="ml-3 font-semibold text-primary-600 dark:text-primary-400">
                           × ₹{item.price_per_unit} = ₹{item.total_price}
                         </span>
                       )}
@@ -431,23 +433,23 @@ const CustomerRequests = () => {
 
             {/* Notes */}
             {request.notes && (
-              <div className="mb-4 p-3 bg-gray-50 rounded-md">
-                <p className="text-xs sm:text-sm text-gray-700">
-                  <span className="font-medium">Notes:</span> {request.notes}
+              <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                <p className="text-sm text-gray-700 dark:text-gray-300">
+                  <span className="font-semibold text-blue-700 dark:text-blue-400">Notes:</span> {request.notes}
                 </p>
               </div>
             )}
 
             {/* Bill Details */}
             {request.bill_details && request.bill_details.total > 0 && (
-              <div className="mb-4 p-3 sm:p-4 bg-green-50 border border-green-200 rounded-md">
-                <h4 className="text-xs sm:text-sm font-medium text-gray-900 mb-2 flex items-center">
-                  <DollarSign className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1 flex-shrink-0" />
+              <div className="mb-6 p-5 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-2 border-green-300 dark:border-green-700 rounded-xl">
+                <h4 className="text-sm font-bold text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
+                  <DollarSign className="h-5 w-5 text-green-600 dark:text-green-400" />
                   Bill Details
                 </h4>
-                <div className="space-y-1 text-xs sm:text-sm">
+                <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-gray-700">Subtotal:</span>
+                    <span className="text-gray-700 dark:text-gray-300">Subtotal:</span>
                     <span className="font-medium">₹{request.bill_details.subtotal?.toFixed(2)}</span>
                   </div>
                   {request.bill_details.tax > 0 && (

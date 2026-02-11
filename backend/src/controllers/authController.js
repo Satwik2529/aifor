@@ -284,6 +284,35 @@ const authController = {
       if (req.body.business_type) updateData.business_type = req.body.business_type;
       if (req.body.gst_number !== undefined) updateData.gst_number = req.body.gst_number;
 
+      // Wholesaler-specific fields
+      if (req.body.wholesalerProfile) {
+        updateData.wholesalerProfile = {};
+        if (req.body.wholesalerProfile.businessName !== undefined) {
+          updateData.wholesalerProfile.businessName = req.body.wholesalerProfile.businessName;
+        }
+        if (req.body.wholesalerProfile.businessType !== undefined) {
+          updateData.wholesalerProfile.businessType = req.body.wholesalerProfile.businessType;
+        }
+        if (req.body.wholesalerProfile.gstNumber !== undefined) {
+          updateData.wholesalerProfile.gstNumber = req.body.wholesalerProfile.gstNumber;
+        }
+        if (req.body.wholesalerProfile.minOrderValue !== undefined) {
+          updateData.wholesalerProfile.minOrderValue = req.body.wholesalerProfile.minOrderValue;
+        }
+        if (req.body.wholesalerProfile.deliveryRadiusKm !== undefined) {
+          updateData.wholesalerProfile.deliveryRadiusKm = req.body.wholesalerProfile.deliveryRadiusKm;
+        }
+        if (req.body.wholesalerProfile.avgDeliveryTime !== undefined) {
+          updateData.wholesalerProfile.avgDeliveryTime = req.body.wholesalerProfile.avgDeliveryTime;
+        }
+        if (req.body.wholesalerProfile.paymentModes !== undefined) {
+          updateData.wholesalerProfile.paymentModes = req.body.wholesalerProfile.paymentModes;
+        }
+        if (req.body.wholesalerProfile.description !== undefined) {
+          updateData.wholesalerProfile.description = req.body.wholesalerProfile.description;
+        }
+      }
+
       console.log('✅ Parsed update data:', updateData);
 
       // Update user
@@ -312,6 +341,7 @@ const authController = {
             name: user.name,
             phone: user.phone,
             email: user.email,
+            role: user.role,
             shop_name: user.shop_name,
             shop_description: user.shop_description,
             business_type: user.business_type,
@@ -320,6 +350,8 @@ const authController = {
             avatar: user.avatar,
             language: user.language,
             upi_id: user.upi_id,
+            // Wholesaler profile
+            wholesalerProfile: user.wholesalerProfile,
             // Location fields
             locality: user.locality,
             latitude: user.latitude,

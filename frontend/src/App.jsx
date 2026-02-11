@@ -12,6 +12,7 @@ import Sales from './pages/Sales';
 import Expenses from './pages/Expenses';
 import Inventory from './pages/Inventory';
 import Customers from './pages/Customers';
+import CustomersHub from './pages/CustomersHub';
 import Analytics from './pages/Analytics';
 import AIInsights from './pages/AIInsights';
 import LoginNew from './pages/LoginNew';
@@ -25,6 +26,7 @@ import NearbyShops from './pages/NearbyShops';
 import WholesalerDashboard from './pages/WholesalerDashboard';
 import WholesalerDiscovery from './pages/WholesalerDiscovery';
 import WholesalerOffers from './pages/WholesalerOffers';
+import WholesalersHub from './pages/WholesalersHub';
 import WholesalerAIInsights from './pages/WholesalerAIInsights';
 import WholesalerInventory from './pages/WholesalerInventory';
 import WholesalerOrders from './pages/WholesalerOrders';
@@ -149,11 +151,8 @@ function App() {
                 <Route path="sales" element={<Sales />} />
                 <Route path="expenses" element={<Expenses />} />
                 <Route path="inventory" element={<Inventory />} />
-                <Route path="customers" element={<Customers />} />
-                <Route path="customer-requests" element={<CustomerRequestsPage />} />
-                <Route path="wholesalers" element={<WholesalerDiscovery />} />
-                <Route path="wholesaler-offers" element={<WholesalerOffers />} />
-                <Route path="wholesaler-orders" element={<RetailerWholesalerOrders />} />
+                <Route path="customers" element={<CustomersHub />} />
+                <Route path="wholesalers" element={<WholesalersHub />} />
                 <Route path="ai" element={<AIInsights />} />
                 <Route path="analytics" element={<Analytics />} />
                 <Route path="profile" element={<ProfileSettings />} />

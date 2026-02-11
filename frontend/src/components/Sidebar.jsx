@@ -27,10 +27,7 @@ const Sidebar = ({ isOpen, onClose }) => {
     { name: t('nav.expenses'), href: '/dashboard/expenses', icon: Receipt },
     { name: t('nav.inventory'), href: '/dashboard/inventory', icon: Package },
     { name: t('nav.customers'), href: '/dashboard/customers', icon: Users },
-    { name: t('nav.customerRequests'), href: '/dashboard/customer-requests', icon: MessageSquare },
     { name: 'Wholesalers', href: '/dashboard/wholesalers', icon: Truck },
-    { name: 'Special Offers', href: '/dashboard/wholesaler-offers', icon: Tag },
-    { name: 'My Orders', href: '/dashboard/wholesaler-orders', icon: Package },
     { name: t('nav.aiInsights'), href: '/dashboard/ai', icon: Brain },
     { name: t('nav.analytics'), href: '/dashboard/analytics', icon: BarChart3 },
   ];
