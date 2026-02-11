@@ -3,7 +3,11 @@ import { Flame, TrendingDown, Clock, MapPin, Search, Filter, Tag } from 'lucide-
 import axios from 'axios';
 import toast, { Toaster } from 'react-hot-toast';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+// Ensure API_URL always has /api
+let API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+if (!API_URL.endsWith('/api')) {
+  API_URL = API_URL + '/api';
+}
 
 const HotDeals = () => {
   const [deals, setDeals] = useState([]);
