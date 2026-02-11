@@ -552,7 +552,7 @@
   },
   "ai": {
     "title": "AI Business Insights",
-    "subtitle": "Powered by OpenAI for intelligent business analytics",
+    "subtitle": "Powered by OpenAI API for intelligent business analytics",
     "tabs": {
       "demand": {
         "name": "Demand Forecasting",
@@ -602,6 +602,175 @@
       "en": "Hello! I'm your AI business assistant. I can help you with sales, inventory, expenses, and customer queries. How can I help you today?",
       "hi": "नमस्ते! मैं आपका AI बिज़नेस सहायक हूं। मैं आपकी बिक्री, इन्वेंटरी, खर्चों और ग्राहकों से संबंधित सवालों में मदद कर सकता हूं। आज मैं आपकी कैसे मदद कर सकता हूं?",
       "te": "నమస్కారం! నేను మీ AI వ్యాపార సహాయకుడను. అమ్మకాలు, ఇన్వెంటరీ, ఖర్చులు మరియు కస్టమర్ ప్రశ్నలలో నేను మీకు సహాయం చేయగలను. ఈరోజు నేను మీకు ఎలా సహాయం చేయగలను?"
+    }
+  },
+  "customerDashboard": {
+    "customer": "Customer",
+    "logout": "Logout",
+    "tabs": {
+      "home": "Home",
+      "browseStores": "Browse Stores",
+      "myOrders": "My Orders"
+    },
+    "welcome": {
+      "title": "Welcome back, {{name}}!",
+      "subtitle": "Discover nearby shops, find hot deals, and manage your orders all in one place."
+    },
+    "features": {
+      "nearbyShops": {
+        "title": "Nearby Shops",
+        "description": "Find retailers near you within 5-50km radius. Get directions and contact details.",
+        "badge": "GPS Enabled"
+      },
+      "myOrders": {
+        "title": "My Orders",
+        "description": "Track your orders, view status updates, and manage your purchase history.",
+        "activeOrders": "{{count}} Active Order",
+        "activeOrders_plural": "{{count}} Active Orders"
+      },
+      "hotDeals": {
+        "title": "Hot Deals 🔥",
+        "description": "Save up to 75% on expiring items! Browse discounts from nearby retailers.",
+        "badge": "Limited Time Offers"
+      }
+    },
+    "stats": {
+      "totalOrders": "Total Orders",
+      "pendingOrders": "Pending Orders",
+      "completed": "Completed"
+    },
+    "recentOrders": {
+      "title": "Recent Orders",
+      "items": "{{count}} item",
+      "items_plural": "{{count}} items",
+      "viewAll": "View All Orders"
+    },
+    "browseStores": {
+      "title": "Available Stores",
+      "searchPlaceholder": "Search stores...",
+      "noStores": "No stores found"
+    },
+    "orderForm": {
+      "title": "Order from {{shopName}}",
+      "selectStore": "Select a Store",
+      "scanList": "Scan Shopping List",
+      "viewInventory": "View Available Items ({{count}})",
+      "hideInventory": "Hide",
+      "checkingStock": "Checking stock...",
+      "inventoryTitle": "Available Inventory",
+      "noInventory": "No inventory available",
+      "outOfStock": "Out of Stock",
+      "lowStock": "Low Stock",
+      "inStock": "In Stock",
+      "items": "Items",
+      "itemNamePlaceholder": "Item name (type or select)",
+      "qtyPlaceholder": "Qty",
+      "max": "max",
+      "addItem": "Add Item",
+      "available": "Available",
+      "unavailable": "Unavailable",
+      "notInShop": "Not in Shop",
+      "stock": "Stock",
+      "only": "Only",
+      "notAvailable": "Not available in this shop",
+      "orderSummary": "Order Summary",
+      "cannotProceed": "Cannot proceed: Some items are unavailable or insufficient",
+      "notes": "Additional Notes (Optional)",
+      "notesPlaceholder": "Any special requests or instructions...",
+      "sendRequest": "Send Request",
+      "sending": "Sending...",
+      "cancel": "Cancel",
+      "selectRetailer": "Select a retailer to send a request"
+    },
+    "myOrdersTab": {
+      "title": "My Orders",
+      "items": "Items",
+      "note": "Note",
+      "subtotal": "Subtotal",
+      "tax": "Tax",
+      "total": "Total",
+      "confirmPayment": "Confirm Payment",
+      "paymentConfirmed": "Payment Confirmed",
+      "method": "Method",
+      "waitingForRetailer": "⏳ Waiting for retailer to complete your order...",
+      "noOrders": "No orders yet",
+      "noOrdersSubtitle": "Browse stores to place your first order"
+    },
+    "status": {
+      "pending": "Pending",
+      "processing": "Processing",
+      "billed": "Billed - Confirm Payment",
+      "payment_confirmed": "Payment Confirmed",
+      "completed": "Completed",
+      "cancelled": "Cancelled"
+    },
+    "billScanner": {
+      "title": "Scan Shopping List",
+      "subtitle": "Upload image → AI extracts items → Review → Add to order",
+      "uploadTitle": "Upload shopping list or handwritten note",
+      "uploadSubtitle": "PNG, JPG, GIF up to 10MB",
+      "selectImage": "Select Image",
+      "removeImage": "Remove Image",
+      "whatWeExtract": "📋 What we extract:",
+      "extractItem1": "• Item names from your list",
+      "extractItem2": "• Quantities needed",
+      "extractItem3": "• You can review and edit before ordering",
+      "scanList": "Scan List",
+      "scanning": "Scanning...",
+      "extracted": "✅ Extracted {{count}} item(s) from your list",
+      "reviewSubtitle": "Review and edit items before adding to your order",
+      "itemName": "Item Name",
+      "quantity": "Quantity",
+      "actions": "Actions",
+      "remove": "Remove",
+      "back": "Back",
+      "addToOrder": "Add to Order",
+      "adding": "Adding..."
+    },
+    "paymentModal": {
+      "title": "Confirm Payment",
+      "orderFrom": "Order from {{shopName}}",
+      "orderTotal": "Order Total:",
+      "paymentMethod": "Payment Method",
+      "required": "*",
+      "cash": "Cash",
+      "card": "Card",
+      "upi": "UPI",
+      "bankTransfer": "Bank Transfer",
+      "credit": "Credit (Pay Later)",
+      "retailerUpiId": "Retailer UPI ID:",
+      "copy": "Copy",
+      "sendToUpi": "Send ₹{{amount}} to this UPI ID",
+      "noUpiWarning": "⚠️ Retailer hasn't set up UPI ID. Please use another payment method or contact retailer.",
+      "paymentNote": "This confirms you will pay using the selected method when you receive your order.",
+      "confirming": "Confirming...",
+      "confirm": "Confirm Payment"
+    },
+    "toast": {
+      "noRetailersFound": "No retailers found matching your search.",
+      "failedToLoadRetailers": "Failed to load retailers",
+      "errorLoadingRetailers": "Error loading retailers",
+      "ordersCompleted": "{{count}} order(s) completed! 🎉",
+      "ordersBilled": "{{count}} order(s) billed!",
+      "selectRetailer": "Please select a retailer",
+      "addOneItem": "Please add at least one item",
+      "waitForStockCheck": "Please wait for stock check or remove \"{{itemName}}\"",
+      "itemUnavailable": "\"{{itemName}}\" is unavailable. {{message}}",
+      "requestSent": "Request sent successfully!",
+      "outOfStock": "Out of stock: {{items}}",
+      "insufficientStock": "Insufficient stock: {{items}}",
+      "requestFailed": "Failed to send request",
+      "errorOccurred": "An error occurred. Please try again.",
+      "selectImageFirst": "Please select an image first",
+      "selectRetailerFirst": "Please select a retailer first",
+      "noItemsToConfirm": "No items to confirm",
+      "itemsAdded": "{{count}} items added to your order!",
+      "cannotConfirm": "This order cannot be confirmed. Current status: {{status}}",
+      "alreadyConfirmed": "Payment already confirmed for this order",
+      "selectPaymentMethod": "Please select a payment method",
+      "paymentConfirmedSuccess": "✅ Payment confirmed! Waiting for retailer to complete order.",
+      "upiIdCopied": "UPI ID copied!",
+      "networkError": "Network error: {{message}}"
     }
   }
 }

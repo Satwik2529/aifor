@@ -19,6 +19,7 @@ router.post('/retailer/:retailer_id/check-availability', authenticateToken, cust
 // Customer routes - create and view their own requests
 router.post('/', authenticateToken, validateCustomerRequest, customerRequestController.createRequest);
 router.get('/customer', authenticateToken, customerRequestController.getCustomerRequests);
+router.put('/:id/confirm-payment', authenticateToken, customerRequestController.confirmPayment);
 
 // Retailer routes - view and manage requests sent to them
 router.get('/retailer', authenticateToken, customerRequestController.getRetailerRequests);

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Flame, TrendingDown, Clock, MapPin, Search, Filter, Tag } from 'lucide-react';
+import { Flame, TrendingDown, Clock, MapPin, Search, Filter, Tag, ArrowLeft } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import toast, { Toaster } from 'react-hot-toast';
 
@@ -10,14 +11,22 @@ if (!API_URL.endsWith('/api')) {
 }
 
 const HotDeals = () => {
+  const navigate = useNavigate();
   const [deals, setDeals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [sortBy, setSortBy] = useState('discount'); // discount, price, ending_soon
+  
+  // Modal states
+  const [showQuantityModal, setShowQuantityModal] = useState(false);
+  const [selectedDeal, setSelectedDeal] = useState(null);
+  const [quantity, setQuantity] = useState(1);
+  const [sendingRequest, setSendingRequest] = useState(false);
 
   // Get shop_id from URL params or localStorage
   const shopId = new URLSearchParams(window.location.search).get('shop_id') || localStorage.getItem('selected_shop_id');
+  const token = localStorage.getItem('token');
 
   useEffect(() => {
     if (shopId) {
@@ -38,13 +47,84 @@ const HotDeals = () => {
     }
   };
 
-  const handleDealClick = async (itemId) => {
+  const handleDealClick = async (deal) => {
     try {
       // Track click
-      await axios.post(`${API_URL}/campaigns/track-click`, { inventory_id: itemId });
-      toast.success('Deal clicked! Contact the shop to purchase.');
+      await axios.post(`${API_URL}/campaigns/track-click`, { inventory_id: deal.item_id });
+      
+      // Open quantity modal
+      setSelectedDeal(deal);
+      setQuantity(1);
+      setShowQuantityModal(true);
     } catch (error) {
       console.error('Error tracking click:', error);
+    }
+  };
+
+  const handleGrabDeal = async () => {
+    if (!selectedDeal || !token) {
+      toast.error('Please login to grab deals');
+      return;
+    }
+
+    if (quantity <= 0) {
+      toast.error('Please enter a valid quantity');
+      return;
+    }
+
+    if (quantity > selectedDeal.stock_qty) {
+      toast.error(`Only ${selectedDeal.stock_qty} items available`);
+      return;
+    }
+
+    setSendingRequest(true);
+    try {
+      // Remove /api from API_URL for customer-requests endpoint
+      const baseURL = API_URL.replace('/api', '');
+      
+      const response = await axios.post(
+        `${baseURL}/api/customer-requests`,
+        {
+          retailer_id: shopId,
+          items: [{
+            item_name: selectedDeal.item_name,
+            quantity: quantity
+          }],
+          notes: `🔥 HOT DEAL REQUEST - ${selectedDeal.discount_percentage}% OFF! Original Price: ₹${selectedDeal.original_price}, Deal Price: ₹${selectedDeal.discounted_price}`,
+          is_hot_deal: true,
+          hot_deal_info: {
+            discount_percentage: selectedDeal.discount_percentage,
+            original_price: selectedDeal.original_price,
+            discounted_price: selectedDeal.discounted_price,
+            savings: selectedDeal.savings
+          }
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      if (response.data.success) {
+        toast.success('🎉 Hot deal request sent to retailer!');
+        setShowQuantityModal(false);
+        setSelectedDeal(null);
+        setQuantity(1);
+        
+        // Navigate to customer dashboard after 2 seconds
+        setTimeout(() => {
+          navigate('/customer-dashboard');
+        }, 2000);
+      } else {
+        toast.error(response.data.message || 'Failed to send request');
+      }
+    } catch (error) {
+      console.error('Error sending hot deal request:', error);
+      toast.error(error.response?.data?.message || 'Failed to send request');
+    } finally {
+      setSendingRequest(false);
     }
   };
 
@@ -88,19 +168,31 @@ const HotDeals = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <Toaster />
+      <Toaster 
+        position="top-right"
+        toastOptions={{
+          duration: 10000,
+        }}
+      />
 
       {/* Header */}
       <div className="bg-gradient-to-r from-red-600 to-orange-600 text-white py-8 px-4">
         <div className="max-w-7xl mx-auto">
           <div className="flex items-center gap-3 mb-2">
+            <button
+              onClick={() => navigate(-1)}
+              className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+              title="Go Back"
+            >
+              <ArrowLeft className="h-6 w-6 text-white" />
+            </button>
             <Flame className="h-10 w-10 animate-pulse" />
             <h1 className="text-4xl font-bold">🔥 Hot Deals</h1>
           </div>
-          <p className="text-red-100 text-lg">
+          <p className="text-red-100 text-lg ml-14">
             Limited time offers on expiring & clearance items - Save up to 75%!
           </p>
-          <div className="mt-4 flex items-center gap-2 text-sm">
+          <div className="mt-4 ml-14 flex items-center gap-2 text-sm">
             <Clock className="h-4 w-4" />
             <span>Deals updated in real-time • {deals.length} active offers</span>
           </div>
@@ -165,8 +257,7 @@ const HotDeals = () => {
             {filteredDeals.map((deal) => (
               <div
                 key={deal.item_id}
-                onClick={() => handleDealClick(deal.item_id)}
-                className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden hover:shadow-2xl transition-all cursor-pointer transform hover:scale-105 border-2 border-transparent hover:border-red-500"
+                className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden hover:shadow-2xl transition-all border-2 border-transparent hover:border-red-500"
               >
                 {/* Discount Badge */}
                 <div className="relative">
@@ -240,7 +331,10 @@ const HotDeals = () => {
                     )}
                   </div>
 
-                  <button className="w-full mt-4 bg-gradient-to-r from-red-600 to-orange-600 text-white py-3 rounded-lg font-bold hover:from-red-700 hover:to-orange-700 transition-all shadow-md">
+                  <button 
+                    onClick={() => handleDealClick(deal)}
+                    className="w-full mt-4 bg-gradient-to-r from-red-600 to-orange-600 text-white py-3 rounded-lg font-bold hover:from-red-700 hover:to-orange-700 transition-all shadow-md"
+                  >
                     Grab This Deal!
                   </button>
                 </div>
@@ -261,6 +355,132 @@ const HotDeals = () => {
           </p>
         </div>
       </div>
+
+      {/* Quantity Modal */}
+      {showQuantityModal && selectedDeal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full p-6 animate-fadeIn">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                <Flame className="h-6 w-6 text-red-600" />
+                Grab This Deal!
+              </h3>
+              <button
+                onClick={() => setShowQuantityModal(false)}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+              >
+                <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Deal Info */}
+            <div className="mb-6">
+              <div className="bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-900/20 dark:to-orange-900/20 rounded-lg p-4 mb-4">
+                <h4 className="font-bold text-lg text-gray-900 dark:text-white mb-2">
+                  {selectedDeal.item_name}
+                </h4>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-2xl font-bold text-green-600 dark:text-green-400">
+                    ₹{selectedDeal.discounted_price}
+                  </span>
+                  <span className="text-sm text-gray-500 dark:text-gray-400 line-through">
+                    ₹{selectedDeal.original_price}
+                  </span>
+                  <span className="px-2 py-1 bg-red-600 text-white rounded-full text-xs font-bold">
+                    {selectedDeal.discount_percentage}% OFF
+                  </span>
+                </div>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  💰 You save ₹{selectedDeal.savings} per item
+                </p>
+              </div>
+
+              {/* Stock Info */}
+              <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3 mb-4">
+                <p className="text-sm text-yellow-800 dark:text-yellow-300">
+                  📦 Available Stock: {selectedDeal.stock_qty} items
+                </p>
+              </div>
+
+              {/* Quantity Input */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  How many do you want?
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max={selectedDeal.stock_qty}
+                  value={quantity}
+                  onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg text-lg font-semibold text-center bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                />
+                <div className="flex justify-between mt-2">
+                  <button
+                    onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                    className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600"
+                  >
+                    -
+                  </button>
+                  <button
+                    onClick={() => setQuantity(Math.min(selectedDeal.stock_qty, quantity + 1))}
+                    className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+
+              {/* Total Calculation */}
+              <div className="mt-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm text-gray-600 dark:text-gray-400">Quantity:</span>
+                  <span className="font-semibold text-gray-900 dark:text-white">{quantity}</span>
+                </div>
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm text-gray-600 dark:text-gray-400">Price per item:</span>
+                  <span className="font-semibold text-gray-900 dark:text-white">₹{selectedDeal.discounted_price}</span>
+                </div>
+                <div className="border-t border-green-200 dark:border-green-800 pt-2 mt-2">
+                  <div className="flex justify-between items-center">
+                    <span className="font-bold text-gray-900 dark:text-white">Total:</span>
+                    <span className="text-2xl font-bold text-green-600 dark:text-green-400">
+                      ₹{(selectedDeal.discounted_price * quantity).toFixed(2)}
+                    </span>
+                  </div>
+                  <p className="text-xs text-green-700 dark:text-green-400 mt-1">
+                    Total savings: ₹{(selectedDeal.savings * quantity).toFixed(2)}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowQuantityModal(false)}
+                className="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleGrabDeal}
+                disabled={sendingRequest}
+                className="flex-1 px-4 py-3 bg-gradient-to-r from-red-600 to-orange-600 text-white rounded-lg font-bold hover:from-red-700 hover:to-orange-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {sendingRequest ? 'Sending...' : 'Send Request'}
+              </button>
+            </div>
+
+            <p className="text-xs text-gray-500 dark:text-gray-400 text-center mt-4">
+              Your request will be sent to the retailer for confirmation
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

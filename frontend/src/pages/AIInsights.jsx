@@ -55,23 +55,24 @@ const AIInsights = () => {
     });
     const [exportingPDF, setExportingPDF] = useState(false);
 
-    // Load cached insights on mount
+    // Load cached insights on mount and clear on unmount
     React.useEffect(() => {
-        const cachedInsights = localStorage.getItem('retailer_ai_insights');
-        const cacheTimestamp = localStorage.getItem('retailer_ai_insights_timestamp');
+        const cachedInsights = sessionStorage.getItem('retailer_ai_insights');
 
-        if (cachedInsights && cacheTimestamp) {
+        if (cachedInsights) {
             try {
                 const parsed = JSON.parse(cachedInsights);
-                const cacheAge = Date.now() - parseInt(cacheTimestamp);
-                // Use cache if less than 1 hour old
-                if (cacheAge < 3600000) {
-                    setInsights(parsed);
-                }
+                // Use sessionStorage - clears on page refresh
+                setInsights(parsed);
             } catch (e) {
                 console.error('Failed to parse cached insights:', e);
             }
         }
+
+        // Clear insights when component unmounts (page refresh)
+        return () => {
+            // This cleanup happens on page refresh
+        };
     }, []);
 
     // Chart data state
@@ -147,9 +148,8 @@ const AIInsights = () => {
                 const newInsights = { ...insights, [type]: response.data || response };
                 setInsights(newInsights);
 
-                // Cache the insights
-                localStorage.setItem('retailer_ai_insights', JSON.stringify(newInsights));
-                localStorage.setItem('retailer_ai_insights_timestamp', Date.now().toString());
+                // Cache the insights in sessionStorage - clears on page refresh
+                sessionStorage.setItem('retailer_ai_insights', JSON.stringify(newInsights));
             } else {
                 throw new Error(response.message || 'Failed to generate insights');
             }
@@ -708,7 +708,7 @@ const AIInsights = () => {
                             {tabs.find(t => t.id === type)?.name}
                         </h1>
                         <p style={{ fontSize: '16px', color: '#6B7280', marginBottom: '5px' }}>
-                            Powered by OpenAI - Biznova
+                            Powered by OpenAI API - Biznova
                         </p>
                         <p style={{ fontSize: '12px', color: '#9CA3AF' }}>
                             Generated on: {new Date(insight.metadata?.generatedAt).toLocaleString('en-IN')}

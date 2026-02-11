@@ -1,6 +1,9 @@
 const discountService = require('../services/discountService');
 const Campaign = require('../models/Campaign');
 const Inventory = require('../models/Inventory');
+const User = require('../models/User');
+const CustomerUser = require('../models/CustomerUser');
+const notificationController = require('./notificationController');
 
 /**
  * Campaign Controller - Manage discount campaigns
@@ -61,6 +64,37 @@ const campaignController = {
         duration_days,
         campaign_type || 'expiry_based'
       );
+
+      // Send notifications to nearby customers about hot deal
+      if (discount_percentage >= 20) {
+        try {
+          const inventory = await Inventory.findById(inventory_id);
+          const retailer = await User.findById(userId);
+          
+          // Get all customers (you can filter by location if needed)
+          const customers = await CustomerUser.find({ is_active: true }).limit(100);
+          
+          const notificationTitle = `🔥 Hot Deal Alert!`;
+          const notificationMessage = `${discount_percentage}% OFF on ${inventory.item_name} at ${retailer.shop_name || retailer.name}! Limited time offer.`;
+          
+          // Send notification to each customer
+          for (const customer of customers) {
+            await notificationController.createNotification(
+              customer._id,
+              'customer',
+              'hot_deal',
+              notificationTitle,
+              notificationMessage,
+              null
+            );
+          }
+          
+          console.log(`📢 Sent hot deal notifications to ${customers.length} customers`);
+        } catch (notifError) {
+          console.error('Error sending hot deal notifications:', notifError);
+          // Don't fail the main request if notifications fail
+        }
+      }
 
       res.status(200).json({
         success: true,

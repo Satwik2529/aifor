@@ -30,8 +30,8 @@ const DashboardLayout = () => {
         <Header onMenuClick={() => setSidebarOpen(true)} />
         
         {/* Page content with scrolling */}
-        <main className="flex-1 py-6">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <main className="flex-1 py-4">
+          <div className="mx-auto max-w-7xl px-3 sm:px-4 lg:px-6">
             <Outlet />
           </div>
         </main>

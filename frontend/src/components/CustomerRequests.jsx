@@ -53,10 +53,17 @@ const CustomerRequests = () => {
           });
         }
 
-        // Sort: Active requests first, then completed/cancelled
+        // Sort: Active requests first (by status), then by newest date within each status
         const sorted = result.data.requests.sort((a, b) => {
-          const statusOrder = { pending: 1, processing: 2, billed: 3, completed: 4, cancelled: 5 };
-          return (statusOrder[a.status] || 99) - (statusOrder[b.status] || 99);
+          const statusOrder = { pending: 1, processing: 2, billed: 3, payment_confirmed: 3.5, completed: 4, cancelled: 5 };
+          const statusDiff = (statusOrder[a.status] || 99) - (statusOrder[b.status] || 99);
+          
+          // If same status, sort by newest first (createdAt descending)
+          if (statusDiff === 0) {
+            return new Date(b.createdAt) - new Date(a.createdAt);
+          }
+          
+          return statusDiff;
         });
         setRequests(sorted);
       }
@@ -204,16 +211,68 @@ const CustomerRequests = () => {
     }
   };
 
-  const handleOpenBillModal = (request) => {
+  const handleOpenBillModal = async (request) => {
     setSelectedRequest(request);
-    setBillForm({
-      items: request.items.map(item => ({
-        ...item,
-        price_per_unit: item.price_per_unit || 0
-      })),
-      taxRate: 0
-    });
     setShowBillModal(true);
+    
+    // Fetch inventory to get prices
+    try {
+      const response = await fetch(`${API_URL}/api/inventory`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const result = await response.json();
+      
+      if (result.success) {
+        const inventory = result.data.items;
+        
+        // Map request items to inventory prices
+        const itemsWithPrices = request.items.map(item => {
+          // Find matching inventory item (case-insensitive)
+          const inventoryItem = inventory.find(
+            inv => inv.item_name.toLowerCase().trim() === item.item_name.toLowerCase().trim()
+          );
+          
+          if (inventoryItem) {
+            const price = inventoryItem.price_per_unit || inventoryItem.selling_price || inventoryItem.price || 0;
+            console.log(`✅ ${item.item_name}: Found price ₹${price}`);
+            return {
+              ...item,
+              price_per_unit: price
+            };
+          } else {
+            console.warn(`⚠️ ${item.item_name}: Not found in inventory`);
+            return {
+              ...item,
+              price_per_unit: item.price_per_unit || 0
+            };
+          }
+        });
+        
+        setBillForm({
+          items: itemsWithPrices,
+          taxRate: 0
+        });
+      } else {
+        // Fallback if inventory fetch fails
+        setBillForm({
+          items: request.items.map(item => ({
+            ...item,
+            price_per_unit: item.price_per_unit || 0
+          })),
+          taxRate: 0
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching inventory:', error);
+      // Fallback if error
+      setBillForm({
+        items: request.items.map(item => ({
+          ...item,
+          price_per_unit: item.price_per_unit || 0
+        })),
+        taxRate: 0
+      });
+    }
   };
 
   const handlePriceChange = (index, price) => {
@@ -233,11 +292,20 @@ const CustomerRequests = () => {
     setIsLoading(true);
 
     try {
+      // Check if any items have zero price - if so, let backend fetch from inventory
+      const hasZeroPrices = billForm.items.some(item => !item.price_per_unit || item.price_per_unit === 0);
+      
       const requestBody = {
-        items: billForm.items,
         taxRate: billForm.taxRate
       };
-      console.log('📤 Sending bill request:', requestBody);
+      
+      // Only send items if user has manually set prices (all non-zero)
+      if (!hasZeroPrices) {
+        requestBody.items = billForm.items;
+        console.log('📤 Sending bill request with manual prices:', requestBody);
+      } else {
+        console.log('� Sending bill request - backend will fetch prices from inventory');
+      }
 
       const response = await fetch(`${API_URL}/api/customer-requests/${selectedRequest._id}/bill`, {
         method: 'POST',
@@ -287,8 +355,14 @@ const CustomerRequests = () => {
       billed: {
         color: 'bg-purple-100 text-purple-800 border border-purple-300',
         icon: DollarSign,
-        text: 'Billed',
+        text: 'Billed - Awaiting Payment',
         pulse: false
+      },
+      payment_confirmed: {
+        color: 'bg-green-100 text-green-800 border border-green-300 font-semibold',
+        icon: CheckCircle,
+        text: '✓ Payment Confirmed',
+        pulse: true
       },
       completed: {
         color: 'bg-green-100 text-green-800 border border-green-300 font-semibold',
@@ -324,9 +398,9 @@ const CustomerRequests = () => {
   };
 
   return (
-    <div className="space-y-4 sm:space-y-6">
+    <div className="space-y-2 sm:space-y-3">
       {/* Header with Filters */}
-      <div className="flex flex-col gap-3 sm:gap-4">
+      <div className="flex flex-col gap-2">
         <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Customer Requests</h2>
         <div className="flex flex-wrap gap-2">
           {[
@@ -334,6 +408,7 @@ const CustomerRequests = () => {
             { value: 'pending', label: 'Pending', color: 'yellow' },
             { value: 'processing', label: 'Processing', color: 'blue' },
             { value: 'billed', label: 'Billed', color: 'purple' },
+            { value: 'payment_confirmed', label: '✓ Payment Confirmed', color: 'green' },
             { value: 'completed', label: '✓ Completed', color: 'green' },
             { value: 'cancelled', label: '✗ Cancelled', color: 'red' }
           ].map((filterOption) => (
@@ -352,14 +427,14 @@ const CustomerRequests = () => {
       </div>
 
       {/* Requests List */}
-      <div className="space-y-6">
+      <div className="space-y-3">
         {requests.map((request) => (
-          <div key={request._id} className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 hover:shadow-xl transition-all border-l-4 border-primary-500 dark:border-primary-600">
+          <div key={request._id} className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-3 sm:p-4 hover:shadow-lg transition-all border-l-4 border-primary-500 dark:border-primary-600">
             {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4 mb-6">
-              <div className="flex items-start gap-4">
-                <div className="bg-gradient-to-br from-primary-100 to-primary-200 dark:from-primary-900/30 dark:to-primary-800/30 p-3 rounded-xl flex-shrink-0 shadow-sm">
-                  <User className="h-6 w-6 text-primary-600 dark:text-primary-400" />
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 mb-3">
+              <div className="flex items-start gap-3">
+                <div className="bg-gradient-to-br from-primary-100 to-primary-200 dark:from-primary-900/30 dark:to-primary-800/30 p-2 rounded-lg flex-shrink-0 shadow-sm">
+                  <User className="h-5 w-5 text-primary-600 dark:text-primary-400" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <h3 className="font-bold text-lg text-gray-900 dark:text-gray-100 mb-2">{request.customer_id?.name || 'Customer'}</h3>
@@ -380,7 +455,7 @@ const CustomerRequests = () => {
                     )}
                   </div>
                   {request.customer_id?.address && Object.values(request.customer_id.address).some(val => val && val.trim()) && (
-                    <div className="flex items-start gap-2 text-sm text-gray-600 dark:text-gray-400 mt-3 p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                    <div className="flex items-start gap-2 text-sm text-gray-600 dark:text-gray-400 mt-2 p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
                       <MapPin className="h-4 w-4 flex-shrink-0 mt-0.5 text-primary-500" />
                       <span className="line-clamp-2">
                         {[
@@ -393,7 +468,7 @@ const CustomerRequests = () => {
                     </div>
                   )}
                   {(!request.customer_id?.address || !Object.values(request.customer_id.address).some(val => val && val.trim())) && (
-                    <div className="flex items-start gap-2 text-sm text-gray-500 dark:text-gray-500 italic mt-3">
+                    <div className="flex items-start gap-2 text-sm text-gray-500 dark:text-gray-500 italic mt-2">
                       <MapPin className="h-4 w-4 flex-shrink-0 mt-0.5" />
                       <span>No address provided</span>
                     </div>
@@ -409,14 +484,14 @@ const CustomerRequests = () => {
             </div>
 
             {/* Items */}
-            <div className="mb-6">
-              <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
+            <div className="mb-3">
+              <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
                 <Package className="h-4 w-4 text-primary-500" />
                 Requested Items
               </h4>
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {request.items.map((item, idx) => (
-                  <div key={idx} className="flex flex-col xs:flex-row xs:justify-between gap-2 text-sm bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700/50 dark:to-gray-800/50 p-4 rounded-lg border border-gray-200 dark:border-gray-600">
+                  <div key={idx} className="flex flex-col xs:flex-row xs:justify-between gap-2 text-sm bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700/50 dark:to-gray-800/50 p-3 rounded-lg border border-gray-200 dark:border-gray-600">
                     <span className="text-gray-900 dark:text-gray-100 font-semibold">{item.item_name}</span>
                     <span className="text-gray-600 dark:text-gray-400 whitespace-nowrap">
                       Qty: <span className="font-bold text-gray-900 dark:text-gray-100">{item.quantity}</span>
@@ -433,7 +508,7 @@ const CustomerRequests = () => {
 
             {/* Notes */}
             {request.notes && (
-              <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+              <div className="mb-3 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
                 <p className="text-sm text-gray-700 dark:text-gray-300">
                   <span className="font-semibold text-blue-700 dark:text-blue-400">Notes:</span> {request.notes}
                 </p>
@@ -442,8 +517,8 @@ const CustomerRequests = () => {
 
             {/* Bill Details */}
             {request.bill_details && request.bill_details.total > 0 && (
-              <div className="mb-6 p-5 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-2 border-green-300 dark:border-green-700 rounded-xl">
-                <h4 className="text-sm font-bold text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
+              <div className="mb-3 p-3 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-2 border-green-300 dark:border-green-700 rounded-lg">
+                <h4 className="text-sm font-bold text-gray-900 dark:text-gray-100 mb-2 flex items-center gap-2">
                   <DollarSign className="h-5 w-5 text-green-600 dark:text-green-400" />
                   Bill Details
                 </h4>
@@ -464,6 +539,20 @@ const CustomerRequests = () => {
                       ₹{request.bill_details.total?.toFixed(2)}
                     </span>
                   </div>
+                  {request.payment_confirmation?.confirmed && (
+                    <div className="mt-3 pt-3 border-t border-green-300">
+                      <div className="flex items-center gap-2 text-green-700 dark:text-green-400">
+                        <CheckCircle className="h-4 w-4" />
+                        <span className="font-semibold">Payment Confirmed</span>
+                      </div>
+                      <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                        Method: {request.payment_confirmation.payment_method}
+                      </div>
+                      <div className="text-xs text-gray-500 dark:text-gray-500">
+                        {new Date(request.payment_confirmation.confirmed_at).toLocaleString()}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -479,15 +568,8 @@ const CustomerRequests = () => {
                     Mark as Processing
                   </button>
                   <button
-                    onClick={() => handleOpenBillModal(request)}
-                    className="flex-1 xs:flex-none px-3 py-2 sm:px-4 sm:py-2 bg-green-600 text-white text-xs sm:text-sm rounded-md hover:bg-green-700 transition-all hover:shadow-lg flex items-center justify-center gap-1"
-                  >
-                    <Edit className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
-                    <span>Generate Bill</span>
-                  </button>
-                  <button
                     onClick={() => handleOpenCancelModal(request)}
-                    className="w-full xs:w-auto px-3 py-2 sm:px-4 sm:py-2 bg-red-600 text-white text-xs sm:text-sm rounded-md hover:bg-red-700 transition-all hover:shadow-lg flex items-center justify-center gap-1"
+                    className="flex-1 xs:w-auto px-3 py-2 sm:px-4 sm:py-2 bg-red-600 text-white text-xs sm:text-sm rounded-md hover:bg-red-700 transition-all hover:shadow-lg flex items-center justify-center gap-1"
                   >
                     <XCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
                     <span>Cancel Request</span>
@@ -513,12 +595,19 @@ const CustomerRequests = () => {
                 </>
               )}
               {request.status === 'billed' && (
+                <div className="w-full mt-2 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                  <p className="text-xs sm:text-sm text-yellow-800 dark:text-yellow-300">
+                    ⏳ Waiting for customer to confirm payment...
+                  </p>
+                </div>
+              )}
+              {request.status === 'payment_confirmed' && (
                 <button
                   onClick={() => handleOpenCompleteModal(request)}
                   className="w-full xs:w-auto px-3 py-2 sm:px-4 sm:py-2 bg-green-600 text-white text-xs sm:text-sm rounded-md hover:bg-green-700 transition-all hover:shadow-lg flex items-center justify-center gap-1 font-semibold"
                 >
                   <CheckCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
-                  <span>✓ Mark as Completed</span>
+                  <span>✓ Complete Order</span>
                 </button>
               )}
               {request.status === 'cancelled' && request.cancellation_reason && (

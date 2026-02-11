@@ -177,7 +177,7 @@ const customerRequestController = {
       const skip = (parseInt(page) - 1) * parseInt(limit);
 
       const requests = await CustomerRequest.find(query)
-        .populate('retailer_id', 'name shop_name phone')
+        .populate('retailer_id', 'name shop_name phone upi_id')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(parseInt(limit));
@@ -277,7 +277,7 @@ const customerRequestController = {
         })
         .populate({
           path: 'retailer_id',
-          select: 'name shop_name phone'
+          select: 'name shop_name phone upi_id'
         });
 
       if (!request) {
@@ -364,12 +364,14 @@ const customerRequestController = {
         console.log('✅ Processing completion...');
         console.log('Current status:', request.status);
         console.log('Bill details:', request.bill_details);
+        console.log('Payment confirmed:', request.payment_confirmation?.confirmed);
 
-        if (request.status !== 'billed') {
-          console.error('❌ Request not billed yet. Current status:', request.status);
+        // Require payment confirmation before completing
+        if (request.status !== 'payment_confirmed') {
+          console.error('❌ Payment not confirmed yet. Current status:', request.status);
           return res.status(400).json({
             success: false,
-            message: `Request must be billed before marking as completed. Current status: ${request.status}`
+            message: `Customer must confirm payment before completing. Current status: ${request.status}`
           });
         }
 
@@ -382,7 +384,7 @@ const customerRequestController = {
         }
 
         console.log('✅ Creating sales entry and updating inventory...');
-        console.log('Payment method:', payment_method || 'Credit (default)');
+        console.log('Payment method:', request.payment_confirmation?.payment_method || payment_method || 'Cash');
 
         // Create Sales Entry
         const saleItems = [];
@@ -444,7 +446,8 @@ const customerRequestController = {
         }
 
         // Create Sale record
-        const finalPaymentMethod = payment_method || 'Credit';
+        // Get payment method from confirmation if exists, otherwise use the one provided in request body, or default to Cash
+        const finalPaymentMethod = request.payment_confirmation?.payment_method || payment_method || 'Cash';
         const sale = new Sale({
           user_id: retailer_id,
           date: new Date(),
@@ -519,8 +522,8 @@ const customerRequestController = {
           request.customer_id._id,
           'customer',
           'bill_generated',
-          'Bill Generated',
-          `Your bill is ready! Total: ₹${request.bill_details?.total || 0}`,
+          'Bill Generated - Confirm Payment',
+          `Your bill is ready! Total: ₹${request.bill_details?.total || 0}. Please confirm your payment method.`,
           request._id
         );
       }
@@ -965,6 +968,116 @@ const customerRequestController = {
         success: false,
         message: 'Failed to retrieve inventory',
         error: error.message
+      });
+    }
+  },
+
+  // Customer confirms payment (after bill is generated)
+  confirmPayment: async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { payment_method } = req.body;
+      const customer_id = req.user._id;
+
+      console.log('💳 ============ CONFIRM PAYMENT ============');
+      console.log('Request ID:', id);
+      console.log('Payment Method:', payment_method);
+      console.log('Customer ID:', customer_id);
+
+      // Validate payment method
+      const validMethods = ['Cash', 'Card', 'UPI', 'Bank Transfer', 'Credit'];
+      if (!payment_method || !validMethods.includes(payment_method)) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid payment method. Must be one of: ${validMethods.join(', ')}`
+        });
+      }
+
+      const request = await CustomerRequest.findOne({ _id: id, customer_id })
+        .populate({
+          path: 'retailer_id',
+          select: 'name shop_name phone upi_id'
+        });
+
+      if (!request) {
+        console.error('❌ Request not found or unauthorized');
+        return res.status(404).json({
+          success: false,
+          message: 'Request not found or unauthorized'
+        });
+      }
+
+      console.log('Current request status:', request.status);
+
+      // Check if request is billed
+      if (request.status !== 'billed') {
+        console.error('❌ Request not billed yet. Current status:', request.status);
+        return res.status(400).json({
+          success: false,
+          message: `Cannot confirm payment. Request must be billed first. Current status: ${request.status}`
+        });
+      }
+
+      if (!request.bill_details || !request.bill_details.total) {
+        console.error('❌ Bill details missing');
+        return res.status(400).json({
+          success: false,
+          message: 'Bill details are missing'
+        });
+      }
+
+      // Update payment confirmation
+      request.payment_confirmation = {
+        confirmed: true,
+        confirmed_at: new Date(),
+        payment_method: payment_method
+      };
+      request.status = 'payment_confirmed';
+
+      await request.save();
+      console.log('✅ Payment confirmed successfully');
+
+      await request.populate({
+        path: 'customer_id',
+        select: 'name email phone address'
+      });
+
+      // Create notification for retailer
+      await notificationController.createNotification(
+        request.retailer_id._id,
+        'retailer',
+        'payment_confirmed',
+        'Payment Confirmed! 💰',
+        `${request.customer_id.name} confirmed payment of ₹${request.bill_details.total}. Ready to complete order.`,
+        request._id
+      );
+
+      console.log('✅ ============ PAYMENT CONFIRMED SUCCESSFULLY ============');
+      console.log('Payment Method:', payment_method);
+      console.log('Total Amount:', request.bill_details.total);
+
+      // Prepare response with retailer UPI if payment method is UPI
+      const responseData = {
+        success: true,
+        message: 'Payment confirmed successfully! Waiting for retailer to complete the order.',
+        data: {
+          request,
+          retailer_upi: payment_method === 'UPI' ? request.retailer_id.upi_id : null
+        }
+      };
+
+      res.status(200).json(responseData);
+    } catch (error) {
+      console.error('❌ ============ CONFIRM PAYMENT ERROR ============');
+      console.error('Error name:', error.name);
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+
+      res.status(500).json({
+        success: false,
+        message: 'Failed to confirm payment',
+        error: error.message,
+        details: process.env.NODE_ENV === 'development' ? error.stack : undefined
       });
     }
   },

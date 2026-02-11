@@ -1,0 +1,93 @@
+{
+  "title": "Customer Requests",
+  "noRequests": "No customer requests yet",
+  "requestsWillAppear": "Customer requests will appear here when they message you",
+  "filters": {
+    "all": "All",
+    "pending": "Pending",
+    "processing": "Processing",
+    "billed": "Billed",
+    "paymentConfirmed": "✓ Payment Confirmed",
+    "completed": "✓ Completed",
+    "cancelled": "✗ Cancelled"
+  },
+  "status": {
+    "pending": "Pending",
+    "processing": "Processing",
+    "billed": "Billed - Awaiting Payment",
+    "paymentConfirmed": "✓ Payment Confirmed",
+    "completed": "✓ Completed",
+    "cancelled": "✗ Cancelled"
+  },
+  "customer": {
+    "name": "Customer",
+    "noContactInfo": "No contact info",
+    "noAddress": "No address provided"
+  },
+  "items": {
+    "title": "Requested Items",
+    "quantity": "Qty"
+  },
+  "notes": {
+    "title": "Notes"
+  },
+  "bill": {
+    "title": "Bill Details",
+    "subtotal": "Subtotal",
+    "tax": "Tax",
+    "total": "Total",
+    "generateTitle": "Generate Bill for {{name}}",
+    "setItemPrices": "Set Item Prices",
+    "taxRate": "Tax Rate (%)",
+    "generating": "Generating...",
+    "generate": "Generate Bill",
+    "summary": "Bill Summary"
+  },
+  "actions": {
+    "markAsProcessing": "Mark as Processing",
+    "generateBill": "Generate Bill",
+    "cancelRequest": "Cancel Request",
+    "completeOrder": "✓ Complete Order",
+    "waitingForPayment": "⏳ Waiting for customer to confirm payment..."
+  },
+  "cancel": {
+    "title": "Cancel Request",
+    "requestFrom": "Request from {{name}}",
+    "reason": "Cancellation Reason",
+    "reasonPlaceholder": "Please provide a reason for cancellation...",
+    "reasonRequired": "This will be visible to the customer",
+    "goBack": "Go Back",
+    "confirm": "Confirm Cancellation",
+    "cancelling": "Cancelling..."
+  },
+  "complete": {
+    "title": "Complete Order",
+    "requestFrom": "Request from {{name}}",
+    "orderTotal": "Order Total",
+    "paymentMethod": "Payment Method",
+    "paymentRequired": "This will create a sales entry and update inventory",
+    "completing": "Processing...",
+    "complete": "Complete Order"
+  },
+  "paymentMethods": {
+    "cash": "Cash",
+    "card": "Card",
+    "upi": "UPI",
+    "bankTransfer": "Bank Transfer",
+    "credit": "Credit (Pay Later)"
+  },
+  "paymentConfirmation": {
+    "confirmed": "Payment Confirmed",
+    "method": "Method",
+    "confirmedAt": "Confirmed at"
+  },
+  "messages": {
+    "requestCancelled": "Request cancelled successfully",
+    "billGenerated": "✅ Bill generated successfully!",
+    "orderCompleted": "✅ Request completed! Sales entry created and inventory updated",
+    "statusUpdated": "Status updated successfully",
+    "orderCompletedSuccess": "Order Completed Successfully!",
+    "salesCreated": "Sales entry created • Inventory updated"
+  },
+  "cancellationReason": "Cancellation Reason"
+}

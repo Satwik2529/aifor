@@ -73,12 +73,82 @@ const NotificationBell = ({ isDarkMode }) => {
     markAsRead(notification._id);
 
     // Navigate based on notification type
-    if (notification.type === 'promotion') {
-      navigate('/dashboard/wholesaler-offers');
-      setShowDropdown(false);
-    } else if (notification.type === 'order') {
-      navigate('/dashboard/wholesaler-orders');
-      setShowDropdown(false);
+    const userType = localStorage.getItem('userType');
+    
+    switch (notification.type) {
+      case 'hot_deal':
+        // Navigate to nearby shops for customers
+        if (userType === 'customer') {
+          navigate('/customer/nearby-shops');
+        }
+        setShowDropdown(false);
+        break;
+        
+      case 'new_request':
+        // Navigate to customer requests for retailers
+        if (userType === 'retailer') {
+          navigate('/dashboard/customers');
+        } else if (userType === 'customer') {
+          navigate('/customer-dashboard');
+        }
+        setShowDropdown(false);
+        break;
+        
+      case 'request_completed':
+      case 'request_cancelled':
+      case 'bill_generated':
+      case 'payment_confirmed':
+        // Navigate to orders/requests page
+        if (userType === 'customer') {
+          navigate('/customer-dashboard');
+        } else if (userType === 'retailer') {
+          navigate('/dashboard/customers');
+        }
+        setShowDropdown(false);
+        break;
+        
+      case 'promotion':
+        // Navigate to wholesaler offers
+        navigate('/dashboard/wholesalers');
+        setShowDropdown(false);
+        break;
+        
+      case 'order':
+        // Navigate to wholesaler orders
+        navigate('/dashboard/wholesalers');
+        setShowDropdown(false);
+        break;
+        
+      case 'campaign_created':
+        // Navigate to discount campaigns
+        navigate('/dashboard/discount-campaigns');
+        setShowDropdown(false);
+        break;
+        
+      case 'low_stock':
+      case 'out_of_stock':
+        // Navigate to inventory
+        navigate('/dashboard/inventory');
+        setShowDropdown(false);
+        break;
+        
+      case 'pending_orders':
+        // Navigate to customer requests
+        navigate('/dashboard/customers');
+        setShowDropdown(false);
+        break;
+        
+      default:
+        // Default navigation based on user type
+        if (userType === 'customer') {
+          navigate('/customer-dashboard');
+        } else if (userType === 'wholesaler') {
+          navigate('/wholesaler-dashboard');
+        } else {
+          navigate('/dashboard');
+        }
+        setShowDropdown(false);
+        break;
     }
   };
 
@@ -137,6 +207,12 @@ const NotificationBell = ({ isDarkMode }) => {
         return <Package className="h-5 w-5 text-indigo-600" />;
       case 'promotion':
         return <span className="text-2xl">🎁</span>;
+      case 'hot_deal':
+        return <span className="text-2xl">🔥</span>;
+      case 'campaign_created':
+        return <span className="text-2xl">📢</span>;
+      case 'important_info':
+        return <span className="text-2xl">ℹ️</span>;
       case 'alert':
         return <span className="text-2xl">⚠️</span>;
       default:
@@ -147,13 +223,69 @@ const NotificationBell = ({ isDarkMode }) => {
   // Get background color for notification type
   const getNotificationBg = (notification, isDarkMode) => {
     if (!notification.is_read) {
+      if (notification.type === 'hot_deal') {
+        return isDarkMode 
+          ? 'bg-gradient-to-r from-orange-900/50 to-red-900/50 border-l-4 border-orange-500 hover:from-orange-800/60 hover:to-red-800/60' 
+          : 'bg-gradient-to-r from-orange-50 to-red-50 border-l-4 border-orange-500 hover:from-orange-100 hover:to-red-100';
+      }
       if (notification.type === 'promotion') {
-        return isDarkMode ? 'bg-gradient-to-r from-pink-900/40 to-purple-900/40 border-l-4 border-pink-500' : 'bg-gradient-to-r from-pink-50 to-purple-50 border-l-4 border-pink-500';
+        return isDarkMode 
+          ? 'bg-gradient-to-r from-pink-900/40 to-purple-900/40 border-l-4 border-pink-500 hover:from-pink-800/50 hover:to-purple-800/50' 
+          : 'bg-gradient-to-r from-pink-50 to-purple-50 border-l-4 border-pink-500 hover:from-pink-100 hover:to-purple-100';
       }
-      if (notification.type === 'alert') {
-        return isDarkMode ? 'bg-orange-900/30 border-l-4 border-orange-500' : 'bg-orange-50 border-l-4 border-orange-500';
+      if (notification.type === 'campaign_created') {
+        return isDarkMode 
+          ? 'bg-gradient-to-r from-blue-900/40 to-indigo-900/40 border-l-4 border-blue-500 hover:from-blue-800/50 hover:to-indigo-800/50' 
+          : 'bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-blue-500 hover:from-blue-100 hover:to-indigo-100';
       }
-      return isDarkMode ? 'bg-blue-900/30' : 'bg-blue-50';
+      if (notification.type === 'important_info') {
+        return isDarkMode 
+          ? 'bg-gradient-to-r from-cyan-900/40 to-teal-900/40 border-l-4 border-cyan-500 hover:from-cyan-800/50 hover:to-teal-800/50' 
+          : 'bg-gradient-to-r from-cyan-50 to-teal-50 border-l-4 border-cyan-500 hover:from-cyan-100 hover:to-teal-100';
+      }
+      if (notification.type === 'new_request') {
+        return isDarkMode 
+          ? 'bg-gradient-to-r from-blue-900/30 to-blue-800/30 border-l-4 border-blue-500 hover:from-blue-800/40 hover:to-blue-700/40' 
+          : 'bg-gradient-to-r from-blue-50 to-blue-100 border-l-4 border-blue-500 hover:from-blue-100 hover:to-blue-200';
+      }
+      if (notification.type === 'request_completed' || notification.type === 'payment_confirmed') {
+        return isDarkMode 
+          ? 'bg-gradient-to-r from-green-900/30 to-green-800/30 border-l-4 border-green-500 hover:from-green-800/40 hover:to-green-700/40' 
+          : 'bg-gradient-to-r from-green-50 to-green-100 border-l-4 border-green-500 hover:from-green-100 hover:to-green-200';
+      }
+      if (notification.type === 'request_cancelled') {
+        return isDarkMode 
+          ? 'bg-gradient-to-r from-red-900/30 to-red-800/30 border-l-4 border-red-500 hover:from-red-800/40 hover:to-red-700/40' 
+          : 'bg-gradient-to-r from-red-50 to-red-100 border-l-4 border-red-500 hover:from-red-100 hover:to-red-200';
+      }
+      if (notification.type === 'bill_generated') {
+        return isDarkMode 
+          ? 'bg-gradient-to-r from-purple-900/30 to-purple-800/30 border-l-4 border-purple-500 hover:from-purple-800/40 hover:to-purple-700/40' 
+          : 'bg-gradient-to-r from-purple-50 to-purple-100 border-l-4 border-purple-500 hover:from-purple-100 hover:to-purple-200';
+      }
+      if (notification.type === 'alert' || notification.type === 'low_stock' || notification.type === 'out_of_stock') {
+        return isDarkMode 
+          ? 'bg-gradient-to-r from-yellow-900/30 to-orange-900/30 border-l-4 border-yellow-500 hover:from-yellow-800/40 hover:to-orange-800/40' 
+          : 'bg-gradient-to-r from-yellow-50 to-orange-50 border-l-4 border-yellow-500 hover:from-yellow-100 hover:to-orange-100';
+      }
+      return isDarkMode ? 'bg-blue-900/30 hover:bg-blue-800/40' : 'bg-blue-50 hover:bg-blue-100';
+    }
+    return isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50';
+  };
+
+  // Get text style for notification type
+  const getNotificationTextStyle = (notification) => {
+    if (!notification.is_read) {
+      if (notification.type === 'hot_deal') {
+        return 'font-bold text-orange-900 dark:text-orange-100';
+      }
+      if (notification.type === 'promotion') {
+        return 'font-bold text-pink-900 dark:text-pink-100';
+      }
+      if (notification.type === 'important_info') {
+        return 'font-bold text-cyan-900 dark:text-cyan-100';
+      }
+      return 'font-semibold';
     }
     return '';
   };
@@ -261,15 +393,14 @@ const NotificationBell = ({ isDarkMode }) => {
                       {/* Content */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between">
-                          <p className={`text-sm font-medium ${!notification.is_read ? 'font-semibold' : ''
-                            } ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                          <p className={`text-sm ${getNotificationTextStyle(notification)} ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                             {notification.title}
                           </p>
                           {!notification.is_read && (
                             <span className="inline-block w-2 h-2 bg-blue-600 rounded-full ml-2 mt-1 animate-pulse"></span>
                           )}
                         </div>
-                        <p className={`text-sm mt-1 ${notification.type === 'promotion' ? 'font-medium' : ''} ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                        <p className={`text-sm mt-1 ${notification.type === 'promotion' || notification.type === 'hot_deal' || notification.type === 'campaign_created' ? 'font-medium' : ''} ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                           {notification.message}
                         </p>
                         <p className={`text-xs mt-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>

@@ -153,19 +153,12 @@ const DiscountCampaigns = () => {
 
   return (
     <div className="space-y-6">
-      <Toaster />
-
-      {/* Debug Info (only in development) */}
-      {process.env.NODE_ENV === 'development' && (
-        <div className="bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg p-4 text-xs">
-          <div className="font-bold mb-2">🔧 Debug Info:</div>
-          <div>API URL: {API_URL}</div>
-          <div>Token: {localStorage.getItem('token') ? '✅ Present' : '❌ Missing'}</div>
-          <div>Recommendations: {recommendations.length} items</div>
-          <div>Active Campaigns: {activeCampaigns.length} campaigns</div>
-          <div>Analytics: {analytics ? '✅ Loaded' : '❌ Not loaded'}</div>
-        </div>
-      )}
+      <Toaster 
+        position="top-right"
+        toastOptions={{
+          duration: 10000,
+        }}
+      />
 
       {/* Header */}
       <div className="flex justify-between items-center">

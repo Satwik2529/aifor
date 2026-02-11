@@ -392,17 +392,8 @@ const authController = {
         });
       }
 
-      const updateData = {
-        latitude,
-        longitude,
-        locality: locality || null
-      };
-
-      const user = await User.findByIdAndUpdate(
-        userId,
-        updateData,
-        { new: true, runValidators: true }
-      );
+      // Find user first
+      const user = await User.findById(userId);
 
       if (!user) {
         return res.status(404).json({
@@ -411,7 +402,24 @@ const authController = {
         });
       }
 
+      // Update location fields
+      user.latitude = latitude;
+      user.longitude = longitude;
+      if (locality) {
+        user.locality = locality;
+      }
+
+      // Update GeoJSON location for geospatial queries
+      user.location = {
+        type: 'Point',
+        coordinates: [longitude, latitude] // [lng, lat] order for GeoJSON
+      };
+
+      // Save to trigger pre-save hooks
+      await user.save();
+
       console.log('📍 Location updated for user:', user.email || user.phone);
+      console.log('📍 GeoJSON location:', user.location);
 
       res.status(200).json({
         success: true,
@@ -420,6 +428,7 @@ const authController = {
           latitude: user.latitude,
           longitude: user.longitude,
           locality: user.locality,
+          location: user.location,
           updatedAt: user.updatedAt
         }
       });

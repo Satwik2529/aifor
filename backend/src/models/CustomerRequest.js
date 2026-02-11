@@ -45,10 +45,47 @@ const customerRequestSchema = new mongoose.Schema({
     maxlength: [500, 'Notes cannot exceed 500 characters'],
     default: ''
   },
+  is_hot_deal: {
+    type: Boolean,
+    default: false
+  },
+  hot_deal_info: {
+    discount_percentage: {
+      type: Number,
+      min: 0,
+      max: 100
+    },
+    original_price: {
+      type: Number,
+      min: 0
+    },
+    discounted_price: {
+      type: Number,
+      min: 0
+    },
+    savings: {
+      type: Number,
+      min: 0
+    }
+  },
   status: {
     type: String,
-    enum: ['pending', 'processing', 'billed', 'completed', 'cancelled'],
+    enum: ['pending', 'processing', 'billed', 'payment_confirmed', 'completed', 'cancelled'],
     default: 'pending'
+  },
+  payment_confirmation: {
+    confirmed: {
+      type: Boolean,
+      default: false
+    },
+    confirmed_at: {
+      type: Date
+    },
+    payment_method: {
+      type: String,
+      enum: ['Cash', 'Card', 'UPI', 'Bank Transfer', 'Credit'],
+      default: 'Cash'
+    }
   },
   bill_details: {
     subtotal: {

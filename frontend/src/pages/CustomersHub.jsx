@@ -16,7 +16,7 @@ const CustomersHub = () => {
     ];
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-4">
             {/* Header */}
             <div>
                 <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
@@ -60,7 +60,7 @@ const CustomersHub = () => {
                 </div>
 
                 {/* Tab Content with better spacing */}
-                <div className="bg-white dark:bg-gray-900 rounded-b-xl">
+                <div className="bg-white dark:bg-gray-900 rounded-b-xl p-3 sm:p-4">
                     {activeTab === 'customers' && <Customers />}
                     {activeTab === 'requests' && <CustomerRequestsPage />}
                 </div>

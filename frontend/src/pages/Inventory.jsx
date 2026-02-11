@@ -436,7 +436,12 @@ const Inventory = () => {
 
     return (
         <div className="space-y-6">
-            <Toaster />
+            <Toaster 
+                position="top-right"
+                toastOptions={{
+                    duration: 10000,
+                }}
+            />
             
             {/* Header */}
             <div className="flex justify-between items-center">

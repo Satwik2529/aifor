@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Send, Package, Clock, CheckCircle, XCircle, Plus, Store, ShoppingCart, AlertCircle, Settings, Bot, MessageCircle, Moon, Sun, Sparkles, FileText, X, MapPin, Tag, TrendingDown, Home } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
+import { useTranslation } from 'react-i18next';
 import NotificationBell from '../components/NotificationBell';
 import FloatingAIChatbot from '../components/FloatingAIChatbot';
 
@@ -10,6 +11,7 @@ import FloatingAIChatbot from '../components/FloatingAIChatbot';
  * Allows customers to message retailers and view their requests
  */
 const CustomerDashboard = () => {
+  const { t } = useTranslation();
   const [retailers, setRetailers] = useState([]);
   const [requests, setRequests] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -33,6 +35,12 @@ const CustomerDashboard = () => {
   const [imagePreview, setImagePreview] = useState(null);
   const [parsedBillItems, setParsedBillItems] = useState(null);
   const [uploadingImage, setUploadingImage] = useState(false);
+  
+  // Payment Confirmation States
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [selectedRequestForPayment, setSelectedRequestForPayment] = useState(null);
+  const [paymentMethod, setPaymentMethod] = useState('Cash');
+  const [confirmingPayment, setConfirmingPayment] = useState(false);
 
   const navigate = useNavigate();
 
@@ -82,14 +90,14 @@ const CustomerDashboard = () => {
         setRetailers(result.data.retailers || []);
         // Only show error if searching and no results found
         if (search && (!result.data.retailers || result.data.retailers.length === 0)) {
-          toast('No retailers found matching your search.', { icon: 'ℹ️' });
+          toast(t('customerDashboard.toast.noRetailersFound'), { icon: 'ℹ️' });
         }
       } else {
-        toast.error('Failed to load retailers');
+        toast.error(t('customerDashboard.toast.failedToLoadRetailers'));
       }
     } catch (error) {
       console.error('Fetch retailers error:', error);
-      toast.error('Error loading retailers');
+      toast.error(t('customerDashboard.toast.errorLoadingRetailers'));
     }
   };
 
@@ -111,7 +119,7 @@ const CustomerDashboard = () => {
           );
           
           if (newCompletedOrders.length > 0) {
-            toast.success(`${newCompletedOrders.length} order(s) completed! 🎉`);
+            toast.success(t('customerDashboard.toast.ordersCompleted', { count: newCompletedOrders.length }));
           }
           
           // Check for billed orders
@@ -121,7 +129,7 @@ const CustomerDashboard = () => {
           );
           
           if (newBilledOrders.length > 0) {
-            toast.success(`${newBilledOrders.length} order(s) billed!`);
+            toast.success(t('customerDashboard.toast.ordersBilled', { count: newBilledOrders.length }));
           }
         }
         
@@ -235,13 +243,13 @@ const CustomerDashboard = () => {
     e.preventDefault();
 
     if (!selectedRetailer) {
-      toast.error('Please select a retailer');
+      toast.error(t('customerDashboard.toast.selectRetailer'));
       return;
     }
 
     const validItems = messageForm.items.filter(item => item.item_name.trim());
     if (validItems.length === 0) {
-      toast.error('Please add at least one item');
+      toast.error(t('customerDashboard.toast.addOneItem'));
       return;
     }
 
@@ -250,11 +258,11 @@ const CustomerDashboard = () => {
     for (const item of validItems) {
       const availability = itemAvailability[item.item_name.toLowerCase()];
       if (!availability) {
-        toast.error(`Please wait for stock check or remove "${item.item_name}"`);
+        toast.error(t('customerDashboard.toast.waitForStockCheck', { itemName: item.item_name }));
         return;
       }
       if (!availability.can_order) {
-        toast.error(`"${item.item_name}" is unavailable. ${availability.message}`);
+        toast.error(t('customerDashboard.toast.itemUnavailable', { itemName: item.item_name, message: availability.message }));
         return;
       }
     }
@@ -278,7 +286,7 @@ const CustomerDashboard = () => {
       const result = await response.json();
 
       if (result.success) {
-        toast.success('Request sent successfully!');
+        toast.success(t('customerDashboard.toast.requestSent'));
         setShowMessageForm(false);
         setMessageForm({ items: [{ item_name: '', quantity: 1 }], notes: '' });
         setSelectedRetailer(null);
@@ -291,18 +299,18 @@ const CustomerDashboard = () => {
           const lowStock = result.lowStockItems || [];
 
           if (outOfStock.length > 0) {
-            toast.error(`Out of stock: ${outOfStock.map(i => i.item_name).join(', ')}`);
+            toast.error(t('customerDashboard.toast.outOfStock', { items: outOfStock.map(i => i.item_name).join(', ') }));
           }
           if (lowStock.length > 0) {
-            toast.error(`Insufficient stock: ${lowStock.map(i => `${i.item_name} (only ${i.available} available)`).join(', ')}`);
+            toast.error(t('customerDashboard.toast.insufficientStock', { items: lowStock.map(i => `${i.item_name} (only ${i.available} available)`).join(', ') }));
           }
         } else {
-          toast.error(result.message || 'Failed to send request');
+          toast.error(result.message || t('customerDashboard.toast.requestFailed'));
         }
       }
     } catch (error) {
       console.error('Submit request error:', error);
-      toast.error('An error occurred. Please try again.');
+      toast.error(t('customerDashboard.toast.errorOccurred'));
     } finally {
       setIsLoading(false);
     }
@@ -310,11 +318,12 @@ const CustomerDashboard = () => {
 
   const getStatusBadge = (status) => {
     const statusConfig = {
-      pending: { color: 'bg-yellow-100 text-yellow-800', icon: Clock, text: 'Pending' },
-      processing: { color: 'bg-blue-100 text-blue-800', icon: Package, text: 'Processing' },
-      billed: { color: 'bg-green-100 text-green-800', icon: CheckCircle, text: 'Billed' },
-      completed: { color: 'bg-green-100 text-green-800', icon: CheckCircle, text: 'Completed' },
-      cancelled: { color: 'bg-red-100 text-red-800', icon: XCircle, text: 'Cancelled' }
+      pending: { color: 'bg-yellow-100 text-yellow-800', icon: Clock, text: t('customerDashboard.status.pending') },
+      processing: { color: 'bg-blue-100 text-blue-800', icon: Package, text: t('customerDashboard.status.processing') },
+      billed: { color: 'bg-purple-100 text-purple-800', icon: CheckCircle, text: t('customerDashboard.status.billed') },
+      payment_confirmed: { color: 'bg-green-100 text-green-800', icon: CheckCircle, text: t('customerDashboard.status.payment_confirmed') },
+      completed: { color: 'bg-green-100 text-green-800', icon: CheckCircle, text: t('customerDashboard.status.completed') },
+      cancelled: { color: 'bg-red-100 text-red-800', icon: XCircle, text: t('customerDashboard.status.cancelled') }
     };
 
     const config = statusConfig[status] || statusConfig.pending;
@@ -358,12 +367,12 @@ const CustomerDashboard = () => {
 
   const handleBillScan = async () => {
     if (!selectedImage) {
-      toast.error('Please select an image first');
+      toast.error(t('customerDashboard.toast.selectImageFirst'));
       return;
     }
 
     if (!selectedRetailer) {
-      toast.error('Please select a retailer first');
+      toast.error(t('customerDashboard.toast.selectRetailerFirst'));
       return;
     }
 
@@ -401,7 +410,7 @@ const CustomerDashboard = () => {
 
   const handleBillConfirm = () => {
     if (!parsedBillItems || parsedBillItems.length === 0) {
-      toast.error('No items to confirm');
+      toast.error(t('customerDashboard.toast.noItemsToConfirm'));
       return;
     }
 
@@ -425,7 +434,7 @@ const CustomerDashboard = () => {
     // Check availability for all items
     setTimeout(() => checkItemAvailability(items), 500);
 
-    toast.success(`${items.length} items added to your order!`);
+    toast.success(t('customerDashboard.toast.itemsAdded', { count: items.length }));
   };
 
   const handleRemoveBillItem = (index) => {
@@ -439,13 +448,98 @@ const CustomerDashboard = () => {
     setParsedBillItems(updatedItems);
   };
 
+  const handleOpenPaymentModal = (request) => {
+    // Double-check status before opening modal
+    if (request.status !== 'billed') {
+      toast.error(t('customerDashboard.toast.cannotConfirm', { status: request.status }));
+      fetchMyRequests(); // Refresh to get latest status
+      return;
+    }
+
+    if (request.payment_confirmation?.confirmed) {
+      toast.error(t('customerDashboard.toast.alreadyConfirmed'));
+      fetchMyRequests(); // Refresh to get latest status
+      return;
+    }
+
+    setSelectedRequestForPayment(request);
+    setPaymentMethod('Cash');
+    setShowPaymentModal(true);
+  };
+
+  const handleConfirmPayment = async () => {
+    if (!selectedRequestForPayment || !paymentMethod) {
+      toast.error(t('customerDashboard.toast.selectPaymentMethod'));
+      return;
+    }
+
+    // Check if already confirmed
+    if (selectedRequestForPayment.status === 'payment_confirmed' || selectedRequestForPayment.payment_confirmation?.confirmed) {
+      toast.error(t('customerDashboard.toast.alreadyConfirmed'));
+      setShowPaymentModal(false);
+      setSelectedRequestForPayment(null);
+      await fetchMyRequests(); // Refresh to get latest status
+      return;
+    }
+
+    setConfirmingPayment(true);
+    try {
+      const response = await fetch(`${API_URL}/api/customer-requests/${selectedRequestForPayment._id}/confirm-payment`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ payment_method: paymentMethod })
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        // Show UPI ID if payment method is UPI
+        if (paymentMethod === 'UPI' && result.data.retailer_upi) {
+          toast.success(
+            <div>
+              <p className="font-semibold">✅ {t('customerDashboard.paymentModal.title')}!</p>
+              <p className="text-sm mt-1">{t('customerDashboard.paymentModal.retailerUpiId')} <span className="font-mono font-bold">{result.data.retailer_upi}</span></p>
+              <p className="text-xs mt-1">{t('customerDashboard.paymentModal.sendToUpi', { amount: result.data.total })}</p>
+            </div>,
+            { duration: 8000 }
+          );
+        } else {
+          toast.success(t('customerDashboard.toast.paymentConfirmedSuccess'));
+        }
+        
+        setShowPaymentModal(false);
+        setSelectedRequestForPayment(null);
+        setPaymentMethod('Cash');
+        await fetchMyRequests();
+      } else {
+        // Handle specific error for already confirmed
+        if (result.message && result.message.includes('payment_confirmed')) {
+          toast.error(t('customerDashboard.toast.alreadyConfirmed'));
+          setShowPaymentModal(false);
+          setSelectedRequestForPayment(null);
+          await fetchMyRequests(); // Refresh to get latest status
+        } else {
+          toast.error(result.message || t('customerDashboard.toast.requestFailed'));
+        }
+      }
+    } catch (error) {
+      console.error('Confirm payment error:', error);
+      toast.error(t('customerDashboard.toast.networkError', { message: error.message }));
+    } finally {
+      setConfirmingPayment(false);
+    }
+  };
+
   return (
     <div className={`min-h-screen ${isDarkMode ? 'bg-gray-950' : 'bg-gray-50'}`}>
       {/* Toast Notifications */}
       <Toaster 
         position="top-right"
         toastOptions={{
-          duration: 4000,
+          duration: 10000,
           style: {
             background: isDarkMode ? '#1F2937' : '#FFFFFF',
             color: isDarkMode ? '#F9FAFB' : '#111827',
@@ -475,18 +569,26 @@ const CustomerDashboard = () => {
           <div className="flex justify-between items-center h-16">
             {/* Left: User Info */}
             <div className="flex items-center space-x-3">
-              <div className="relative">
-                <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-xl flex items-center justify-center text-white font-bold shadow-lg">
+              <div className="relative group">
+                <div 
+                  className="w-10 h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-xl flex items-center justify-center text-white font-bold shadow-lg cursor-pointer"
+                  title={user.name || 'Customer'}
+                >
                   {user.name?.[0] || 'C'}
                 </div>
                 <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border-2 border-white dark:border-gray-900"></div>
+                {/* Tooltip */}
+                <div className="absolute left-0 top-12 bg-gray-900 text-white text-xs rounded-lg px-3 py-2 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none">
+                  {user.name || 'Customer'}
+                  <div className="absolute -top-1 left-4 w-2 h-2 bg-gray-900 transform rotate-45"></div>
+                </div>
               </div>
               <div>
                 <h1 className={`text-sm font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                   {user.name}
                 </h1>
                 <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                  Customer
+                  {t('customerDashboard.customer')}
                 </p>
               </div>
             </div>
@@ -533,7 +635,7 @@ const CustomerDashboard = () => {
                   : 'bg-red-600 hover:bg-red-700 text-white'
                   }`}
               >
-                Logout
+                {t('customerDashboard.logout')}
               </button>
             </div>
           </div>
@@ -556,7 +658,7 @@ const CustomerDashboard = () => {
               }`}
           >
             <Home className="h-4 w-4" />
-            <span>Home</span>
+            <span>{t('customerDashboard.tabs.home')}</span>
           </button>
 
           <button
@@ -571,7 +673,7 @@ const CustomerDashboard = () => {
               }`}
           >
             <Store className="h-4 w-4" />
-            <span>Browse Stores</span>
+            <span>{t('customerDashboard.tabs.browseStores')}</span>
           </button>
 
           <button
@@ -586,7 +688,7 @@ const CustomerDashboard = () => {
               }`}
           >
             <ShoppingCart className="h-4 w-4" />
-            <span>My Orders</span>
+            <span>{t('customerDashboard.tabs.myOrders')}</span>
             {requests.length > 0 && (
               <span className="px-1.5 py-0.5 text-xs font-bold bg-red-500 text-white rounded-full">
                 {requests.length}
@@ -600,12 +702,12 @@ const CustomerDashboard = () => {
           <div className="space-y-6">
             {/* Welcome Section */}
             <div className={`rounded-xl p-6 ${isDarkMode ? 'bg-gradient-to-r from-blue-900 to-purple-900' : 'bg-gradient-to-r from-blue-600 to-purple-600'} text-white`}>
-              <h2 className="text-2xl font-bold mb-2">Welcome back, {user.name}! 👋</h2>
-              <p className="text-blue-100">Discover nearby shops, find hot deals, and manage your orders all in one place.</p>
+              <h2 className="text-2xl font-bold mb-2">{t('customerDashboard.welcome.title', { name: user.name })} 👋</h2>
+              <p className="text-blue-100">{t('customerDashboard.welcome.subtitle')}</p>
             </div>
 
             {/* Feature Cards Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Nearby Shops Card */}
               <div
                 onClick={() => navigate('/customer/nearby-shops')}
@@ -625,12 +727,12 @@ const CustomerDashboard = () => {
                     </svg>
                   </div>
                 </div>
-                <h3 className="text-xl font-bold text-white mb-2">Nearby Shops</h3>
+                <h3 className="text-xl font-bold text-white mb-2">{t('customerDashboard.features.nearbyShops.title')}</h3>
                 <p className="text-white/90 text-sm mb-4">
-                  Find retailers near you within 5-50km radius. Get directions and contact details.
+                  {t('customerDashboard.features.nearbyShops.description')}
                 </p>
                 <div className="flex items-center text-white/80 text-xs">
-                  <span className="px-2 py-1 bg-white/20 rounded-full">GPS Enabled</span>
+                  <span className="px-2 py-1 bg-white/20 rounded-full">{t('customerDashboard.features.nearbyShops.badge')}</span>
                 </div>
               </div>
 
@@ -655,40 +757,14 @@ const CustomerDashboard = () => {
                     )}
                   </div>
                 </div>
-                <h3 className="text-xl font-bold text-white mb-2">My Orders</h3>
+                <h3 className="text-xl font-bold text-white mb-2">{t('customerDashboard.features.myOrders.title')}</h3>
                 <p className="text-white/90 text-sm mb-4">
-                  Track your orders, view status updates, and manage your purchase history.
+                  {t('customerDashboard.features.myOrders.description')}
                 </p>
                 <div className="flex items-center text-white/80 text-xs">
                   <span className="px-2 py-1 bg-white/20 rounded-full">
-                    {requests.length} Active Order{requests.length !== 1 ? 's' : ''}
+                    {t('customerDashboard.features.myOrders.activeOrders', { count: requests.length })}
                   </span>
-                </div>
-              </div>
-
-              {/* Hot Deals Card */}
-              <div
-                onClick={() => navigate('/hot-deals')}
-                className={`group cursor-pointer rounded-xl p-6 transition-all hover:scale-105 ${
-                  isDarkMode 
-                    ? 'bg-gradient-to-br from-orange-900 to-red-900 hover:from-orange-800 hover:to-red-800' 
-                    : 'bg-gradient-to-br from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600'
-                } shadow-lg hover:shadow-2xl`}
-              >
-                <div className="flex items-center justify-between mb-4">
-                  <div className="p-3 bg-white/20 rounded-xl">
-                    <TrendingDown className="h-8 w-8 text-white" />
-                  </div>
-                  <div className="text-white/80 group-hover:text-white transition-colors">
-                    <Tag className="h-6 w-6" />
-                  </div>
-                </div>
-                <h3 className="text-xl font-bold text-white mb-2">Hot Deals 🔥</h3>
-                <p className="text-white/90 text-sm mb-4">
-                  Save up to 75% on expiring items! Browse discounts from nearby retailers.
-                </p>
-                <div className="flex items-center text-white/80 text-xs">
-                  <span className="px-2 py-1 bg-white/20 rounded-full">Limited Time Offers</span>
                 </div>
               </div>
             </div>
@@ -698,7 +774,7 @@ const CustomerDashboard = () => {
               <div className={`rounded-lg p-4 ${isDarkMode ? 'bg-gray-900 border border-gray-800' : 'bg-white border border-gray-200'}`}>
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Total Orders</p>
+                    <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{t('customerDashboard.stats.totalOrders')}</p>
                     <p className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{requests.length}</p>
                   </div>
                   <ShoppingCart className={`h-8 w-8 ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`} />
@@ -708,7 +784,7 @@ const CustomerDashboard = () => {
               <div className={`rounded-lg p-4 ${isDarkMode ? 'bg-gray-900 border border-gray-800' : 'bg-white border border-gray-200'}`}>
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Pending Orders</p>
+                    <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{t('customerDashboard.stats.pendingOrders')}</p>
                     <p className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                       {requests.filter(r => r.status === 'pending').length}
                     </p>
@@ -720,7 +796,7 @@ const CustomerDashboard = () => {
               <div className={`rounded-lg p-4 ${isDarkMode ? 'bg-gray-900 border border-gray-800' : 'bg-white border border-gray-200'}`}>
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Completed</p>
+                    <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{t('customerDashboard.stats.completed')}</p>
                     <p className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                       {requests.filter(r => r.status === 'completed').length}
                     </p>
@@ -734,7 +810,7 @@ const CustomerDashboard = () => {
             {requests.length > 0 && (
               <div className={`rounded-xl p-6 ${isDarkMode ? 'bg-gray-900 border border-gray-800' : 'bg-white border border-gray-200'}`}>
                 <h3 className={`text-lg font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                  Recent Orders
+                  {t('customerDashboard.recentOrders.title')}
                 </h3>
                 <div className="space-y-3">
                   {requests.slice(0, 3).map((request) => (
@@ -748,7 +824,7 @@ const CustomerDashboard = () => {
                             {request.retailer_id?.shop_name || request.retailer_id?.name}
                           </p>
                           <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                            {request.items?.length || 0} item{request.items?.length !== 1 ? 's' : ''}
+                            {t('customerDashboard.recentOrders.items', { count: request.items?.length || 0 })}
                           </p>
                         </div>
                         {getStatusBadge(request.status)}
@@ -764,7 +840,7 @@ const CustomerDashboard = () => {
                       : 'bg-blue-600 hover:bg-blue-700 text-white'
                   }`}
                 >
-                  View All Orders
+                  {t('customerDashboard.recentOrders.viewAll')}
                 </button>
               </div>
             )}
@@ -777,7 +853,7 @@ const CustomerDashboard = () => {
             {/* Retailer List */}
             <div className={`rounded-xl p-5 ${isDarkMode ? 'bg-gray-900 border border-gray-800' : 'bg-white border border-gray-200'} shadow-sm`}>
               <h2 className={`text-lg font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                Available Stores
+                {t('customerDashboard.browseStores.title')}
               </h2>
 
               {/* Search Bar */}
@@ -785,7 +861,7 @@ const CustomerDashboard = () => {
                 <Search className={`absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`} />
                 <input
                   type="text"
-                  placeholder="Search stores..."
+                  placeholder={t('customerDashboard.browseStores.searchPlaceholder')}
                   value={searchQuery}
                   onChange={handleSearch}
                   className={`w-full pl-10 pr-4 py-2.5 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${isDarkMode
@@ -832,7 +908,7 @@ const CustomerDashboard = () => {
                 {retailers.length === 0 && (
                   <div className={`text-center py-12 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                     <Store className={`h-12 w-12 mx-auto mb-3 ${isDarkMode ? 'text-gray-700' : 'text-gray-300'}`} />
-                    <p className="text-sm">No stores found</p>
+                    <p className="text-sm">{t('customerDashboard.browseStores.noStores')}</p>
                   </div>
                 )}
               </div>
@@ -841,7 +917,7 @@ const CustomerDashboard = () => {
             {/* Message Form */}
             <div className={`rounded-xl p-5 ${isDarkMode ? 'bg-gray-900 border border-gray-800' : 'bg-white border border-gray-200'} shadow-sm`}>
               <h2 className={`text-lg font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                {selectedRetailer ? `Order from ${selectedRetailer.shop_name || selectedRetailer.name}` : 'Select a Store'}
+                {selectedRetailer ? t('customerDashboard.orderForm.title', { shopName: selectedRetailer.shop_name || selectedRetailer.name }) : t('customerDashboard.orderForm.selectStore')}
               </h2>
 
               {showMessageForm && selectedRetailer ? (
@@ -854,7 +930,7 @@ const CustomerDashboard = () => {
                       className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-green-600 to-teal-600 text-white rounded-lg hover:from-green-700 hover:to-teal-700 transition-all shadow-md text-sm font-medium"
                     >
                       <FileText className="h-4 w-4" />
-                      <span>Scan Shopping List</span>
+                      <span>{t('customerDashboard.orderForm.scanList')}</span>
                     </button>
                   </div>
 
@@ -866,17 +942,17 @@ const CustomerDashboard = () => {
                       className={`flex items-center space-x-1 sm:space-x-2 text-xs sm:text-sm font-medium transition-colors ${isDarkMode ? 'text-primary-400 hover:text-primary-300' : 'text-primary-600 hover:text-primary-700'}`}
                     >
                       <Package className="h-4 w-4" />
-                      <span>{showInventory ? 'Hide' : 'View'} Available Items ({retailerInventory.length})</span>
+                      <span>{showInventory ? t('customerDashboard.orderForm.hideInventory') : t('customerDashboard.orderForm.viewInventory', { count: retailerInventory.length })}</span>
                     </button>
                     {checkingStock && (
-                      <span className={`text-xs hidden sm:inline ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Checking stock...</span>
+                      <span className={`text-xs hidden sm:inline ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>{t('customerDashboard.orderForm.checkingStock')}</span>
                     )}
                   </div>
 
                   {/* Inventory List */}
                   {showInventory && (
                     <div className={`rounded-lg p-4 max-h-48 overflow-y-auto transition-colors ${isDarkMode ? 'bg-gray-700/50 border border-gray-600' : 'bg-gray-50 border border-gray-200'}`}>
-                      <h4 className={`text-sm font-medium mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Available Inventory</h4>
+                      <h4 className={`text-sm font-medium mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{t('customerDashboard.orderForm.inventoryTitle')}</h4>
                       {retailerInventory.length > 0 ? (
                         <div className="space-y-2">
                           {retailerInventory.map((invItem, idx) => (
@@ -894,20 +970,20 @@ const CustomerDashboard = () => {
                               </div>
                               <div className="flex items-center space-x-2">
                                 {invItem.stock_status === 'out_of_stock' && (
-                                  <span className="text-xs bg-red-100 text-red-800 px-2 py-0.5 rounded-full">Out of Stock</span>
+                                  <span className="text-xs bg-red-100 text-red-800 px-2 py-0.5 rounded-full">{t('customerDashboard.orderForm.outOfStock')}</span>
                                 )}
                                 {invItem.stock_status === 'low_stock' && (
-                                  <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded-full">Low Stock</span>
+                                  <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded-full">{t('customerDashboard.orderForm.lowStock')}</span>
                                 )}
                                 {invItem.stock_status === 'in_stock' && (
-                                  <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full">In Stock</span>
+                                  <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full">{t('customerDashboard.orderForm.inStock')}</span>
                                 )}
                               </div>
                             </div>
                           ))}
                         </div>
                       ) : (
-                        <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>No inventory available</p>
+                        <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>{t('customerDashboard.orderForm.noInventory')}</p>
                       )}
                     </div>
                   )}
@@ -915,7 +991,7 @@ const CustomerDashboard = () => {
                   {/* Items */}
                   <div>
                     <label className={`block text-xs sm:text-sm font-medium mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                      Items *
+                      {t('customerDashboard.orderForm.items')} *
                     </label>
                     {messageForm.items.map((item, index) => {
                       const availability = item.item_name ? itemAvailability[item.item_name.toLowerCase()] : null;
@@ -926,7 +1002,7 @@ const CustomerDashboard = () => {
                               <input
                                 type="text"
                                 list={`inventory-items-${index}`}
-                                placeholder="Item name (type or select)"
+                                placeholder={t('customerDashboard.orderForm.itemNamePlaceholder')}
                                 value={item.item_name}
                                 onChange={(e) => handleItemChange(index, 'item_name', e.target.value)}
                                 className={`w-full px-3 py-2 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 transition-colors ${availability && !availability.can_order
@@ -947,7 +1023,7 @@ const CustomerDashboard = () => {
                             <div className="relative flex-shrink-0">
                               <input
                                 type="number"
-                                placeholder="Qty"
+                                placeholder={t('customerDashboard.orderForm.qtyPlaceholder')}
                                 value={item.quantity}
                                 onChange={(e) => handleItemChange(index, 'quantity', e.target.value)}
                                 min="0.001"
@@ -962,7 +1038,7 @@ const CustomerDashboard = () => {
                               />
                               {availability && availability.available_quantity > 0 && (
                                 <span className="absolute -top-2 -right-2 bg-blue-500 text-white text-xs px-1.5 py-0.5 rounded-full">
-                                  max: {availability.available_quantity}
+                                  {t('customerDashboard.orderForm.max')}: {availability.available_quantity}
                                 </span>
                               )}
                             </div>
@@ -984,31 +1060,31 @@ const CustomerDashboard = () => {
                                 {availability.can_order ? (
                                   <>
                                     <CheckCircle className="h-4 w-4" />
-                                    <span className="font-medium">✓ Available</span>
+                                    <span className="font-medium">✓ {t('customerDashboard.orderForm.available')}</span>
                                   </>
                                 ) : (
                                   <>
                                     <AlertCircle className="h-4 w-4" />
-                                    <span className="font-medium">✗ {availability.status === 'not_found' ? 'Not in Shop' : 'Unavailable'}</span>
+                                    <span className="font-medium">✗ {availability.status === 'not_found' ? t('customerDashboard.orderForm.notInShop') : t('customerDashboard.orderForm.unavailable')}</span>
                                   </>
                                 )}
                               </div>
                               <div className="text-sm font-semibold">
                                 {availability.status === 'available' && (
                                   <span className="text-green-800">
-                                    Stock: {availability.available_quantity} {availability.unit || 'units'}
+                                    {t('customerDashboard.orderForm.stock')}: {availability.available_quantity} {availability.unit || 'units'}
                                   </span>
                                 )}
                                 {availability.status === 'insufficient_stock' && (
                                   <span className="text-red-800">
-                                    Only {availability.available_quantity} {availability.unit || 'units'} available
+                                    {t('customerDashboard.orderForm.only')} {availability.available_quantity} {availability.unit || 'units'} {t('customerDashboard.orderForm.available')}
                                   </span>
                                 )}
                                 {availability.status === 'out_of_stock' && (
-                                  <span className="text-red-800">Out of Stock (0 available)</span>
+                                  <span className="text-red-800">{t('customerDashboard.orderForm.outOfStock')} (0 {t('customerDashboard.orderForm.available')})</span>
                                 )}
                                 {availability.status === 'not_found' && (
-                                  <span className="text-red-800">Not available in this shop</span>
+                                  <span className="text-red-800">{t('customerDashboard.orderForm.notAvailable')}</span>
                                 )}
                               </div>
                             </div>
@@ -1022,7 +1098,7 @@ const CustomerDashboard = () => {
                       className={`mt-2 flex items-center space-x-1 text-sm font-medium transition-colors ${isDarkMode ? 'text-primary-400 hover:text-primary-300' : 'text-primary-600 hover:text-primary-700'}`}
                     >
                       <Plus className="h-4 w-4" />
-                      <span>Add Item</span>
+                      <span>{t('customerDashboard.orderForm.addItem')}</span>
                     </button>
                   </div>
 
@@ -1031,7 +1107,7 @@ const CustomerDashboard = () => {
                     <div className={`rounded-lg p-4 transition-colors ${isDarkMode ? 'bg-blue-900/30 border border-blue-700' : 'bg-blue-50 border border-blue-200'}`}>
                       <h3 className={`text-sm font-semibold mb-3 flex items-center space-x-2 ${isDarkMode ? 'text-blue-300' : 'text-blue-900'}`}>
                         <Package className="h-4 w-4" />
-                        <span>Order Summary</span>
+                        <span>{t('customerDashboard.orderForm.orderSummary')}</span>
                       </h3>
                       <div className="space-y-2">
                         {messageForm.items.filter(item => item.item_name.trim()).map((item, idx) => {
@@ -1043,11 +1119,11 @@ const CustomerDashboard = () => {
                               <div className="flex items-center space-x-2">
                                 {avail.can_order ? (
                                   <span className={`font-semibold ${isDarkMode ? 'text-green-400' : 'text-green-700'}`}>
-                                    ✓ Stock: {avail.available_quantity} {avail.unit || 'units'}
+                                    ✓ {t('customerDashboard.orderForm.stock')}: {avail.available_quantity} {avail.unit || 'units'}
                                   </span>
                                 ) : (
                                   <span className={`font-semibold ${isDarkMode ? 'text-red-400' : 'text-red-700'}`}>
-                                    ✗ {avail.status === 'not_found' ? 'Not available' : `Only ${avail.available_quantity} available`}
+                                    ✗ {avail.status === 'not_found' ? t('customerDashboard.orderForm.notAvailable') : `${t('customerDashboard.orderForm.only')} ${avail.available_quantity} ${t('customerDashboard.orderForm.available')}`}
                                   </span>
                                 )}
                               </div>
@@ -1116,7 +1192,7 @@ const CustomerDashboard = () => {
         {activeTab === 'my-requests' && (
           <div className={`rounded-xl p-5 ${isDarkMode ? 'bg-gray-900 border border-gray-800' : 'bg-white border border-gray-200'} shadow-sm`}>
             <h2 className={`text-lg font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-              My Orders
+              {t('customerDashboard.myOrdersTab.title')}
             </h2>
 
             <div className="space-y-3">
@@ -1142,7 +1218,7 @@ const CustomerDashboard = () => {
 
                   <div className="space-y-2 mb-3">
                     <p className={`text-xs font-medium uppercase tracking-wide ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                      Items
+                      {t('customerDashboard.myOrdersTab.items')}
                     </p>
                     {request.items.map((item, idx) => (
                       <div
@@ -1179,10 +1255,46 @@ const CustomerDashboard = () => {
                           </span>
                         </div>
                       )}
-                      <div className="flex justify-between font-semibold text-base">
+                      <div className="flex justify-between font-semibold text-base mb-3">
                         <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>Total</span>
                         <span className="text-blue-600">₹{request.bill_details.total?.toFixed(2)}</span>
                       </div>
+
+                      {/* Payment Confirmation Button - Only show if status is 'billed' */}
+                      {request.status === 'billed' && (
+                        <button
+                          onClick={() => handleOpenPaymentModal(request)}
+                          className="w-full mt-2 py-2.5 px-4 bg-gradient-to-r from-green-600 to-teal-600 text-white rounded-lg hover:from-green-700 hover:to-teal-700 transition-all font-medium text-sm flex items-center justify-center gap-2 shadow-md"
+                        >
+                          <CheckCircle className="h-4 w-4" />
+                          Confirm Payment
+                        </button>
+                      )}
+
+                      {/* Payment Confirmed Status */}
+                      {request.payment_confirmation?.confirmed && (
+                        <div className={`mt-2 p-3 rounded-lg ${isDarkMode ? 'bg-green-900/30 border border-green-700' : 'bg-green-50 border border-green-200'}`}>
+                          <div className="flex items-center gap-2 text-green-700 dark:text-green-400">
+                            <CheckCircle className="h-4 w-4" />
+                            <span className="font-semibold text-sm">Payment Confirmed</span>
+                          </div>
+                          <div className={`text-xs mt-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                            Method: {request.payment_confirmation.payment_method}
+                          </div>
+                          <div className={`text-xs ${isDarkMode ? 'text-gray-500' : 'text-gray-500'}`}>
+                            {new Date(request.payment_confirmation.confirmed_at).toLocaleString()}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Waiting for Retailer - Only show if payment confirmed but not completed */}
+                      {request.status === 'payment_confirmed' && (
+                        <div className={`mt-2 p-3 rounded-lg ${isDarkMode ? 'bg-blue-900/30 border border-blue-700' : 'bg-blue-50 border border-blue-200'}`}>
+                          <p className={`text-xs ${isDarkMode ? 'text-blue-300' : 'text-blue-800'}`}>
+                            ⏳ Waiting for retailer to complete your order...
+                          </p>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -1194,8 +1306,8 @@ const CustomerDashboard = () => {
                     }`}>
                     <ShoppingCart className="h-8 w-8" />
                   </div>
-                  <p className="font-medium">No orders yet</p>
-                  <p className="text-sm mt-1">Browse stores to place your first order</p>
+                  <p className="font-medium">{t('customerDashboard.myOrdersTab.noOrders')}</p>
+                  <p className="text-sm mt-1">{t('customerDashboard.myOrdersTab.noOrdersSubtitle')}</p>
                 </div>
               )}
             </div>
@@ -1211,10 +1323,10 @@ const CustomerDashboard = () => {
               <div>
                 <h3 className={`text-2xl font-bold flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                   <FileText className="h-6 w-6 text-green-600" />
-                  Scan Shopping List
+                  {t('customerDashboard.billScanner.title')}
                 </h3>
                 <p className={`text-sm mt-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                  Upload image → AI extracts items → Review → Add to order
+                  {t('customerDashboard.billScanner.subtitle')}
                 </p>
               </div>
               <button
@@ -1248,14 +1360,14 @@ const CustomerDashboard = () => {
                         }}
                         className="text-red-600 hover:text-red-700 text-sm font-medium"
                       >
-                        Remove Image
+                        {t('customerDashboard.billScanner.removeImage')}
                       </button>
                     </div>
                   ) : (
                     <div>
                       <FileText className={`h-16 w-16 mx-auto mb-4 ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`} />
-                      <p className={`mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>Upload shopping list or handwritten note</p>
-                      <p className={`text-sm ${isDarkMode ? 'text-gray-500' : 'text-gray-500'}`}>PNG, JPG, GIF up to 10MB</p>
+                      <p className={`mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>{t('customerDashboard.billScanner.uploadTitle')}</p>
+                      <p className={`text-sm ${isDarkMode ? 'text-gray-500' : 'text-gray-500'}`}>{t('customerDashboard.billScanner.uploadSubtitle')}</p>
                       <input
                         type="file"
                         accept="image/*"
@@ -1267,18 +1379,18 @@ const CustomerDashboard = () => {
                         htmlFor="bill-upload-customer"
                         className="mt-4 inline-block bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 cursor-pointer transition-colors"
                       >
-                        Select Image
+                        {t('customerDashboard.billScanner.selectImage')}
                       </label>
                     </div>
                   )}
                 </div>
 
                 <div className={`rounded-lg p-4 ${isDarkMode ? 'bg-green-900/20 border border-green-800' : 'bg-green-50 border border-green-200'}`}>
-                  <h4 className={`font-semibold mb-2 ${isDarkMode ? 'text-green-400' : 'text-green-900'}`}>📋 What we extract:</h4>
+                  <h4 className={`font-semibold mb-2 ${isDarkMode ? 'text-green-400' : 'text-green-900'}`}>{t('customerDashboard.billScanner.whatWeExtract')}</h4>
                   <ul className={`text-sm space-y-1 ${isDarkMode ? 'text-green-300' : 'text-green-800'}`}>
-                    <li>• Item names from your list</li>
-                    <li>• Quantities needed</li>
-                    <li>• You can review and edit before ordering</li>
+                    <li>{t('customerDashboard.billScanner.extractItem1')}</li>
+                    <li>{t('customerDashboard.billScanner.extractItem2')}</li>
+                    <li>{t('customerDashboard.billScanner.extractItem3')}</li>
                   </ul>
                 </div>
 
@@ -1292,7 +1404,7 @@ const CustomerDashboard = () => {
                     className={`px-6 py-2 rounded-lg transition-colors ${isDarkMode ? 'border border-gray-700 text-gray-300 hover:bg-gray-800' : 'border border-gray-300 text-gray-700 hover:bg-gray-50'}`}
                     disabled={uploadingImage}
                   >
-                    Cancel
+                    {t('customerDashboard.orderForm.cancel')}
                   </button>
                   <button
                     onClick={handleBillScan}
@@ -1302,12 +1414,12 @@ const CustomerDashboard = () => {
                     {uploadingImage ? (
                       <>
                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                        Scanning...
+                        {t('customerDashboard.billScanner.scanning')}
                       </>
                     ) : (
                       <>
                         <FileText className="h-4 w-4" />
-                        Scan List
+                        {t('customerDashboard.billScanner.scanList')}
                       </>
                     )}
                   </button>
@@ -1318,10 +1430,10 @@ const CustomerDashboard = () => {
               <div className="space-y-6">
                 <div className={`rounded-lg p-4 ${isDarkMode ? 'bg-blue-900/20 border border-blue-800' : 'bg-blue-50 border border-blue-200'}`}>
                   <h4 className={`font-semibold ${isDarkMode ? 'text-blue-300' : 'text-blue-900'}`}>
-                    ✅ Extracted {parsedBillItems.length} item(s) from your list
+                    {t('customerDashboard.billScanner.extracted', { count: parsedBillItems.length })}
                   </h4>
                   <p className={`text-sm mt-1 ${isDarkMode ? 'text-blue-400' : 'text-blue-700'}`}>
-                    Review and edit items before adding to your order
+                    {t('customerDashboard.billScanner.reviewSubtitle')}
                   </p>
                 </div>
 
@@ -1329,9 +1441,9 @@ const CustomerDashboard = () => {
                   <table className="w-full">
                     <thead className={isDarkMode ? 'bg-gray-800' : 'bg-gray-50'}>
                       <tr>
-                        <th className={`px-4 py-3 text-left text-sm font-semibold ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Item Name</th>
-                        <th className={`px-4 py-3 text-left text-sm font-semibold ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Quantity</th>
-                        <th className={`px-4 py-3 text-left text-sm font-semibold ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Actions</th>
+                        <th className={`px-4 py-3 text-left text-sm font-semibold ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{t('customerDashboard.billScanner.itemName')}</th>
+                        <th className={`px-4 py-3 text-left text-sm font-semibold ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{t('customerDashboard.billScanner.quantity')}</th>
+                        <th className={`px-4 py-3 text-left text-sm font-semibold ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{t('customerDashboard.billScanner.actions')}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1343,7 +1455,7 @@ const CustomerDashboard = () => {
                               value={item.item_name}
                               onChange={(e) => handleEditBillItem(index, 'item_name', e.target.value)}
                               className={`w-full px-2 py-1 border rounded text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'border-gray-300'}`}
-                              placeholder="Item name"
+                              placeholder={t('customerDashboard.billScanner.itemName')}
                             />
                           </td>
                           <td className="px-4 py-3">
@@ -1356,7 +1468,7 @@ const CustomerDashboard = () => {
                                 handleEditBillItem(index, 'quantity', isNaN(qty) ? '' : qty);
                               }}
                               className={`w-20 px-2 py-1 border rounded text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'border-gray-300'}`}
-                              placeholder="Qty"
+                              placeholder={t('customerDashboard.orderForm.qtyPlaceholder')}
                               min="0.001"
                               step="0.001"
                             />
@@ -1366,7 +1478,7 @@ const CustomerDashboard = () => {
                               onClick={() => handleRemoveBillItem(index)}
                               className="text-red-600 hover:text-red-700 text-sm font-medium"
                             >
-                              Remove
+                              {t('customerDashboard.billScanner.remove')}
                             </button>
                           </td>
                         </tr>
@@ -1383,7 +1495,7 @@ const CustomerDashboard = () => {
                     className={`px-6 py-2 rounded-lg transition-colors ${isDarkMode ? 'border border-gray-700 text-gray-300 hover:bg-gray-800' : 'border border-gray-300 text-gray-700 hover:bg-gray-50'}`}
                     disabled={uploadingImage}
                   >
-                    Back
+                    {t('customerDashboard.billScanner.back')}
                   </button>
                   <button
                     onClick={handleBillConfirm}
@@ -1393,18 +1505,140 @@ const CustomerDashboard = () => {
                     {uploadingImage ? (
                       <>
                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                        Adding...
+                        {t('customerDashboard.billScanner.adding')}
                       </>
                     ) : (
                       <>
                         <ShoppingCart className="h-4 w-4" />
-                        Add to Order
+                        {t('customerDashboard.billScanner.addToOrder')}
                       </>
                     )}
                   </button>
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Payment Confirmation Modal */}
+      {showPaymentModal && selectedRequestForPayment && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className={`relative mx-auto p-6 border w-full max-w-md shadow-2xl rounded-xl ${isDarkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-200'}`}>
+            <div className="flex items-start gap-3 mb-4">
+              <div className="flex-shrink-0 w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
+                <CheckCircle className="h-6 w-6 text-green-600" />
+              </div>
+              <div className="flex-1">
+                <h3 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                  {t('customerDashboard.paymentModal.title')}
+                </h3>
+                <p className={`text-sm mt-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                  {t('customerDashboard.paymentModal.orderFrom', { shopName: selectedRequestForPayment.retailer_id?.shop_name || selectedRequestForPayment.retailer_id?.name })}
+                </p>
+              </div>
+            </div>
+
+            {/* Bill Summary */}
+            <div className={`mb-4 p-4 rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-gray-50'}`}>
+              <p className={`text-sm font-semibold mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                {t('customerDashboard.paymentModal.orderTotal')}
+              </p>
+              <p className="text-2xl font-bold text-green-600">
+                ₹{selectedRequestForPayment.bill_details?.total?.toFixed(2) || '0.00'}
+              </p>
+            </div>
+
+            {/* Payment Method Selection */}
+            <div className="mb-6">
+              <label htmlFor="paymentMethodCustomer" className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                {t('customerDashboard.paymentModal.paymentMethod')} <span className="text-red-600">{t('customerDashboard.paymentModal.required')}</span>
+              </label>
+              <select
+                id="paymentMethodCustomer"
+                value={paymentMethod}
+                onChange={(e) => setPaymentMethod(e.target.value)}
+                className={`w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+                required
+              >
+                <option value="Cash">{t('customerDashboard.paymentModal.cash')}</option>
+                <option value="Card">{t('customerDashboard.paymentModal.card')}</option>
+                <option value="UPI">{t('customerDashboard.paymentModal.upi')}</option>
+                <option value="Bank Transfer">{t('customerDashboard.paymentModal.bankTransfer')}</option>
+                <option value="Credit">{t('customerDashboard.paymentModal.credit')}</option>
+              </select>
+              
+              {/* Show UPI ID when UPI is selected */}
+              {paymentMethod === 'UPI' && selectedRequestForPayment.retailer_id?.upi_id && (
+                <div className={`mt-3 p-3 rounded-lg ${isDarkMode ? 'bg-blue-900/30 border border-blue-700' : 'bg-blue-50 border border-blue-200'}`}>
+                  <p className={`text-xs font-semibold mb-1 ${isDarkMode ? 'text-blue-300' : 'text-blue-900'}`}>
+                    {t('customerDashboard.paymentModal.retailerUpiId')}
+                  </p>
+                  <div className="flex items-center justify-between">
+                    <p className={`font-mono font-bold text-sm ${isDarkMode ? 'text-blue-200' : 'text-blue-800'}`}>
+                      {selectedRequestForPayment.retailer_id.upi_id}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(selectedRequestForPayment.retailer_id.upi_id);
+                        toast.success(t('customerDashboard.toast.upiIdCopied'));
+                      }}
+                      className={`text-xs px-2 py-1 rounded ${isDarkMode ? 'bg-blue-700 hover:bg-blue-600 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}
+                    >
+                      {t('customerDashboard.paymentModal.copy')}
+                    </button>
+                  </div>
+                  <p className={`text-xs mt-2 ${isDarkMode ? 'text-blue-400' : 'text-blue-700'}`}>
+                    {t('customerDashboard.paymentModal.sendToUpi', { amount: selectedRequestForPayment.bill_details?.total?.toFixed(2) })}
+                  </p>
+                </div>
+              )}
+              
+              {paymentMethod === 'UPI' && !selectedRequestForPayment.retailer_id?.upi_id && (
+                <div className={`mt-3 p-3 rounded-lg ${isDarkMode ? 'bg-yellow-900/30 border border-yellow-700' : 'bg-yellow-50 border border-yellow-200'}`}>
+                  <p className={`text-xs ${isDarkMode ? 'text-yellow-300' : 'text-yellow-800'}`}>
+                    {t('customerDashboard.paymentModal.noUpiWarning')}
+                  </p>
+                </div>
+              )}
+              
+              <p className={`mt-2 text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                {t('customerDashboard.paymentModal.paymentNote')}
+              </p>
+            </div>
+
+            <div className="flex flex-col-reverse sm:flex-row gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowPaymentModal(false);
+                  setSelectedRequestForPayment(null);
+                  setPaymentMethod('Cash');
+                }}
+                disabled={confirmingPayment}
+                className={`px-4 py-2 text-sm border rounded-lg transition-colors ${isDarkMode ? 'border-gray-700 text-gray-300 hover:bg-gray-800' : 'border-gray-300 text-gray-700 hover:bg-gray-50'}`}
+              >
+                {t('customerDashboard.orderForm.cancel')}
+              </button>
+              <button
+                onClick={handleConfirmPayment}
+                disabled={confirmingPayment}
+                className="flex-1 sm:flex-auto py-2 px-4 text-sm bg-gradient-to-r from-green-600 to-teal-600 text-white rounded-lg hover:from-green-700 hover:to-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium flex items-center justify-center gap-2"
+              >
+                {confirmingPayment ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <span>{t('customerDashboard.paymentModal.confirming')}</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="h-4 w-4" />
+                    <span>{t('customerDashboard.paymentModal.confirm')}</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}

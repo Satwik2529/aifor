@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MapPin, Navigation, Store, Phone, Mail, ExternalLink, Loader2, Tag } from 'lucide-react';
+import { MapPin, Navigation, Store, Phone, Mail, ExternalLink, Loader2, Tag, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 
@@ -114,11 +114,20 @@ const NearbyShops = () => {
     <div className="max-w-6xl mx-auto animate-fadeIn">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2 flex items-center gap-2">
-          <MapPin className="h-8 w-8 text-primary-600" />
-          Nearby Shops
-        </h1>
-        <p className="text-gray-600">Find shops near your location</p>
+        <div className="flex items-center gap-3 mb-2">
+          <button
+            onClick={() => navigate('/customer-dashboard')}
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            title="Back to Dashboard"
+          >
+            <ArrowLeft className="h-6 w-6 text-gray-600" />
+          </button>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 flex items-center gap-2">
+            <MapPin className="h-8 w-8 text-primary-600" />
+            Nearby Shops
+          </h1>
+        </div>
+        <p className="text-gray-600 ml-14">Find shops near your location</p>
       </div>
 
       {/* Location Status */}

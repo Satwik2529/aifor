@@ -46,10 +46,14 @@ const Sidebar = ({ isOpen, onClose }) => {
       <nav className="flex-1 space-y-1 p-3">
         {menu.map((item) => {
           const Icon = item.icon;
+          // Only match exact path for dashboard, allow partial match for others
+          const isExactMatch = item.href === '/dashboard';
+          
           return (
             <NavLink
               key={item.name}
               to={item.href}
+              end={isExactMatch}
               onClick={onClose}
               className={({ isActive }) =>
                 `w-full flex items-center gap-3 px-4 py-2.5 rounded-xl font-medium transition-colors text-left ${isActive

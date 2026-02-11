@@ -116,8 +116,8 @@ const Header = ({ onMenuClick }) => {
                   {user?.name?.charAt(0) || 'U'}
                 </div>
                 <div className="hidden sm:block text-right">
-                  <p className="text-sm font-medium text-gray-900">{user?.name || 'Business Owner'}</p>
-                  <p className="text-xs text-gray-500">{user?.phone || 'Phone'}</p>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">{user?.name || 'Business Owner'}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{user?.phone || 'Phone'}</p>
                 </div>
               </div>
 

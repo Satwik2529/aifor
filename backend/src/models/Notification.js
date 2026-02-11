@@ -27,7 +27,8 @@ const notificationSchema = new mongoose.Schema({
       'new_request', 
       'request_completed', 
       'request_cancelled', 
-      'bill_generated', 
+      'bill_generated',
+      'payment_confirmed', 
       'order', 
       'promotion', 
       'alert', 
@@ -39,7 +40,11 @@ const notificationSchema = new mongoose.Schema({
       'sales_drop',
       'high_expenses',
       'festival_reminder',
-      'festival_upcoming'
+      'festival_upcoming',
+      // Hot deals and important info
+      'hot_deal',
+      'campaign_created',
+      'important_info'
     ],
     required: true
   },

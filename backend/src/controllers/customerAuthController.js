@@ -326,17 +326,8 @@ const customerAuthController = {
         });
       }
 
-      const updateData = {
-        latitude,
-        longitude,
-        locality: locality || null
-      };
-
-      const customer = await CustomerUser.findByIdAndUpdate(
-        customerId,
-        updateData,
-        { new: true, runValidators: true }
-      );
+      // Find customer first
+      const customer = await CustomerUser.findById(customerId);
 
       if (!customer) {
         return res.status(404).json({
@@ -344,6 +335,16 @@ const customerAuthController = {
           message: 'Customer not found'
         });
       }
+
+      // Update location fields
+      customer.latitude = latitude;
+      customer.longitude = longitude;
+      if (locality) {
+        customer.locality = locality;
+      }
+
+      // Save to trigger pre-save hooks (if CustomerUser model has them)
+      await customer.save();
 
       console.log('📍 Location updated for customer:', customer.email);
 
