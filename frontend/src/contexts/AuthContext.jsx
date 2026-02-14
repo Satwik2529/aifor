@@ -43,10 +43,17 @@ export const AuthProvider = ({ children }) => {
     }, []);
 
     // Login function
-    const login = async (credentials) => {
+    const login = async (credentials, expectedRole = 'retailer') => {
         try {
             setLoading(true);
-            const response = await authAPI.login(credentials);
+            
+            // Add expectedRole to credentials
+            const loginData = {
+                ...credentials,
+                expectedRole
+            };
+            
+            const response = await authAPI.login(loginData);
 
             if (response.success) {
                 const { user: userData, token, userType } = response.data;
@@ -56,6 +63,7 @@ export const AuthProvider = ({ children }) => {
                     userType: userType,
                     userRole: userData?.role,
                     userName: userData?.name,
+                    expectedRole: expectedRole,
                     hasToken: !!token,
                     fullResponse: response.data
                 });

@@ -149,7 +149,12 @@ const LoginNew = () => {
 
     try {
       if (userType === 'retailer' || userType === 'wholesaler') {
-        const result = await login({ phone: formData.phone, password: formData.password });
+        // Pass the expected role to validate on backend
+        const result = await login(
+          { phone: formData.phone, password: formData.password },
+          userType // Pass 'retailer' or 'wholesaler' as expectedRole
+        );
+        
         if (result.success) {
           toast.success(t('auth.login.success'));
 

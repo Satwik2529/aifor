@@ -141,7 +141,7 @@ const authController = {
         });
       }
 
-      const { phone, password } = req.body;
+      const { phone, password, expectedRole } = req.body;
 
       // Find user by phone
       const user = await User.findOne({ phone });
@@ -157,6 +157,27 @@ const authController = {
       if (!user.role) {
         user.role = 'retailer';
         await user.save();
+      }
+
+      // Validate role if expectedRole is provided
+      if (expectedRole) {
+        if (expectedRole === 'retailer' && user.role !== 'retailer') {
+          return res.status(403).json({
+            success: false,
+            message: 'Retailer account not found. Please use the correct login page for your account type.',
+            error: 'Invalid account type',
+            accountType: user.role
+          });
+        }
+        
+        if (expectedRole === 'wholesaler' && user.role !== 'wholesaler') {
+          return res.status(403).json({
+            success: false,
+            message: 'Wholesaler account not found. Please use the correct login page for your account type.',
+            error: 'Invalid account type',
+            accountType: user.role
+          });
+        }
       }
 
       // Check if account is locked
@@ -200,6 +221,7 @@ const authController = {
         name: user.name,
         role: user.role,
         userType: userType,
+        expectedRole: expectedRole,
         hasWholesalerProfile: !!user.wholesalerProfile
       });
 
