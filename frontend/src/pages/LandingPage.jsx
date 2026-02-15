@@ -69,9 +69,7 @@ const LandingPage = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-2">
-              <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-2 rounded-lg">
-                <Sparkles className="w-6 h-6 text-white" />
-              </div>
+             
               <span className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
                 BizNova
               </span>
@@ -99,7 +97,7 @@ const LandingPage = () => {
         <div className="text-center">
           {/* Badge */}
           <div className="inline-flex items-center space-x-2 bg-white px-4 py-2 rounded-full shadow-md mb-8">
-            <Sparkles className="w-4 h-4 text-indigo-600" />
+        
             <span className="text-sm font-semibold text-gray-700">AI-Powered Business Management</span>
           </div>
 
@@ -239,7 +237,7 @@ const LandingPage = () => {
             <div className="col-span-1 md:col-span-2">
               <div className="flex items-center space-x-2 mb-4">
                 <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-2 rounded-lg">
-                  <Sparkles className="w-6 h-6 text-white" />
+              
                 </div>
                 <span className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
                   BizNova
