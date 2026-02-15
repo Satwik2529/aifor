@@ -24,7 +24,16 @@ C:\Users\satwi\OneDrive\Desktop\finalbiznova\Biznova>
 exports.chat = async (req, res) => {
   try {
     const { message, retailer_id, language = 'en' } = req.body;
-    const customer_id = req.user.id; // From auth middleware
+    const customer_id = req.user._id; // MongoDB uses _id, not id
+
+    console.log('🤖 Customer Chatbot Request:', {
+      customer_id,
+      retailer_id,
+      message: message.substring(0, 50),
+      language,
+      hasUser: !!req.user,
+      userId: req.user?._id
+    });
 
     // Validate required fields
     if (!message || !retailer_id) {
@@ -42,6 +51,12 @@ exports.chat = async (req, res) => {
       language
     );
 
+    console.log('✅ Chatbot Response:', {
+      intent: response.intent,
+      itemsCount: response.items?.length,
+      canOrder: response.can_order
+    });
+
     res.json({
       success: true,
       message: response.message,
@@ -49,7 +64,8 @@ exports.chat = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Chatbot chat error:', error);
+    console.error('❌ Chatbot chat error:', error);
+    console.error('Error stack:', error.stack);
     res.status(500).json({
       success: false,
       message: 'Failed to process message',
