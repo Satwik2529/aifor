@@ -55,25 +55,53 @@ const AIInsights = () => {
     });
     const [exportingPDF, setExportingPDF] = useState(false);
 
-    // Load cached insights on mount and clear on unmount
+    // Fetch latest insights from backend
+    const fetchLatestInsights = React.useCallback(async () => {
+        try {
+            const response = await aiInsightsAPI.getLatestInsights({ limit: 4 });
+            if (response.success && response.data && response.data.length > 0) {
+                // Map backend insights to our state structure
+                const latestInsights = {};
+                response.data.forEach(insight => {
+                    const type = insight.insights_data?.type;
+                    if (type && ['demand', 'revenue', 'expense', 'festival'].includes(type)) {
+                        latestInsights[type] = insight.insights_data;
+                    }
+                });
+                
+                // Merge with existing insights (keep newer ones)
+                setInsights(prev => {
+                    const merged = {
+                        ...prev,
+                        ...latestInsights
+                    };
+                    // Save to localStorage
+                    localStorage.setItem('retailer_ai_insights', JSON.stringify(merged));
+                    return merged;
+                });
+            }
+        } catch (error) {
+            console.error('Failed to fetch latest insights:', error);
+        }
+    }, []);
+
+    // Load cached insights on mount
     React.useEffect(() => {
-        const cachedInsights = sessionStorage.getItem('retailer_ai_insights');
+        // Try to load from localStorage first (persists across refreshes)
+        const cachedInsights = localStorage.getItem('retailer_ai_insights');
 
         if (cachedInsights) {
             try {
                 const parsed = JSON.parse(cachedInsights);
-                // Use sessionStorage - clears on page refresh
                 setInsights(parsed);
             } catch (e) {
                 console.error('Failed to parse cached insights:', e);
             }
         }
 
-        // Clear insights when component unmounts (page refresh)
-        return () => {
-            // This cleanup happens on page refresh
-        };
-    }, []);
+        // Also fetch latest insights from backend
+        fetchLatestInsights();
+    }, [fetchLatestInsights]);
 
     // Chart data state
     const [chartData, setChartData] = useState({
@@ -89,6 +117,7 @@ const AIInsights = () => {
     const demandRef = useRef(null);
     const revenueRef = useRef(null);
     const expenseRef = useRef(null);
+    const fetchChartDataRef = useRef(null);
 
     const tabs = [
         {
@@ -148,8 +177,13 @@ const AIInsights = () => {
                 const newInsights = { ...insights, [type]: response.data || response };
                 setInsights(newInsights);
 
-                // Cache the insights in sessionStorage - clears on page refresh
-                sessionStorage.setItem('retailer_ai_insights', JSON.stringify(newInsights));
+                // Cache the insights in localStorage - persists across page refreshes
+                localStorage.setItem('retailer_ai_insights', JSON.stringify(newInsights));
+                
+                // Refresh chart data after generating insights
+                if (fetchChartDataRef.current) {
+                    fetchChartDataRef.current();
+                }
             } else {
                 throw new Error(response.message || 'Failed to generate insights');
             }
@@ -263,6 +297,9 @@ const AIInsights = () => {
             console.error('Error fetching chart data:', error);
         }
     };
+    
+    // Store fetchChartData in ref so it can be called from generateInsight
+    fetchChartDataRef.current = fetchChartData;
 
     // Process sales data for charts
     const processSalesChartData = (sales) => {
@@ -747,18 +784,27 @@ const AIInsights = () => {
                                 <Package className="h-4 w-4 mr-2 text-blue-600" />
                                 Top 10 Selling Products
                             </h4>
-                            <ResponsiveContainer width="100%" height={250}>
-                                <BarChart data={chartData.topProducts} layout="horizontal">
-                                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                                    <XAxis type="number" tick={{ fontSize: 11 }} stroke="#6b7280" />
-                                    <YAxis dataKey="name" type="category" width={100} tick={{ fontSize: 10 }} stroke="#6b7280" />
-                                    <Tooltip
-                                        contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px' }}
-                                        formatter={(value) => [value, 'Quantity']}
-                                    />
-                                    <Bar dataKey="quantity" fill="#3b82f6" radius={[0, 4, 4, 0]} />
-                                </BarChart>
-                            </ResponsiveContainer>
+                            {chartData.topProducts && chartData.topProducts.length > 0 ? (
+                                <ResponsiveContainer width="100%" height={250}>
+                                    <BarChart data={chartData.topProducts} layout="horizontal">
+                                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                                        <XAxis type="number" tick={{ fontSize: 11 }} stroke="#6b7280" />
+                                        <YAxis dataKey="name" type="category" width={100} tick={{ fontSize: 10 }} stroke="#6b7280" />
+                                        <Tooltip
+                                            contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px' }}
+                                            formatter={(value) => [value, 'Quantity']}
+                                        />
+                                        <Bar dataKey="quantity" fill="#3b82f6" radius={[0, 4, 4, 0]} />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            ) : (
+                                <div className="flex items-center justify-center h-[250px] text-gray-400">
+                                    <div className="text-center">
+                                        <Package className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                                        <p className="text-sm">No product sales data available</p>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
                 )}

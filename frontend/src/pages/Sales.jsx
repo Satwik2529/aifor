@@ -304,6 +304,12 @@ const Sales = () => {
             invoiceElement.style.fontFamily = 'Arial, sans-serif';
             invoiceElement.style.backgroundColor = '#ffffff';
 
+            // Calculate total from items if total_amount is not available
+            const calculatedTotal = sale.items.reduce((sum, item) => {
+                return sum + ((item.quantity || 0) * (item.price_per_unit || 0));
+            }, 0);
+            const totalAmount = sale.total_amount || calculatedTotal;
+
             // Get current user/shop details (you can customize this)
             const shopName = localStorage.getItem('shopName') || 'Biznova';
             const saleDate = new Date(sale.createdAt).toLocaleDateString('en-IN', {
@@ -361,22 +367,17 @@ const Sales = () => {
                                 <tr style="border-bottom: 1px solid #E5E7EB;">
                                     <td style="padding: 8px;">${item.item_name}</td>
                                     <td style="padding: 8px; text-align: center;">${item.quantity}</td>
-                                    <td style="padding: 8px; text-align: right;">₹${item.price_per_unit}</td>
-                                    <td style="padding: 8px; text-align: right;">₹${(item.quantity * item.price_per_unit)}</td>
+                                    <td style="padding: 8px; text-align: right;">₹${(item.price_per_unit || 0).toFixed(2)}</td>
+                                    <td style="padding: 8px; text-align: right;">₹${((item.quantity || 0) * (item.price_per_unit || 0)).toFixed(2)}</td>
                                 </tr>
                             `).join('')}
+                            <!-- Total Row -->
+                            <tr style="background-color: #F3F4F6; border-top: 2px solid #4F46E5;">
+                                <td colspan="3" style="padding: 12px; text-align: right; font-weight: bold; font-size: 16px; color: #111;">TOTAL</td>
+                                <td style="padding: 12px; text-align: right; font-weight: bold; font-size: 18px; color: #4F46E5;">₹${totalAmount.toFixed(2)}</td>
+                            </tr>
                         </tbody>
                     </table>
-
-                    <!-- Total -->
-                    <div style="text-align: right; margin-bottom: 20px;">
-                        <div style="display: inline-block; background-color: #F3F4F6; padding: 15px 20px; border-radius: 5px;">
-                            <p style="margin: 0; font-size: 12px; color: #666;">TOTAL</p>
-                            <p style="margin: 5px 0 0 0; font-size: 24px; font-weight: bold; color: #4F46E5;">
-                                ₹${sale.total_amount}
-                            </p>
-                        </div>
-                    </div>
 
                     <!-- Footer -->
                     <div style="text-align: center; padding-top: 15px; border-top: 1px solid #E5E7EB;">
